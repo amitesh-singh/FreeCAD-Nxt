@@ -929,7 +929,8 @@ Item {
             }
 
             onPositionChanged: function (mouse) {
-                if (!armed || !row.dragGhost) return;
+                if (!armed || !row.dragGhost || row.dragGhost.cancelled)
+                    return;
                 var here = mapToItem(row.dragGhost.parent, mouse.x, mouse.y);
                 if (!row.dragGhost.Drag.active) {
                     var at = mapToItem(head, mouse.x, mouse.y);
@@ -986,6 +987,11 @@ Item {
 
             onReleased: {
                 armed = false;
+                if (row.dragGhost && row.dragGhost.cancelled) {
+                    row.dragGhost.cancelled = false;  // Escape ended it
+                    held = false;
+                    return;
+                }
                 if (row.dragGhost && row.dragGhost.Drag.active)
                     row.dragGhost.finish();
                 else if (held)

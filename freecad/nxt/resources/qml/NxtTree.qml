@@ -646,6 +646,10 @@ Rectangle {
             treeList.dragSources = objectNames;
             treeList.reorderDrag = sliding;
             hint = "";
+            cancelled = false;
+            // The keyboard, so Escape reaches the panel to cancel.
+            host.takeKeyboard();
+            treeList.forceActiveFocus();
             // Rows scrolled out of view are kept while a drag lasts: the
             // row being dragged holds the pointer, and must not be
             // recycled when the list scrolls under it (edgeScroll).
@@ -668,6 +672,31 @@ Rectangle {
             shot.sourceRect = Qt.rect(left, 0, w, h);
             shot.sourceItem = item;
             shot.scheduleUpdate();
+        }
+
+        //: Set when Escape called the drag off: the release that follows
+        //: is not a click.
+        property bool cancelled: false
+
+        // Escape: everything put back as it was, nothing dropped.
+        function cancel() {
+            if (!Drag.active)
+                return;
+            Drag.cancel();
+            Drag.active = false;
+            cancelled = true;
+            intoSpring.stop();
+            names = [];
+            sliding = false;
+            slideTarget = "";
+            slideInto = "";
+            hint = "";
+            shot.sourceItem = null;
+            treeList.dropGap = -1;
+            treeList.intoRow = -1;
+            treeList.dragSources = [];
+            treeList.reorderDrag = false;
+            treeList.cacheBuffer = 400;
         }
 
         function finish() {
@@ -1075,6 +1104,11 @@ Rectangle {
     // panel while the panel has the keyboard.
     // Home and End likewise: Home is FreeCAD's "home view".
     Keys.onShortcutOverride: function (event) {
+        // Escape during a drag cancels it, before any shortcut sees it.
+        if (event.key === Qt.Key_Escape && ghost.Drag.active) {
+            event.accepted = true;
+            return;
+        }
         if ((event.key === Qt.Key_Space || event.key === Qt.Key_Home
              || event.key === Qt.Key_End)
                 && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier
@@ -1083,6 +1117,11 @@ Rectangle {
     }
 
     Keys.onPressed: function (event) {
+        if (event.key === Qt.Key_Escape && ghost.Drag.active) {
+            ghost.cancel();
+            event.accepted = true;
+            return;
+        }
         if (event.key === Qt.Key_F2) {
             root.startRename(nxt.treeRenameRow());
             event.accepted = true;

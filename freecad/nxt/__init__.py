@@ -15,6 +15,13 @@ _FROZEN = ("freecad.nxt.qt",)
 _RELOAD_ORDER = (
     # health before scene: scene imports it, so it has to be the new module
     # object by the time scene re-executes its own import.
+    "freecad.nxt.core.log",
+    "freecad.nxt.core.widgets",
+    "freecad.nxt.core.view3d",
+    "freecad.nxt.core.events",
+    "freecad.nxt.core.transaction",
+    "freecad.nxt.core.units",
+    "freecad.nxt.core.property_kinds",
     "freecad.nxt.resources",
     "freecad.nxt.tree.settings",
     "freecad.nxt.tree.health",
@@ -23,7 +30,9 @@ _RELOAD_ORDER = (
     "freecad.nxt.tree.qss_colours",
     "freecad.nxt.tree.theme",
     "freecad.nxt.tree.properties",
+    "freecad.nxt.tree.inspector_templates",
     "freecad.nxt.tree.inspector",
+    "freecad.nxt.tree.task_sync",
     "freecad.nxt.tree.inspector_bridge",
     "freecad.nxt.tree.reorder",
     "freecad.nxt.tree.picking",
@@ -31,6 +40,7 @@ _RELOAD_ORDER = (
     "freecad.nxt.tree.face_edit",
     "freecad.nxt.tree.gizmos",
     "freecad.nxt.tree.float_input",
+    "freecad.nxt.tree.saved_expansion",
     "freecad.nxt.tree.models",
     "freecad.nxt.tree.links",
     "freecad.nxt.tree.bridge",

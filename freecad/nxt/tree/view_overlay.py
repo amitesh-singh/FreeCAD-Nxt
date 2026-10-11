@@ -32,8 +32,8 @@ from __future__ import annotations
 from typing import Any
 
 import FreeCAD as App
-import FreeCADGui as Gui
 
+from ..core import view3d, widgets
 from ..qt import QtCore, QtGui, QtWidgets
 from ..qtquick import modules as _quick_modules
 
@@ -44,35 +44,6 @@ _FOLLOWERS = (QtCore.QEvent.Type.MouseMove,
 #: What a 3D view window does on its way to being destroyed.
 _GOING = (QtCore.QEvent.Type.Close, QtCore.QEvent.Type.DeferredDelete,
           QtCore.QEvent.Type.Hide)
-
-
-def _alive(obj: Any) -> bool:
-    if obj is None:
-        return False
-    try:
-        import shiboken6
-        return bool(shiboken6.isValid(obj))
-    except ImportError:
-        return True
-
-
-def _area() -> Any:
-    main = Gui.getMainWindow()
-    return main.findChild(QtWidgets.QMdiArea) if main is not None else None
-
-
-def active_viewport() -> Any:
-    """The GL widget of the active MDI window's 3D view, or None."""
-    area = _area()
-    sub = area.activeSubWindow() if area is not None else None
-    holder = sub.widget() if sub is not None else None
-    if holder is None \
-            or holder.metaObject().className() != "Gui::View3DInventor":
-        return None
-    for child in holder.findChildren(QtWidgets.QWidget):
-        if "GL" in child.metaObject().className() and child.isVisible():
-            return child
-    return None
 
 
 class ViewOverlay(QtCore.QObject):
@@ -109,18 +80,18 @@ class ViewOverlay(QtCore.QObject):
     def attach(self) -> bool:
         """Into the active 3D view, or out of sight until there is one."""
         view = self._dock._view
-        if not _alive(view):
+        if not widgets.alive(view):
             return False
         self._attached = True
         self._dock.setWidget(QtWidgets.QWidget())   # the view leaves it
-        host = active_viewport()
+        host = view3d.active_viewport()
         if host is not None:
             self._move_to(host)
         else:
             self._park()        # no 3D view yet: into the first one
         self._dock.hide()
         self._dock.installEventFilter(self)
-        area = _area()
+        area = view3d.mdi_area()
         if area is not None:
             area.subWindowActivated.connect(self._follow)
         return True
@@ -131,21 +102,21 @@ class ViewOverlay(QtCore.QObject):
             return
         self._attached = False
         self._dock.removeEventFilter(self)
-        area = _area()
+        area = view3d.mdi_area()
         if area is not None:
             try:
                 area.subWindowActivated.disconnect(self._follow)
             except (RuntimeError, TypeError):
                 pass
         for old in (self._host, self._holder):
-            if _alive(old):
+            if widgets.alive(old):
                 old.removeEventFilter(self)
         self._host = self._holder = None
         self._passing = False
         self._owning = False
         self._parked = False
         view = self._dock._view
-        if _alive(view):
+        if widgets.alive(view):
             self._set_through(False)
             view.removeEventFilter(self)
             view.setParent(None)
@@ -160,7 +131,7 @@ class ViewOverlay(QtCore.QObject):
         """Another MDI window became active: go with it, if it is 3D."""
         if not self._attached:
             return
-        host = active_viewport()
+        host = view3d.active_viewport()
         if host is None:
             self._park()                # Start page, a drawing, nothing
             # A 3D view that has just been activated may not have shown
@@ -177,7 +148,7 @@ class ViewOverlay(QtCore.QObject):
         self._retrying = False
         if not self._attached or not self._parked:
             return
-        host = active_viewport()
+        host = view3d.active_viewport()
         if host is not None:
             self._move_to(host)
 
@@ -191,7 +162,7 @@ class ViewOverlay(QtCore.QObject):
         another 3D view is active or this one shows again.
         """
         view = self._dock._view
-        if self._parked or not _alive(view):
+        if self._parked or not widgets.alive(view):
             return
         self._parked = True
         self._passing = False
@@ -202,13 +173,13 @@ class ViewOverlay(QtCore.QObject):
 
     def _move_to(self, host: Any) -> None:
         view = self._dock._view
-        if not _alive(view):
+        if not widgets.alive(view):
             return
         for old in (self._host, self._holder):
-            if _alive(old):
+            if widgets.alive(old):
                 old.removeEventFilter(self)
         self._host = host
-        self._holder = self._holder_of(host)
+        self._holder = view3d.view3d_holding(host)
         if self._holder is not None:
             self._holder.installEventFilter(self)
         self._parked = False
@@ -229,20 +200,13 @@ class ViewOverlay(QtCore.QObject):
         self._dock._release_timer.start()
 
     def _keep_dock_hidden(self) -> None:
-        if self._attached and _alive(self._dock):
+        if self._attached and widgets.alive(self._dock):
             self._dock.hide()
-
-    @staticmethod
-    def _holder_of(widget: Any) -> Any:
-        while widget is not None:
-            if widget.metaObject().className() == "Gui::View3DInventor":
-                return widget
-            widget = widget.parentWidget()
-        return None
 
     def _place(self) -> None:
         view = self._dock._view
-        if not _alive(view) or not _alive(self._host) or self._parked:
+        if (not widgets.alive(view) or not widgets.alive(self._host)
+                or self._parked):
             return
         # The whole view: what the panel does not draw passes clicks
         # through, so width costs nothing, and pills get their own width
@@ -271,7 +235,7 @@ class ViewOverlay(QtCore.QObject):
                 if kind == QtCore.QEvent.Type.Hide:
                     self._park()
                 elif kind == QtCore.QEvent.Type.Show and self._parked \
-                        and self._host is active_viewport():
+                        and self._host is view3d.active_viewport():
                     self._move_to(self._host)
                 elif kind == QtCore.QEvent.Type.Resize:
                     self._place()
@@ -369,7 +333,7 @@ class ViewOverlay(QtCore.QObject):
     def _pass_wheel(self, event: Any) -> None:
         """Send the panel's wheel event to the 3D view, in its coordinates."""
         view, host = self._dock._view, self._host
-        if not _alive(host):
+        if not widgets.alive(host):
             return
         local = QtCore.QPointF(view.mapTo(host, event.position().toPoint()))
         forwarded = QtGui.QWheelEvent(
@@ -397,7 +361,7 @@ class ViewOverlay(QtCore.QObject):
         say when the pointer is back over a pill.
         """
         view = self._dock._view
-        if on == self._through or not _alive(view):
+        if on == self._through or not widgets.alive(view):
             return
         self._through = on
         view.setAttribute(
@@ -421,7 +385,7 @@ class ViewOverlay(QtCore.QObject):
     def _wants_at(self, point: Any) -> bool:
         """Does the panel draw anything at this point, in its coordinates?"""
         view = self._dock._view
-        root = view.rootObject() if _alive(view) else None
+        root = view.rootObject() if widgets.alive(view) else None
         if root is None:
             return True
         try:

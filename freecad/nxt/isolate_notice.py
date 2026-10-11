@@ -14,8 +14,10 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
+from .core.events import ApplicationEventFilter
+from .core.view3d import active_viewport
 from .qt import QtCore, QtWidgets
-from .view_notice import TopNotice, active_view_widget
+from .view_notice import TopNotice
 
 
 class ViewNotice(TopNotice):
@@ -46,10 +48,10 @@ class ViewNotice(TopNotice):
         if gui_doc is None \
                 or gui_doc.Document.Name != self._isolation.document():
             return None
-        return active_view_widget()
+        return active_viewport()
 
 
-class EscapeToExit(QtCore.QObject):
+class EscapeToExit(ApplicationEventFilter):
     """Escape leaves the isolate mode from anywhere it means nothing else.
 
     An application event filter, so it works with the keyboard in the 3D
@@ -69,16 +71,6 @@ class EscapeToExit(QtCore.QObject):
                  parent: QtCore.QObject | None = None) -> None:
         super().__init__(parent)
         self._isolation = isolation
-
-    def install(self) -> None:
-        app = QtWidgets.QApplication.instance()
-        if app is not None:
-            app.installEventFilter(self)
-
-    def remove(self) -> None:
-        app = QtWidgets.QApplication.instance()
-        if app is not None:
-            app.removeEventFilter(self)
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
         # Every event in the application passes here: cheap tests first.

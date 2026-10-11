@@ -66,15 +66,15 @@ class ToastTests(unittest.TestCase):
         self.view: Any = QtWidgets.QWidget()
         self.view.resize(VIEW_WIDTH, 600)
         self.view.show()
-        self.saved = toast_mod.active_view_widget
-        toast_mod.active_view_widget = lambda: self.view  # type: ignore
+        self.saved = toast_mod.active_viewport
+        toast_mod.active_viewport = lambda: self.view  # type: ignore
         self.above: Any = None
         self.toast = toast_mod.Toast(
             THEME, lambda: self.above)
 
     def tearDown(self) -> None:
         self.toast.remove()
-        toast_mod.active_view_widget = self.saved  # type: ignore
+        toast_mod.active_viewport = self.saved  # type: ignore
         # The widget is deleted later: now, while its theme still exists.
         APP.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
 

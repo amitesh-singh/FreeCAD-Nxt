@@ -33,6 +33,7 @@ Gui = sys.modules["FreeCADGui"]
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
+from freecad.nxt.core import view3d  # noqa: E402
 from freecad.nxt.tree import face_edit  # noqa: E402
 
 
@@ -95,8 +96,8 @@ class DoubleClickTests(unittest.TestCase):
 
     def setUp(self) -> None:
         STORE.clear()
-        self.original_class = face_edit._VIEW_CLASS
-        face_edit._VIEW_CLASS = "View3D"
+        self.original_class = view3d.VIEW3D_CLASS
+        view3d.VIEW3D_CLASS = "View3D"
         self.view = View3D()
         self.viewport = QtWidgets.QWidget(self.view)
         self.elsewhere = QtWidgets.QWidget()
@@ -117,7 +118,7 @@ class DoubleClickTests(unittest.TestCase):
         self.editor = face_edit.DoubleClickEditor(self.bridge)
 
     def tearDown(self) -> None:
-        face_edit._VIEW_CLASS = self.original_class
+        view3d.VIEW3D_CLASS = self.original_class
         face_edit.picked_feature = self.original_picked
 
     def send(self, target: Any, event: Any = None) -> bool:

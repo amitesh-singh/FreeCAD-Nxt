@@ -22,9 +22,11 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
+from .core.view3d import active_viewport
+from .core.widgets import alive
 from .i18n import translate
 from .qt import QtCore
-from .view_notice import TopNotice, active_view_widget, alive
+from .view_notice import TopNotice
 
 #: Called with the document once the toast's Undo has undone the change,
 #: for whatever undo does not restore by itself (view state).
@@ -139,7 +141,7 @@ class Toast(TopNotice):
         gui_doc = Gui.ActiveDocument
         if gui_doc is None or gui_doc.Document.Name != self._current[0]:
             return None
-        return active_view_widget()
+        return active_viewport()
 
     def _view_changed(self, *_args: Any) -> None:
         # Another view is something else happening: the toast does not

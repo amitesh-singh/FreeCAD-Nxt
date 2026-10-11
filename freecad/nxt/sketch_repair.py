@@ -26,7 +26,6 @@ sketch_closure.py does the reasoning.
 
 from __future__ import annotations
 
-import traceback
 from functools import partial
 from typing import Any
 
@@ -34,6 +33,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from . import services, sketch_closure
+from .core import log
 from .i18n import QT_TRANSLATE_NOOP, translate
 from .qt import QtCore
 from .sketch_closure import END, START, Edge, Findings
@@ -66,11 +66,6 @@ _LEFT = (
     (QT_TRANSLATE_NOOP("Nxt", "branch points: %d"), "forks"),
     (QT_TRANSLATE_NOOP("Nxt", "overlapping edges: %d"), "overlaps"),
 )
-
-
-def _err(message: str) -> None:
-    App.Console.PrintError("Nxt: %s\n" % message)
-    App.Console.PrintError(traceback.format_exc())
 
 
 def _failed(obj: Any) -> bool:
@@ -139,13 +134,14 @@ def _close_gaps(sketch: Any, gaps: list[Any]) -> bool:
         if health.inspect(sketch)[0] <= before:
             return True
     except Exception:
-        _err("could not close the gaps in %s" % sketch.Name)
+        log.error("could not close the gaps in %s" % sketch.Name)
     try:
         for index in range(len(sketch.Constraints) - 1, count - 1, -1):
             sketch.delConstraint(index)
         sketch.solve()
     except Exception:
-        _err("could not take back the constraints added to %s" % sketch.Name)
+        log.error("could not take back the constraints added to %s"
+                  % sketch.Name)
     return False
 
 
@@ -195,7 +191,7 @@ def _use_regions(sketch: Any, feature: Any) -> int:
             if not _failed(feature):
                 return len(regions)
     except Exception:
-        _err("could not use the closed regions of %s" % sketch.Name)
+        log.error("could not use the closed regions of %s" % sketch.Name)
     try:
         feature.Profile = was[0]
         sketch.MakeInternals = was[1]
@@ -204,7 +200,7 @@ def _use_regions(sketch: Any, feature: Any) -> int:
         sketch.recompute()
         feature.recompute()
     except Exception:
-        _err("could not put back the profile of %s" % feature.Name)
+        log.error("could not put back the profile of %s" % feature.Name)
     return 0
 
 
@@ -315,7 +311,7 @@ class SketchRepair(QtCore.QObject):
                 if not self._attend(key):
                     self._pending[key] = None
             except Exception:
-                _err("could not check the profile of %s" % key[1])
+                log.error("could not check the profile of %s" % key[1])
 
     def _find(self, key: Key) -> tuple[Any, Any]:
         """(document, sketch), either None if it has gone."""
@@ -422,4 +418,4 @@ class SketchRepair(QtCore.QObject):
             for index in sorted({i for pair in found.overlaps for i in pair}):
                 Gui.Selection.addSelection(*key, "Edge%d" % (index + 1))
         except Exception:
-            _err("could not select the overlapping edges of %s" % key[1])
+            log.error("could not select the overlapping edges of %s" % key[1])

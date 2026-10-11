@@ -23,12 +23,13 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .qt import QtCore, QtWidgets
+from .core import view3d
+from .core.events import ApplicationEventFilter
+from .core.transaction import transaction
+from .qt import QtCore
 
 BODY = "PartDesign::Body"
 FEATURE = "PartDesign::Feature"
-#: Qt class of the MDI view that holds a 3D view.
-VIEW_CLASS = "Gui::View3DInventor"
 
 
 def _is(obj: Any, type_name: str) -> bool:
@@ -100,14 +101,12 @@ def toggle(doc: Any, objects: list[Any],
         return
     show = not any(bool(vo.Visibility) for _o, vo in views)
     try:
-        doc.openTransaction("Toggle visibility")
-        for _obj, vo in views:
-            vo.Visibility = show
-        if show and show_alone is not None:
-            show_alone(doc, [o.Name for o, _vo in views])
-        doc.commitTransaction()
+        with transaction(doc, "Toggle visibility"):
+            for _obj, vo in views:
+                vo.Visibility = show
+            if show and show_alone is not None:
+                show_alone(doc, [o.Name for o, _vo in views])
     except Exception:
-        doc.abortTransaction()
         App.Console.PrintError("Nxt: visibility toggle failed\n")
 
 
@@ -115,17 +114,6 @@ def toggle_selected() -> None:
     doc = App.ActiveDocument
     if doc is not None:
         toggle(doc, targets(doc))
-
-
-def _in_3d_view(widget: Any) -> bool:
-    while widget is not None:
-        try:
-            if widget.metaObject().className() == VIEW_CLASS:
-                return True
-            widget = widget.parentWidget()
-        except (RuntimeError, AttributeError):
-            return False
-    return False
 
 
 def _editing() -> bool:
@@ -136,7 +124,7 @@ def _editing() -> bool:
         return False
 
 
-class SpaceInView(QtCore.QObject):
+class SpaceInView(ApplicationEventFilter):
     """Space in a 3D view, taken from FreeCAD's shortcut (see the module).
 
     Steps aside while something is being edited - a sketch, a task - so
@@ -147,16 +135,6 @@ class SpaceInView(QtCore.QObject):
                  action: Callable[[], None] = toggle_selected) -> None:
         super().__init__(parent)
         self._action = action
-
-    def install(self) -> None:
-        app = QtWidgets.QApplication.instance()
-        if app is not None:
-            app.installEventFilter(self)
-
-    def remove(self) -> None:
-        app = QtWidgets.QApplication.instance()
-        if app is not None:
-            app.removeEventFilter(self)
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
         # Every event in the application comes through here: cheap first.
@@ -169,7 +147,7 @@ class SpaceInView(QtCore.QObject):
                     or event.modifiers()
                     != QtCore.Qt.KeyboardModifier.NoModifier
                     or event.isAutoRepeat()
-                    or not _in_3d_view(watched) or _editing()):
+                    or view3d.view3d_holding(watched) is None or _editing()):
                 return False
         except Exception:
             return False

@@ -13,35 +13,11 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from . import qtquick, resources
+from .core import widgets
 from .qt import QtCore, QtGui, QtWidgets
 
 #: Gap between the top of the 3D view, or the notice above, and a notice.
 TOP_MARGIN = 10
-
-
-def alive(obj: Any) -> bool:
-    if obj is None:
-        return False
-    try:
-        import shiboken6
-        return bool(shiboken6.isValid(obj))
-    except ImportError:
-        return True
-
-
-def active_view_widget() -> Any:
-    """The active MDI window's 3D view widget, or None."""
-    main = Gui.getMainWindow()
-    area = main.findChild(QtWidgets.QMdiArea) if main is not None else None
-    sub = area.activeSubWindow() if area is not None else None
-    holder = sub.widget() if sub is not None else None
-    if holder is None \
-            or holder.metaObject().className() != "Gui::View3DInventor":
-        return None
-    for child in holder.findChildren(QtWidgets.QWidget):
-        if "GL" in child.metaObject().className() and child.isVisible():
-            return child
-    return None
 
 
 class TopNotice(QtCore.QObject):
@@ -66,7 +42,7 @@ class TopNotice(QtCore.QObject):
             self._area = area
 
     def remove(self) -> None:
-        if alive(self._area):
+        if widgets.alive(self._area):
             try:
                 self._area.subWindowActivated.disconnect(self._view_changed)
             except (RuntimeError, TypeError):
@@ -75,7 +51,7 @@ class TopNotice(QtCore.QObject):
 
     def bottom(self) -> int:
         """Where a notice under this one starts; 0 while it is not shown."""
-        if not (alive(self._widget) and self._widget.isVisible()):
+        if not (widgets.alive(self._widget) and self._widget.isVisible()):
             return 0
         return int(self._widget.geometry().bottom()) + 1
 
@@ -112,7 +88,7 @@ class TopNotice(QtCore.QObject):
             App.Console.PrintLog("Nxt %s: %s\n" % (self.SOURCE, exc))
 
     def _ensure(self, host: Any) -> Any:
-        if alive(self._widget) and self._host is host:
+        if widgets.alive(self._widget) and self._host is host:
             return self._widget
         self._drop()
         qtquick.use_shared_graphics_api()
@@ -145,7 +121,7 @@ class TopNotice(QtCore.QObject):
         return widget
 
     def _place(self) -> None:
-        if not (alive(self._widget) and alive(self._host)):
+        if not (widgets.alive(self._widget) and widgets.alive(self._host)):
             return
         root = self._widget.rootObject()
         size = (QtCore.QSize(int(root.width()), int(root.height()))
@@ -161,9 +137,9 @@ class TopNotice(QtCore.QObject):
         return False
 
     def _drop(self) -> None:
-        if alive(self._host):
+        if widgets.alive(self._host):
             self._host.removeEventFilter(self)
-        if alive(self._widget):
+        if widgets.alive(self._widget):
             self._widget.hide()
             self._widget.deleteLater()
         self._widget = self._host = None

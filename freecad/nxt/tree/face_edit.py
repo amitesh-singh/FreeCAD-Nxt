@@ -34,6 +34,8 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from .. import fc
+from ..core import view3d
+from ..core.events import ApplicationEventFilter
 from ..qt import QtCore, QtWidgets
 from . import editing, picking, settings
 
@@ -42,21 +44,6 @@ if TYPE_CHECKING:
 
     class Editor(Protocol):
         def edit_feature(self, doc_name: str, name: str) -> None: ...
-
-#: Qt class of the MDI view that holds a 3D view.
-_VIEW_CLASS = "Gui::View3DInventor"
-
-
-def _in_3d_view(widget: Any) -> Any:
-    """The View3DInventor `widget` belongs to, or None."""
-    while widget is not None:
-        try:
-            if widget.metaObject().className() == _VIEW_CLASS:
-                return widget
-            widget = widget.parentWidget()
-        except (RuntimeError, AttributeError):
-            return None
-    return None
 
 
 def picked_feature() -> tuple[str, str] | None:
@@ -86,7 +73,7 @@ def picked_feature() -> tuple[str, str] | None:
     return None
 
 
-class DoubleClickEditor(QtCore.QObject):
+class DoubleClickEditor(ApplicationEventFilter):
     """An application event filter that sees double-clicks in 3D views."""
 
     def __init__(self, editor: Editor) -> None:
@@ -95,16 +82,6 @@ class DoubleClickEditor(QtCore.QObject):
         super().__init__(editor if isinstance(editor, QtCore.QObject)
                          else None)
         self._editor = editor
-
-    def install(self) -> None:
-        app = QtWidgets.QApplication.instance()
-        if app is not None:
-            app.installEventFilter(self)
-
-    def remove(self) -> None:
-        app = QtWidgets.QApplication.instance()
-        if app is not None:
-            app.removeEventFilter(self)
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
         # Every event in the application comes through here: the first
@@ -124,7 +101,7 @@ class DoubleClickEditor(QtCore.QObject):
         if not settings.get("EditOnDoubleClick"):
             return False
         if not isinstance(watched, QtWidgets.QWidget) \
-                or _in_3d_view(watched) is None:
+                or view3d.view3d_holding(watched) is None:
             return False
         gui_doc = Gui.ActiveDocument
         if gui_doc is None or gui_doc.getInEdit() is not None:

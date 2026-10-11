@@ -14,6 +14,9 @@ from typing import Any
 
 import FreeCAD as App
 
+from ..core import property_kinds
+from ..core.transaction import transaction
+
 #: TypeId -> the properties that define it, in the order to show them.
 KEY_PROPERTIES: dict[str, tuple[str, ...]] = {
     "PartDesign::Pad": ("Length", "Type", "Reversed"),
@@ -36,26 +39,8 @@ KEY_PROPERTIES: dict[str, tuple[str, ...]] = {
     "Part::Fillet": ("Base",),
 }
 
-QUANTITY_TYPES = frozenset({
-    "App::PropertyLength", "App::PropertyDistance", "App::PropertyAngle",
-    "App::PropertyQuantity", "App::PropertyQuantityConstraint",
-})
-NUMBER_TYPES = frozenset({
-    "App::PropertyFloat", "App::PropertyFloatConstraint",
-    "App::PropertyInteger", "App::PropertyIntegerConstraint",
-})
-BOOL_TYPE = "App::PropertyBool"
-ENUM_TYPE = "App::PropertyEnumeration"
-
-#: Typed into a field, this prefix makes the value an expression.
-EXPRESSION_PREFIX = "="
-
-
-def _modes(obj: Any, prop: str) -> list[str]:
-    try:
-        return list(obj.getEditorMode(prop) or ())
-    except Exception:
-        return []
+#: The kinds the strip edits in place; any other is the inspector's.
+STRIP_KINDS = frozenset({"quantity", "number", "bool", "enum"})
 
 
 def _expression(obj: Any, prop: str) -> str | None:
@@ -65,16 +50,9 @@ def _expression(obj: Any, prop: str) -> str | None:
     return None
 
 
-def _kind(type_id: str) -> str | None:
-    if type_id in QUANTITY_TYPES:
-        return "quantity"
-    if type_id in NUMBER_TYPES:
-        return "number"
-    if type_id == BOOL_TYPE:
-        return "bool"
-    if type_id == ENUM_TYPE:
-        return "enum"
-    return None
+def _strip_kind(type_id: str) -> str | None:
+    kind = property_kinds.kind_of(type_id)
+    return kind if kind in STRIP_KINDS else None
 
 
 def describe(obj: Any) -> list[dict[str, Any]]:
@@ -88,10 +66,10 @@ def describe(obj: Any) -> list[dict[str, Any]]:
     names = KEY_PROPERTIES.get(getattr(obj, "TypeId", ""), ())
     present = set(getattr(obj, "PropertiesList", ()) or ())
     for prop in names:
-        if prop not in present or "Hidden" in _modes(obj, prop):
+        if prop not in present or property_kinds.is_hidden(obj, prop):
             continue
         try:
-            kind = _kind(obj.getTypeIdOfProperty(prop))
+            kind = _strip_kind(obj.getTypeIdOfProperty(prop))
             value = getattr(obj, prop)
         except Exception:
             continue
@@ -100,7 +78,7 @@ def describe(obj: Any) -> list[dict[str, Any]]:
         entry: dict[str, Any] = {
             "name": prop, "kind": kind, "text": "", "checked": False,
             "options": [], "expression": _expression(obj, prop) or "",
-            "readOnly": "ReadOnly" in _modes(obj, prop),
+            "readOnly": property_kinds.is_read_only(obj, prop),
         }
         if kind == "quantity":
             entry["text"] = getattr(value, "UserString", str(value))
@@ -118,7 +96,8 @@ def describe(obj: Any) -> list[dict[str, Any]]:
 def visible_count(obj: Any) -> int:
     """How many properties the inspector would list for this object."""
     names = getattr(obj, "PropertiesList", None) or ()
-    return sum(1 for prop in names if "Hidden" not in _modes(obj, prop))
+    return sum(1 for prop in names
+               if not property_kinds.is_hidden(obj, prop))
 
 
 def apply(obj: Any, prop: str, value: str | bool) -> bool:
@@ -131,18 +110,15 @@ def apply(obj: Any, prop: str, value: str | bool) -> bool:
     doc = getattr(obj, "Document", None)
     if doc is None:
         return False
-    doc.openTransaction("Edit %s" % prop)
     try:
-        if isinstance(value, str) and value.strip().startswith(
-                EXPRESSION_PREFIX):
-            obj.setExpression(prop, value.strip()[1:].strip())
-        else:
-            if _expression(obj, prop) is not None:
-                obj.setExpression(prop, None)
-            _assign(obj, prop, value)
-        doc.commitTransaction()
+        with transaction(doc, "Edit %s" % prop):
+            if property_kinds.is_expression(value):
+                obj.setExpression(prop, property_kinds.expression_of(value))
+            else:
+                if _expression(obj, prop) is not None:
+                    obj.setExpression(prop, None)
+                _assign(obj, prop, value)
     except Exception:
-        doc.abortTransaction()
         App.Console.PrintError("Nxt: could not set %s.%s to %r\n"
                                % (obj.Name, prop, value))
         App.Console.PrintError(traceback.format_exc())
@@ -152,7 +128,7 @@ def apply(obj: Any, prop: str, value: str | bool) -> bool:
 
 
 def _assign(obj: Any, prop: str, value: str | bool) -> None:
-    kind = _kind(obj.getTypeIdOfProperty(prop))
+    kind = _strip_kind(obj.getTypeIdOfProperty(prop))
     if kind == "bool":
         setattr(obj, prop, bool(value))
     elif kind == "number":

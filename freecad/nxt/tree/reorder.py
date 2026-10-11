@@ -27,6 +27,8 @@ from typing import Any
 
 import FreeCAD as App
 
+from ..core.transaction import transaction
+
 
 @dataclass(frozen=True)
 class Plan:
@@ -199,13 +201,8 @@ def plan_group_drop(sources: Sequence[Any], target: Any
 def apply_group(container: Any, the_plan: Plan) -> None:
     """Put a Part's or group's members in the planned order: one undo."""
     doc = container.Document
-    doc.openTransaction("Reorder %s" % container.Label)
-    try:
+    with transaction(doc, "Reorder %s" % container.Label):
         container.Group = [doc.getObject(n) for n in the_plan.order]
-        doc.commitTransaction()
-    except Exception:
-        doc.abortTransaction()
-        raise
 
 
 def _is(obj: Any, type_name: str) -> bool:
@@ -228,8 +225,7 @@ def apply(body: Any, the_plan: Plan) -> None:
     doc = body.Document
     tip = body.Tip
     moving = list(the_plan.moving)
-    doc.openTransaction("Move feature in Body")
-    try:
+    with transaction(doc, "Move feature in Body"):
         new_order = list(the_plan.order)
         for name in moving:
             index = new_order.index(name)
@@ -248,10 +244,6 @@ def apply(body: Any, the_plan: Plan) -> None:
             body.Tip = last
         elif tip is not None and _name(body.Tip) != tip.Name:
             body.Tip = tip
-        doc.commitTransaction()
-    except Exception:
-        doc.abortTransaction()
-        raise
     doc.recompute()
 
 

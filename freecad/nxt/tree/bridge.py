@@ -13,7 +13,6 @@ macro arrives here by exactly the same path as one made in our own delegate.
 
 from __future__ import annotations
 
-import time
 import traceback
 from collections.abc import Callable, Iterable
 from functools import partial
@@ -50,10 +49,6 @@ def _err(message: str) -> None:
 #: How often to ask the Gui which container is active. There is no signal
 #: for it, so this is the one poll in the panel.
 ACTIVE_POLL_MS = 500
-
-#: Past this, one drag step costs more than a frame and live preview gives
-#: up in favour of applying once on release.
-LIVE_PREVIEW_BUDGET_S = 0.12
 
 
 #: How long a click in the tree stands before its detail strip opens.
@@ -770,21 +765,14 @@ class TreeBridge(QtCore.QObject):
             while (self._tip_drag is drag and not drag["ending"] and
                    drag["wanted"] != drag["current"]):
                 target = drag["wanted"]
-                started = time.perf_counter()
-                if not self._apply_tip(drag["body"], target):
+                # Shown, not set: only which feature is visible changes
+                # while the bar moves. Tip is set, and the Body
+                # recomputed, once, when it is let go (_commit_tip_drag) -
+                # a recompute per row made the bar unusable on a slow
+                # model.
+                if not self._preview_tip(drag["body"], target):
                     break
                 drag["current"] = target
-
-                # A heavy document can make a per-feature recompute slower
-                # than the drag itself. Measure the real cost once and fall
-                # back to commit-on-release rather than stuttering, or
-                # queueing work faster than it can be done.
-                if time.perf_counter() - started > LIVE_PREVIEW_BUDGET_S:
-                    drag["live"] = False
-                    App.Console.PrintMessage(
-                        "Nxt: recompute is slow here, so the tip will update "
-                        "on release rather than live\n")
-                    break
         finally:
             drag["applying"] = False
 
@@ -831,11 +819,10 @@ class TreeBridge(QtCore.QObject):
                 self._commit_tip_drag(doc, drag, body_name)
             elif doc is not None:
                 doc.abortTransaction()
-                node = self._snapshot.nodes.get(body_name)
-                if node is not None and node.is_model:
-                    # Visibility is view state; undo does not restore it.
-                    self._show_model_state(body_name, drag["original"])
-                doc.recompute()
+                # Visibility is view state; undo does not restore it. The
+                # tip was never set, so there is nothing to recompute.
+                if drag["current"] != drag["original"]:
+                    self._preview_tip(body_name, drag["original"])
         except Exception:
             _err("could not finish the tip drag on %s" % body_name)
         self.invalidate(icons=True)
@@ -843,18 +830,49 @@ class TreeBridge(QtCore.QObject):
 
     def _commit_tip_drag(self, doc: Any, drag: dict[str, Any],
                          body_name: str) -> None:
-        # Whatever the live drain did not reach - because it was behind, or
-        # because live preview had given up - is applied once here.
-        if drag["wanted"] != drag["current"]:
-            if self._apply_tip(body_name, drag["wanted"]):
-                drag["current"] = drag["wanted"]
-        if doc is None:
+        # The drag only showed features; the tip is set, and recomputed,
+        # once, here.
+        wanted = drag["wanted"]
+        if wanted == drag["original"]:
+            if drag["current"] != wanted:
+                self._preview_tip(body_name, wanted)
+            if doc is not None:
+                doc.abortTransaction()  # nothing moved; no undo entry
             return
-        if drag["current"] == drag["original"]:
-            doc.abortTransaction()      # nothing moved; no undo entry
-        else:
+        if not self._apply_tip(body_name, wanted):
+            self._preview_tip(body_name, drag["original"])
+            if doc is not None:
+                doc.abortTransaction()
+            return
+        if doc is not None:
             doc.commitTransaction()
-            self._toast_tip(doc, body_name, drag["current"])
+            self._toast_tip(doc, body_name, wanted)
+
+    def _preview_tip(self, body_name: str, feature_name: str) -> bool:
+        """Show the Body as it would be with this tip, without setting it.
+
+        Only visibility, and the panel's own picture: no Tip, no
+        recompute. A feature past the tip shows its shape as last built.
+        """
+        node = self._snapshot.nodes.get(body_name)
+        doc = App.ActiveDocument
+        if node is None or doc is None:
+            return False
+        if node.is_model:
+            return self._apply_tip(body_name, feature_name)
+        try:
+            for other in node.stack:
+                vo = getattr(doc.getObject(other), "ViewObject", None)
+                if vo is None:
+                    continue
+                wanted = other == feature_name
+                if bool(getattr(vo, "Visibility", not wanted)) != wanted:
+                    vo.Visibility = wanted
+            self._tree.touch(self._snapshot.retip(body_name, feature_name))
+            return True
+        except Exception:
+            _err("could not show %s at %s" % (body_name, feature_name))
+            return False
 
     def _restore_model_tips(self) -> None:
         """Carry each model's history position across a rebuild.

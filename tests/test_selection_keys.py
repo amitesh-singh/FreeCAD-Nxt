@@ -598,6 +598,73 @@ class FeatureEyeTests(unittest.TestCase):
         self.assertEqual(self.shown(), "ADE")
 
 
+class TipDragTests(unittest.TestCase):
+    """The rollback bar shows features as it moves; it sets Tip on release."""
+
+    def setUp(self) -> None:
+        self.bridge = make_bridge()
+        node = types.SimpleNamespace
+        self.bridge._snapshot.nodes = {
+            "A": node(body=None, stack=["B", "C", "D"], tip="D",
+                      is_model=False),
+            "B": node(body="A", stack=[]), "C": node(body="A", stack=[]),
+            "D": node(body="A", stack=[]),
+        }
+        self.bridge._snapshot.retip = lambda _b, _t: []
+        idle = types.SimpleNamespace(start=lambda: None, stop=lambda: None)
+        self.bridge._tip_drag = None
+        self.bridge._drain_timer = self.bridge._finish_timer = idle
+        self.bridge._bar_anchor = {}
+        self.bridge._publish_tip_bars = lambda: None
+        self.bridge._toast_tip = lambda *_a: None
+        self.bridge._tree.touch = lambda *_a: None
+        self.applied: list[str] = []
+
+        def apply(_body: str, feature: str) -> bool:
+            self.applied.append(feature)
+            return True
+        self.bridge._apply_tip = apply
+        for name in "ABCD":
+            DOC.objects[name].ViewObject.Visibility = name in "AD"
+        DOC.log.clear()
+        self.addCleanup(lambda: [setattr(
+            o.ViewObject, "Visibility", True) for o in DOC.objects.values()])
+
+    def shown(self) -> str:
+        return "".join(n for n in "BCD"
+                       if DOC.objects[n].ViewObject.Visibility)
+
+    def drag_to(self, feature: str) -> None:
+        self.bridge._tip_drag["wanted"] = feature
+        self.bridge._drain_tip_drag()
+
+    def test_moving_only_shows_and_letting_go_sets_the_tip(self) -> None:
+        self.bridge.beginTipDrag("A")
+        self.drag_to("C")
+        self.drag_to("B")
+        self.assertEqual(self.shown(), "B")
+        self.assertEqual(self.applied, [])      # no Tip, no recompute
+        self.bridge.endTipDrag("A")
+        self.assertEqual(self.applied, ["B"])
+        self.assertEqual(DOC.log, ["open Move tip", "commit"])
+
+    def test_back_where_it_started_changes_nothing(self) -> None:
+        self.bridge.beginTipDrag("A")
+        self.drag_to("B")
+        self.drag_to("D")
+        self.bridge.endTipDrag("A")
+        self.assertEqual(self.applied, [])
+        self.assertEqual(self.shown(), "D")
+        self.assertEqual(DOC.log, ["open Move tip", "abort"])
+
+    def test_cancelling_shows_the_original_tip_again(self) -> None:
+        self.bridge.beginTipDrag("A")
+        self.drag_to("B")
+        self.bridge.cancelTipDrag("A")
+        self.assertEqual(self.shown(), "D")
+        self.assertEqual(self.applied, [])
+
+
 class RelatedTests(unittest.TestCase):
     """Selecting lights up related rows, when the preference is on."""
 

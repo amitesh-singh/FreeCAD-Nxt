@@ -13,7 +13,6 @@ macro arrives here by exactly the same path as one made in our own delegate.
 
 from __future__ import annotations
 
-import traceback
 from collections.abc import Callable, Iterable
 from functools import partial
 from typing import Any
@@ -22,6 +21,8 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from .. import fc, services, visibility
+from ..core import log
+from ..core.transaction import transaction
 from ..i18n import translate
 from ..qt import QtCore
 from . import (
@@ -39,11 +40,6 @@ from . import (
 
 #: Kept importable from here: tests and older callers use this name.
 open_edit_transaction = editing.open_edit_transaction
-
-
-def _err(message: str) -> None:
-    App.Console.PrintError("Nxt: %s\n" % message)
-    App.Console.PrintError(traceback.format_exc())
 
 
 #: How often to ask the Gui which container is active. There is no signal
@@ -503,7 +499,7 @@ class TreeBridge(QtCore.QObject):
                 top, subname, Gui.Selection.getSelectionEx(doc_name, 0))
             name = picking.target(App.getDocument(doc_name), top, full)
         except Exception:
-            _err("could not trace the pick %s.%s" % (top, subname))
+            log.error("could not trace the pick %s.%s" % (top, subname))
             name = None
         # Log level: shown in the Report view only with log messages on.
         App.Console.PrintLog("Nxt pick: %s -> %s.%s -> %s\n"
@@ -541,7 +537,7 @@ class TreeBridge(QtCore.QObject):
                 arrows = links.arrows(self._snapshot, name,
                                       self._tree.row_of)
             except Exception:
-                _err("could not work out the links of %s" % name)
+                log.error("could not work out the links of %s" % name)
         if arrows != self._arrows:
             self._arrows = arrows
             self.linkArrowsChanged.emit()
@@ -595,7 +591,7 @@ class TreeBridge(QtCore.QObject):
                 if not scene.is_virtual(name):
                     Gui.Selection.addSelection(doc.Name, name)
         except Exception:
-            _err("selection push failed")
+            log.error("selection push failed")
         finally:
             self._pushing_selection = False
         self.sync_selection()
@@ -626,7 +622,7 @@ class TreeBridge(QtCore.QObject):
         try:
             Gui.Selection.clearSelection()
         except Exception:
-            _err("clear selection failed")
+            log.error("clear selection failed")
         self.sync_selection()
 
     # ------------------------------------------------------------------ #
@@ -672,14 +668,12 @@ class TreeBridge(QtCore.QObject):
         if vo is None:
             return
         try:
-            doc.openTransaction("Toggle visibility")
-            vo.Visibility = not bool(vo.Visibility)
-            if vo.Visibility:
-                self._show_alone(doc, [name])
-            doc.commitTransaction()
+            with transaction(doc, "Toggle visibility"):
+                vo.Visibility = not bool(vo.Visibility)
+                if vo.Visibility:
+                    self._show_alone(doc, [name])
         except Exception:
-            doc.abortTransaction()
-            _err("visibility toggle failed for %s" % name)
+            log.error("visibility toggle failed for %s" % name)
         self.invalidate()
 
     # ------------------------------------------------------------------ #
@@ -702,7 +696,7 @@ class TreeBridge(QtCore.QObject):
         try:
             doc.openTransaction("Move tip")
         except Exception:
-            _err("could not open a transaction for the tip drag")
+            log.error("could not open a transaction for the tip drag")
             return
         self._tip_drag = {
             "body": body_name,
@@ -824,7 +818,7 @@ class TreeBridge(QtCore.QObject):
                 if drag["current"] != drag["original"]:
                     self._preview_tip(body_name, drag["original"])
         except Exception:
-            _err("could not finish the tip drag on %s" % body_name)
+            log.error("could not finish the tip drag on %s" % body_name)
         self.invalidate(icons=True)
         self._publish_tip_bars()
 
@@ -871,7 +865,7 @@ class TreeBridge(QtCore.QObject):
             self._tree.touch(self._snapshot.retip(body_name, feature_name))
             return True
         except Exception:
-            _err("could not show %s at %s" % (body_name, feature_name))
+            log.error("could not show %s at %s" % (body_name, feature_name))
             return False
 
     def _restore_model_tips(self) -> None:
@@ -939,8 +933,8 @@ class TreeBridge(QtCore.QObject):
                 self._show_model_state(body_name, feature_name)
                 return True
             except Exception:
-                _err("could not roll %s back to %s"
-                     % (body_name, feature_name))
+                log.error("could not roll %s back to %s"
+                          % (body_name, feature_name))
                 return False
         try:
             body.Tip = feature
@@ -966,8 +960,8 @@ class TreeBridge(QtCore.QObject):
             self._tree.touch(self._snapshot.retip(body_name, feature_name))
             return True
         except Exception:
-            _err("could not set the tip of %s to %s"
-                 % (body_name, feature_name))
+            log.error("could not set the tip of %s to %s"
+                      % (body_name, feature_name))
             return False
 
     @staticmethod
@@ -1030,8 +1024,8 @@ class TreeBridge(QtCore.QObject):
                 doc.abortTransaction()
         except Exception:
             doc.abortTransaction()
-            _err("could not move the tip of %s to %s"
-                 % (body_name, feature_name))
+            log.error("could not move the tip of %s to %s"
+                      % (body_name, feature_name))
         self.invalidate(icons=True)
 
     # ------------------------------------------------------------------ #
@@ -1199,7 +1193,7 @@ class TreeBridge(QtCore.QObject):
         try:
             return menu_actions.build(self, self._menu_names)
         except Exception:
-            _err("the context menu could not be built")
+            log.error("the context menu could not be built")
             return {}
 
     @QtCore.Slot(str)
@@ -1496,14 +1490,12 @@ class TreeBridge(QtCore.QObject):
             return
         try:
             old = obj.Label
-            doc.openTransaction("Rename")
-            obj.Label = label
-            doc.commitTransaction()
+            with transaction(doc, "Rename"):
+                obj.Label = label
             self._toast(doc, translate("Nxt", "Renamed %s to %s")
                         % (old, label))
         except Exception:
-            doc.abortTransaction()
-            _err("could not rename %s" % name)
+            log.error("could not rename %s" % name)
         self.invalidate()
 
     # ------------------------------------------------------------------ #
@@ -1623,7 +1615,7 @@ class TreeBridge(QtCore.QObject):
             if self._read_active() != name and view is not None:
                 view.setActiveObject(key, obj)
         except Exception:
-            _err("could not make %s active" % name)
+            log.error("could not make %s active" % name)
         self._sync_active()
 
     def edit_feature(self, doc_name: str, name: str) -> None:
@@ -1652,7 +1644,7 @@ class TreeBridge(QtCore.QObject):
         try:
             doc.recompute()
         except Exception:
-            _err("could not recompute after a drop")
+            log.error("could not recompute after a drop")
 
     def _enter_edit(self, doc_name: str, name: str) -> None:
         """Edit an object inside an undo step of its own (editing.py)."""
@@ -1749,7 +1741,7 @@ class TreeBridge(QtCore.QObject):
         try:
             reorder.apply_group(container, group_plan)
         except Exception:
-            _err("could not reorder %s" % container.Name)
+            log.error("could not reorder %s" % container.Name)
             return False
         what = self._named(container.Document, group_plan.moving)
         self._toast(container.Document, translate(
@@ -1815,7 +1807,7 @@ class TreeBridge(QtCore.QObject):
         try:
             return reorder.plan_group_drop(objects, target)
         except Exception:
-            _err("could not plan a reorder onto %s" % target_name)
+            log.error("could not plan a reorder onto %s" % target_name)
             return None, reorder.Plan()
 
     def _can_drop_into(self, sources: list[Any], target_name: str) -> bool:
@@ -1862,7 +1854,7 @@ class TreeBridge(QtCore.QObject):
             try:
                 reorder.apply(body, plan)
             except Exception:
-                _err("could not reorder %s" % body.Name)
+                log.error("could not reorder %s" % body.Name)
                 return False
             what = self._named(body.Document, plan.moving)
             if target_name == body.Name:
@@ -1884,7 +1876,7 @@ class TreeBridge(QtCore.QObject):
             try:
                 reorder.apply_group(container, group_plan)
             except Exception:
-                _err("could not reorder %s" % container.Name)
+                log.error("could not reorder %s" % container.Name)
                 return False
             what = self._named(container.Document, group_plan.moving)
             self._toast(container.Document, translate(
@@ -1906,23 +1898,21 @@ class TreeBridge(QtCore.QObject):
         tvo = target.ViewObject
         moved = False
         try:
-            doc.openTransaction("Move in tree")
-            for source_name in sources:
-                source = doc.getObject(str(source_name))
-                if source is None:
-                    continue
-                self._detach(doc, source)
-                drop = getattr(tvo, "dropObject", None)
-                if callable(drop):
-                    drop(source)
-                    moved = True
-            doc.commitTransaction()
+            with transaction(doc, "Move in tree"):
+                for source_name in sources:
+                    source = doc.getObject(str(source_name))
+                    if source is None:
+                        continue
+                    self._detach(doc, source)
+                    drop = getattr(tvo, "dropObject", None)
+                    if callable(drop):
+                        drop(source)
+                        moved = True
             if moved:
                 self._toast(doc, translate("Nxt", "Moved %s into %s")
                             % (self._named(doc, sources), target.Label))
         except Exception:
-            doc.abortTransaction()
-            _err("drop onto %s failed" % target_name)
+            log.error("drop onto %s failed" % target_name)
             moved = False
         # Same reasoning as activate(): a recompute inside a drop handler can
         # spin the event loop through FreeCAD's progress indicator, and the
@@ -2022,29 +2012,27 @@ class TreeBridge(QtCore.QObject):
             return False
         moved = False
         try:
-            doc.openTransaction("Move to top level")
-            for name in sources:
-                source = doc.getObject(str(name))
-                parent = self._container_of(source)
-                pvo = getattr(parent, "ViewObject", None)
-                can = getattr(pvo, "canDragObject", None)
-                drag = getattr(pvo, "dragObject", None)
-                if callable(drag) and (not callable(can) or can(source)):
-                    drag(source)
-                    moved = True
-                elif self._can_leave_body(source, parent):
-                    # Out of a Body its view provider will not release it
-                    # from - see _can_leave_body.
-                    parent.removeObject(source)
-                    moved = True
-            doc.commitTransaction()
+            with transaction(doc, "Move to top level"):
+                for name in sources:
+                    source = doc.getObject(str(name))
+                    parent = self._container_of(source)
+                    pvo = getattr(parent, "ViewObject", None)
+                    can = getattr(pvo, "canDragObject", None)
+                    drag = getattr(pvo, "dragObject", None)
+                    if callable(drag) and (not callable(can) or can(source)):
+                        drag(source)
+                        moved = True
+                    elif self._can_leave_body(source, parent):
+                        # Out of a Body its view provider will not release it
+                        # from - see _can_leave_body.
+                        parent.removeObject(source)
+                        moved = True
             if moved:
                 self._toast(doc, translate(
                     "Nxt", "Moved %s to the top level")
                     % self._named(doc, sources))
         except Exception:
-            doc.abortTransaction()
-            _err("could not move to the top level")
+            log.error("could not move to the top level")
             moved = False
         # Deferred, as dropOn's: see there.
         self._recompute_timer.start()
@@ -2064,7 +2052,7 @@ class TreeBridge(QtCore.QObject):
         try:
             return reorder.plan_drop(objects, target)
         except Exception:
-            _err("could not plan a reorder onto %s" % target_name)
+            log.error("could not plan a reorder onto %s" % target_name)
             return None, reorder.Plan()
 
     def _detach(self, doc: Any, source: Any) -> None:
@@ -2084,7 +2072,8 @@ class TreeBridge(QtCore.QObject):
             if callable(drag):
                 drag(source)
         except Exception:
-            _err("could not detach %s from %s" % (source.Name, node.parent))
+            log.error("could not detach %s from %s"
+                      % (source.Name, node.parent))
 
     # ------------------------------------------------------------------ #
 

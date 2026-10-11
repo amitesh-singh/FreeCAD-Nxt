@@ -15,11 +15,12 @@ and needs to feel instant, so it syncs synchronously.
 
 from __future__ import annotations
 
-import traceback
 from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
+
+from ..core import log
 
 #: Property changes that cannot affect anything the panel draws. Skipping
 #: them keeps a Placement drag from queueing a rebuild on every mouse move.
@@ -27,11 +28,6 @@ _IGNORED_PROPERTIES: frozenset[str] = frozenset({
     "Placement", "Shape", "_Body", "AttachmentOffset",
     "ExpressionEngine", "Proxy",
 })
-
-
-def _err(message: str) -> None:
-    App.Console.PrintError("Nxt: %s\n" % message)
-    App.Console.PrintError(traceback.format_exc())
 
 
 class _AppObserver(object):
@@ -141,17 +137,17 @@ class Observers(object):
         try:
             App.addDocumentObserver(self._app)
         except Exception:
-            _err("could not install App observer")
+            log.error("could not install App observer")
             self._app = None
         try:
             Gui.addDocumentObserver(self._gui)
         except Exception:
-            _err("could not install Gui observer")
+            log.error("could not install Gui observer")
             self._gui = None
         try:
             Gui.Selection.addObserver(self._sel)
         except Exception:
-            _err("could not install selection observer")
+            log.error("could not install selection observer")
             self._sel = None
         # The services (services.py) do the 3D double-click edit whether
         # or not the panel is open; the panel only adds the row reveal.
@@ -162,26 +158,26 @@ class Observers(object):
                 live.featurePicked.connect(self._bridge.edit_feature)
                 self._services = live
         except Exception:
-            _err("could not connect to the Nxt services")
+            log.error("could not connect to the Nxt services")
 
     def remove(self) -> None:
         if self._app is not None:
             try:
                 App.removeDocumentObserver(self._app)
             except Exception:
-                _err("could not remove App observer")
+                log.error("could not remove App observer")
             self._app = None
         if self._gui is not None:
             try:
                 Gui.removeDocumentObserver(self._gui)
             except Exception:
-                _err("could not remove Gui observer")
+                log.error("could not remove Gui observer")
             self._gui = None
         if self._sel is not None:
             try:
                 Gui.Selection.removeObserver(self._sel)
             except Exception:
-                _err("could not remove selection observer")
+                log.error("could not remove selection observer")
             self._sel = None
         if self._services is not None:
             try:

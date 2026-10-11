@@ -65,6 +65,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from .. import expressions, qtquick, resources
+from ..core import units, view3d, widgets
 from ..i18n import translate
 from ..qt import QtCore, QtGui, QtWidgets
 from . import placement, settings, task_sync
@@ -216,25 +217,6 @@ def label_for(name: str) -> str:
         else translate("Nxt", "Length")
 
 
-def parse_quantity(text: str) -> float | None:
-    """`text` as a number in FreeCAD's internal units, or None.
-
-    FreeCAD's own quantity parser: "75", "75 mm", "2 in", "25 mm * 2",
-    "30 deg". A bare number is taken in the internal unit (mm, degrees),
-    which is what the field shows.
-    """
-    text = (text or "").strip()
-    if not text:
-        return None
-    try:
-        return float(App.Units.Quantity(text).Value)
-    except Exception:
-        try:
-            return float(text)
-        except ValueError:
-            return None
-
-
 class FocusClaim:
     """The keyboard, claimed for the box when an edit begins.
 
@@ -284,39 +266,6 @@ def task_ok_button() -> Any:
                     return ok
                 break
             parent = parent.parentWidget()
-    return None
-
-
-def _alive(obj: Any) -> bool:
-    """Whether a Qt object still exists on the C++ side."""
-    if obj is None:
-        return False
-    try:
-        import shiboken6
-        return bool(shiboken6.isValid(obj))
-    except ImportError:
-        return True
-
-
-def _viewport(view: Any) -> Any:
-    """The widget the active document's 3D view draws into, or None.
-
-    The active one only: the MDI area's active window. The first visible
-    3D view was used before, and with two documents open that could be
-    the other document's - the box then lived in the wrong view, and
-    giving it the keyboard activated that view, switching the document
-    under the edit and back again on every claim.
-    """
-    main = Gui.getMainWindow()
-    area = main.findChild(QtWidgets.QMdiArea)
-    sub = area.activeSubWindow() if area is not None else None
-    holder = sub.widget() if sub is not None else None
-    if holder is None \
-            or holder.metaObject().className() != "Gui::View3DInventor":
-        return None
-    for child in holder.findChildren(QtWidgets.QWidget):
-        if "GL" in child.metaObject().className() and child.isVisible():
-            return child
     return None
 
 
@@ -414,7 +363,7 @@ class Field(QtCore.QObject):
             return False
         if text.strip().startswith("="):
             return self._bind_expression(spin, text)
-        value = parse_quantity(text)
+        value = units.internal_value(text)
         if value is None:
             App.Console.PrintWarning(
                 "Nxt: %r is not a value FreeCAD can read\n" % text)
@@ -611,7 +560,7 @@ class FloatingInput(QtCore.QObject):
 
     def _drop_widgets(self) -> None:
         for box in self._boxes.values():
-            if _alive(box.widget):
+            if widgets.alive(box.widget):
                 box.widget.hide()
                 box.widget.deleteLater()
             box.widget = None
@@ -624,7 +573,7 @@ class FloatingInput(QtCore.QObject):
         # an error four to thirty times a second in the Report view.
         try:
             for box in self._boxes.values():
-                if not _alive(box.widget):
+                if not widgets.alive(box.widget):
                     box.widget = None
             shown = self._update()
         except Exception as exc:
@@ -679,7 +628,7 @@ class FloatingInput(QtCore.QObject):
         targets = self._targets(view, str(obj.TypeId))
         if not targets:
             return False
-        viewport = _viewport(view)
+        viewport = view3d.active_viewport()
         if viewport is None:
             return False
         if self._viewport is not viewport:
@@ -713,7 +662,7 @@ class FloatingInput(QtCore.QObject):
                 widget.show()
                 widget.raise_()
         for box in self._boxes.values():
-            if id(box) not in live and _alive(box.widget) \
+            if id(box) not in live and widgets.alive(box.widget) \
                     and box.widget.isVisible():
                 box.widget.hide()
         first, first_widget = placed[0][0], placed[0][1]
@@ -746,7 +695,7 @@ class FloatingInput(QtCore.QObject):
                                        ratio)
 
     def _ensure_widget(self, box: _Box, viewport: Any) -> Any:
-        if _alive(box.widget):
+        if widgets.alive(box.widget):
             return box.widget
         box.widget = None
         qtquick.use_shared_graphics_api()
@@ -820,7 +769,7 @@ class FloatingInput(QtCore.QObject):
     def _take_keyboard(self, name: str) -> None:
         box = self._boxes.get(name)
         widget: Any = box.widget if box is not None else None
-        if _alive(widget) and widget.isVisible():
+        if widgets.alive(widget) and widget.isVisible():
             widget.activateWindow()
             widget.setFocus(QtCore.Qt.FocusReason.MouseFocusReason)
 
@@ -884,5 +833,5 @@ class FloatingInput(QtCore.QObject):
 
     def _hide(self) -> None:
         for box in self._boxes.values():
-            if _alive(box.widget) and box.widget.isVisible():
+            if widgets.alive(box.widget) and box.widget.isVisible():
                 box.widget.hide()

@@ -28,42 +28,13 @@ from typing import Any
 
 import FreeCAD as App
 
+from ..core import property_kinds, units
+from ..core.transaction import transaction
 from . import inspector_templates
 
 DocObject = Any
 
 DATA, VIEW = "Data", "View"
-
-QUANTITY_TYPES = frozenset({
-    "App::PropertyLength", "App::PropertyDistance", "App::PropertyAngle",
-    "App::PropertyQuantity", "App::PropertyQuantityConstraint",
-    "App::PropertyArea", "App::PropertyVolume", "App::PropertySpeed",
-    "App::PropertyAcceleration", "App::PropertyForce",
-    "App::PropertyPressure", "App::PropertyPercent",
-})
-NUMBER_TYPES = frozenset({
-    "App::PropertyFloat", "App::PropertyFloatConstraint",
-    "App::PropertyPrecision", "App::PropertyInteger",
-    "App::PropertyIntegerConstraint",
-})
-TEXT_TYPES = frozenset({
-    "App::PropertyString", "App::PropertyFont", "App::PropertyFile",
-    "App::PropertyFileIncluded", "App::PropertyPath", "App::PropertyUUID",
-})
-VECTOR_TYPES = frozenset({
-    "App::PropertyVector", "App::PropertyVectorDistance",
-    "App::PropertyPosition", "App::PropertyDirection",
-})
-LENGTH_VECTORS = frozenset({
-    "App::PropertyVectorDistance", "App::PropertyPosition",
-})
-LINK_PREFIX = "App::PropertyLink"
-KINDS: dict[str, str] = {
-    "App::PropertyBool": "bool",
-    "App::PropertyEnumeration": "enum",
-    "App::PropertyColor": "color",
-    "App::PropertyPlacement": "placement",
-}
 
 #: Kinds that fit half a row. Everything else takes a whole one.
 COMPACT = frozenset({"quantity", "number", "bool", "enum", "color"})
@@ -73,7 +44,6 @@ COMPACT = frozenset({"quantity", "number", "bool", "enum", "color"})
 QUIET_GROUPS = frozenset({"Base", "Attachment", "Object Style",
                           "Display Options", "Selection"})
 
-EXPRESSION_PREFIX = "="
 LENGTH_UNIT = "mm"
 ANGLE_UNIT = "°"
 AXES = ("x", "y", "z")
@@ -85,41 +55,12 @@ def label_for(name: str) -> str:
     return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name)
 
 
-def kind_of(type_id: str) -> str:
-    if type_id in QUANTITY_TYPES:
-        return "quantity"
-    if type_id in NUMBER_TYPES:
-        return "number"
-    if type_id in TEXT_TYPES:
-        return "text"
-    if type_id in VECTOR_TYPES:
-        return "vector"
-    if type_id.startswith(LINK_PREFIX):
-        return "link"
-    return KINDS.get(type_id, "other")
-
-
-def _modes(container: Any, prop: str) -> list[str]:
-    try:
-        return list(container.getEditorMode(prop) or ())
-    except Exception:
-        return []
-
-
 def _expressions(obj: DocObject) -> dict[str, str]:
     return dict(getattr(obj, "ExpressionEngine", None) or ())
 
 
 def _number(value: float) -> str:
     return NUMBER_FORMAT % value
-
-
-def _split_quantity(text: str) -> tuple[str, str]:
-    """'5.00 mm' -> ('5.00', 'mm'). A bare number has no unit."""
-    match = re.match(r"^\s*([-+]?[\d.,]+(?:[eE][-+]?\d+)?)\s*(.*)$", text)
-    if not match:
-        return text, ""
-    return match.group(1), match.group(2).strip()
 
 
 def _labels(value: Any) -> list[str]:
@@ -145,7 +86,7 @@ def _hex(colour: Any) -> str:
 def _entry(container: Any, prop: str, expressions: dict[str, str]
            ) -> dict[str, Any] | None:
     """One property, shaped for QML, or None if it is not for showing."""
-    modes = _modes(container, prop)
+    modes = property_kinds.editor_modes(container, prop)
     if "Hidden" in modes:
         return None
     try:
@@ -153,7 +94,7 @@ def _entry(container: Any, prop: str, expressions: dict[str, str]
         value = getattr(container, prop)
     except Exception:
         return None
-    kind = kind_of(type_id)
+    kind = property_kinds.kind_of(type_id)
     try:
         tip = container.getDocumentationOfProperty(prop) or ""
     except Exception:
@@ -167,7 +108,7 @@ def _entry(container: Any, prop: str, expressions: dict[str, str]
     }
     if kind == "quantity":
         text = getattr(value, "UserString", str(value))
-        entry["text"], entry["unit"] = _split_quantity(text)
+        entry["text"], entry["unit"] = units.split_number_and_unit(text)
     elif kind in ("number", "text"):
         entry["text"] = str(value)
     elif kind == "bool":
@@ -181,7 +122,7 @@ def _entry(container: Any, prop: str, expressions: dict[str, str]
     elif kind == "link":
         entry["links"] = _labels(value)
     elif kind == "vector":
-        unit = LENGTH_UNIT if type_id in LENGTH_VECTORS else ""
+        unit = LENGTH_UNIT if type_id in property_kinds.LENGTH_VECTORS else ""
         entry["parts"] = [
             {"path": axis, "label": axis.upper(),
              "text": _number(getattr(value, axis)), "unit": unit}
@@ -289,28 +230,11 @@ def describe(objects: list[DocObject], tab: str = DATA,
 
 # ---------------------------------------------------------------- editing
 
-def _with_unit(text: str, unit: str) -> str:
-    """A bare number typed into a quantity keeps the field's unit."""
-    stripped = text.strip()
-    if unit and re.fullmatch(r"[-+]?[\d.,]+(?:[eE][-+]?\d+)?", stripped):
-        return "%s %s" % (stripped, unit)
-    return stripped
-
-
-def _parse(text: str) -> float:
-    """A number, or a quantity in the user's units, as a plain float."""
-    try:
-        return float(text.replace(",", "."))
-    except ValueError:
-        return float(App.Units.Quantity(text).Value)
-
-
 def _assign(container: Any, obj: DocObject, prop: str, value: Any,
             unit: str) -> None:
-    kind = kind_of(container.getTypeIdOfProperty(prop))
-    if isinstance(value, str) and value.strip().startswith(
-            EXPRESSION_PREFIX) and container is obj:
-        obj.setExpression(prop, value.strip()[1:].strip())
+    kind = property_kinds.kind_of(container.getTypeIdOfProperty(prop))
+    if property_kinds.is_expression(value) and container is obj:
+        obj.setExpression(prop, property_kinds.expression_of(value))
         return
     if container is obj and prop in _expressions(obj):
         obj.setExpression(prop, None)
@@ -318,9 +242,9 @@ def _assign(container: Any, obj: DocObject, prop: str, value: Any,
         setattr(container, prop, bool(value))
     elif kind == "number":
         current = getattr(container, prop)
-        setattr(container, prop, type(current)(_parse(str(value))))
+        setattr(container, prop, type(current)(units.number_value(str(value))))
     elif kind == "quantity":
-        setattr(container, prop, _with_unit(str(value), unit))
+        setattr(container, prop, units.with_unit(str(value), unit))
     elif kind == "color":
         colour = _parse_colour(str(value))
         if colour is not None:
@@ -342,7 +266,7 @@ def _parse_colour(text: str) -> tuple[float, float, float] | None:
 def _assign_part(container: Any, prop: str, path: str, text: str) -> None:
     """Set one component of a vector or placement."""
     value = getattr(container, prop)
-    number = _parse(text)
+    number = units.number_value(text)
     if path in AXES:
         setattr(value, path, number)
     elif path.startswith("Base."):
@@ -376,18 +300,16 @@ def apply_many(objects: list[DocObject],
     doc = getattr(objects[0], "Document", None)
     if doc is None:
         return False
-    doc.openTransaction("Edit %s" % edits[-1][0])
     try:
-        for prop, value, unit in edits:
-            for obj in objects:
-                container = _container(obj, tab)
-                if part:
-                    _assign_part(container, prop, part, str(value))
-                else:
-                    _assign(container, obj, prop, value, unit)
-        doc.commitTransaction()
+        with transaction(doc, "Edit %s" % edits[-1][0]):
+            for prop, value, unit in edits:
+                for obj in objects:
+                    container = _container(obj, tab)
+                    if part:
+                        _assign_part(container, prop, part, str(value))
+                    else:
+                        _assign(container, obj, prop, value, unit)
     except Exception:
-        doc.abortTransaction()
         App.Console.PrintError("Nxt: could not set %s\n"
                                % ", ".join("%s to %r" % (p, v)
                                            for p, v, _u in edits))

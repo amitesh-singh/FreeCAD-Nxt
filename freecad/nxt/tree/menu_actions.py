@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 import FreeCAD as App
 
 from .. import fc, menus
+from ..core.transaction import transaction
 from ..i18n import translate
 from ..menus import facts, present, runner
 
@@ -305,14 +306,9 @@ def _paste_expressions(bridge: TreeBridge, objects: list[Any]) -> None:
         by_doc.setdefault(doc_name, []).append((obj, path, expression))
     for doc_name, entries in by_doc.items():
         doc = App.getDocument(doc_name)
-        doc.openTransaction("Paste expressions")
-        try:
+        with transaction(doc, "Paste expressions"):
             for obj, path, expression in entries:
                 obj.setExpression(path, expression)
-            doc.commitTransaction()
-        except Exception:
-            doc.abortTransaction()
-            raise
         doc.recompute()
 
 

@@ -18,9 +18,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import FreeCAD as App
 import FreeCADGui as Gui
 
+from ..core import units
 from ..qt import QtWidgets
 
 #: How a field is set: a quantity spin box, a check box, a combo box by
@@ -76,16 +76,6 @@ def _mode_index(options: list[str], value: str) -> int:
     return shown.index(value) if value in shown else -1
 
 
-def _quantity(text: str, unit: str) -> float | None:
-    text = str(text).strip()
-    if text and unit and text[-1].isdigit():
-        text = "%s %s" % (text, unit)
-    try:
-        return float(App.Units.Quantity(text).Value)
-    except Exception:
-        return None
-
-
 def set_in_task(objects: list[Any], prop: str, value: Any,
                 unit: str = "") -> bool:
     """Make the edit in the open task panel's field; False if it has none.
@@ -118,7 +108,7 @@ def set_in_task(objects: list[Any], prop: str, value: Any,
                 return False
             widget.setCurrentIndex(index)
         else:
-            number = _quantity(value, unit)
+            number = units.internal_value(value, unit)
             if number is None:
                 return False
             widget.setProperty("rawValue", number)

@@ -16,23 +16,18 @@ panel.
 
 from __future__ import annotations
 
-import traceback
 from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
 
+from .core import log
 from .qt import QtCore, QtWidgets
 
 #: Events on the main window that mean the stylesheet or palette changed.
 _RESTYLE = (QtCore.QEvent.Type.StyleChange,
             QtCore.QEvent.Type.PaletteChange,
             QtCore.QEvent.Type.ApplicationPaletteChange)
-
-
-def _err(message: str) -> None:
-    App.Console.PrintError("Nxt: %s\n" % message)
-    App.Console.PrintError(traceback.format_exc())
 
 
 class Services(QtCore.QObject):
@@ -77,42 +72,42 @@ class Services(QtCore.QObject):
             self._double_click = DoubleClickEditor(self)
             self._double_click.install()
         except Exception:
-            _err("could not install the 3D double-click editor")
+            log.error("could not install the 3D double-click editor")
             self._double_click = None
         try:
             from .tree.float_input import FloatingInput
             self._floating = FloatingInput(self)
             self._floating.install()
         except Exception:
-            _err("could not install the floating value field")
+            log.error("could not install the floating value field")
             self._floating = None
         try:
             from .sketch_repair import SketchRepair
             self._sketch_repair = SketchRepair(self)
             self._sketch_repair.install()
         except Exception:
-            _err("could not install the sketch profile repair")
+            log.error("could not install the sketch profile repair")
             self._sketch_repair = None
         try:
             from .sketch_attach import SketchAttach
             self._sketch_attach = SketchAttach(self)
             self._sketch_attach.install()
         except Exception:
-            _err("could not install the new sketch attachment")
+            log.error("could not install the new sketch attachment")
             self._sketch_attach = None
         try:
             from .face_snap import FaceSnap
             self._face_snap = FaceSnap(self)
             self._face_snap.install()
         except Exception:
-            _err("could not install the face snapping")
+            log.error("could not install the face snapping")
             self._face_snap = None
         try:
             from .visibility import SpaceInView
             self._space = SpaceInView(self)
             self._space.install()
         except Exception:
-            _err("could not install Space in the 3D view")
+            log.error("could not install Space in the 3D view")
             self._space = None
 
     def remove(self) -> None:
@@ -121,7 +116,7 @@ class Services(QtCore.QObject):
             try:
                 self._toasts.remove()
             except Exception:
-                _err("could not remove the undo toast")
+                log.error("could not remove the undo toast")
             self._toasts = None
         self._edit_timer.stop()
         self._restyle_timer.stop()
@@ -132,7 +127,7 @@ class Services(QtCore.QObject):
                 try:
                     part.remove()
                 except Exception:
-                    _err("could not remove %s" % type(part).__name__)
+                    log.error("could not remove %s" % type(part).__name__)
         self._double_click = self._floating = None
         self._sketch_repair = self._sketch_attach = None
         self._face_snap = self._space = None
@@ -152,20 +147,20 @@ class Services(QtCore.QObject):
             try:
                 App.addDocumentObserver(self._isolation_observer)
             except Exception:
-                _err("could not follow documents for isolate")
+                log.error("could not follow documents for isolate")
             try:
                 self._notice = isolate_notice.ViewNotice(
                     self._isolation, self.theme(), self)
                 self._notice.install()
             except Exception:
-                _err("could not set up the isolate notice")
+                log.error("could not set up the isolate notice")
                 self._notice = None
             try:
                 self._escape = isolate_notice.EscapeToExit(
                     self._isolation, self)
                 self._escape.install()
             except Exception:
-                _err("could not set up Escape for isolate")
+                log.error("could not set up Escape for isolate")
                 self._escape = None
         return self._isolation
 
@@ -175,17 +170,17 @@ class Services(QtCore.QObject):
         try:
             self._isolation.exit()
         except Exception:
-            _err("could not leave isolate")
+            log.error("could not leave isolate")
         if self._notice is not None:
             try:
                 self._notice.remove()
             except Exception:
-                _err("could not remove the isolate notice")
+                log.error("could not remove the isolate notice")
         if self._escape is not None:
             try:
                 self._escape.remove()
             except Exception:
-                _err("could not remove Escape for isolate")
+                log.error("could not remove Escape for isolate")
             self._escape = None
         try:
             App.removeDocumentObserver(self._isolation_observer)
@@ -231,7 +226,7 @@ class Services(QtCore.QObject):
             self._theme.set_reference(
                 theme_mod.find_reference_widget(self._main_window))
         except Exception:
-            _err("could not refresh the colours")
+            log.error("could not refresh the colours")
 
     # -- editing ------------------------------------------------------------ #
 

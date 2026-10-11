@@ -24,25 +24,20 @@ menu.
 
 from __future__ import annotations
 
-import traceback
 from collections.abc import Iterable
 from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
 
+from .core import log
 from .i18n import translate
 from .qt import QtCore
-
-
-def _err(message: str) -> None:
-    App.Console.PrintError("Nxt: %s\n" % message)
-    App.Console.PrintError(traceback.format_exc())
-
 
 # --------------------------------------------------------------------------- #
 # the plan: which objects to show and hide. Pure over duck-typed objects.
 # --------------------------------------------------------------------------- #
+
 
 def _members(obj: Any) -> list[Any]:
     """What `obj` contains: its Group, and a Body's or Part's Origin."""
@@ -224,7 +219,7 @@ class Isolation(QtCore.QObject):
                 saved[name] = bool(view.Visibility)
                 view.Visibility = shown
         except Exception:
-            _err("could not isolate")
+            log.error("could not isolate")
             self._restore(doc.Name, saved)
             return False
         self._doc = doc.Name
@@ -269,7 +264,7 @@ class Isolation(QtCore.QObject):
             try:
                 view.Visibility = shown
             except Exception:
-                _err("could not restore the visibility of %s" % name)
+                log.error("could not restore the visibility of %s" % name)
 
     @staticmethod
     def _modified(doc_name: str) -> bool | None:

@@ -29,6 +29,7 @@ Gui = sys.modules["FreeCADGui"]
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
 from freecad.nxt import visibility  # noqa: E402
+from freecad.nxt.core import view3d  # noqa: E402
 
 
 class Obj:
@@ -130,12 +131,12 @@ class SpaceTests(unittest.TestCase):
             action=lambda: self.calls.append(1))
         self.view = View3D()
         self.inner = QtWidgets.QWidget(self.view)
-        self.saved = visibility.VIEW_CLASS
-        visibility.VIEW_CLASS = View3D.staticMetaObject.className()
+        self.saved = view3d.VIEW3D_CLASS
+        view3d.VIEW3D_CLASS = View3D.staticMetaObject.className()
         Gui.ActiveDocument = types.SimpleNamespace(getInEdit=lambda: None)
 
     def tearDown(self) -> None:
-        visibility.VIEW_CLASS = self.saved
+        view3d.VIEW3D_CLASS = self.saved
 
     def send(self, widget: Any, kind: Any,
              modifiers: Any = QtCore.Qt.KeyboardModifier.NoModifier) -> Any:

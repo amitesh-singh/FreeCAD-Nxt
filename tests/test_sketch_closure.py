@@ -13,8 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from freecad.nxt import sketch_closure as closure  # noqa: E402
-from freecad.nxt.sketch_closure import END, START, Edge  # noqa: E402
+from freecad.nxt.tools import sketch_closure as closure  # noqa: E402
+from freecad.nxt.tools.sketch_closure import END, START, Edge  # noqa: E402
 
 Point = tuple[float, float]
 

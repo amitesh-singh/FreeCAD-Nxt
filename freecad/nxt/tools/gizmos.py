@@ -39,7 +39,7 @@ from typing import Any
 
 import FreeCAD as App
 
-from . import settings
+from ..core import settings
 
 GIZMOS = "User parameter:BaseApp/Preferences/Gui/Gizmos"
 HISTORY = "User parameter:BaseApp/History/Dragger"

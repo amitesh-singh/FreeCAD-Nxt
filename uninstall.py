@@ -1,7 +1,7 @@
 """Run by FreeCAD's Addon Manager when Nxt is uninstalled, if allowed.
 
 Puts back the drag-handle preferences Nxt changed on its first run
-(freecad/nxt/tree/gizmos.py). Without it, Nxt does the same at the quit
+(freecad/nxt/tools/gizmos.py). Without it, Nxt does the same at the quit
 after the uninstall.
 """
 

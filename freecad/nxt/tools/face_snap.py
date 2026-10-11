@@ -42,9 +42,8 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from . import fc
-from .qt import QtCore, QtWidgets
-from .tree import settings
+from ..core import fc, settings
+from ..core.qt import QtCore, QtWidgets
 
 #: The features whose lengths snap, and the length types that are a length.
 FEATURES = ("PartDesign::Pad", "PartDesign::Pocket")

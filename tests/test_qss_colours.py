@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 
 import test_inspector  # noqa: E402,F401  (installs the FreeCAD stub)
 
-from freecad.nxt.tree import qss_colours as q  # noqa: E402
+from freecad.nxt.ui import qss_colours as q  # noqa: E402
 
 TOKENS = {"TreeBg": "#f0f0f0", "Ink": "@Ink2", "Ink2": "#202020",
           "Packed": 0x336699FF, "Loop": "@Loop", "Mixed": "lighten(@A, 5)"}

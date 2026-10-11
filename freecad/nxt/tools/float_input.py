@@ -64,11 +64,11 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .. import expressions, qtquick, resources
-from ..core import units, view3d, widgets
-from ..i18n import translate
-from ..qt import QtCore, QtGui, QtWidgets
-from . import placement, settings, task_sync
+from .. import resources
+from ..app.i18n import translate
+from ..core import qtquick, settings, units, view3d, widgets
+from ..core.qt import QtCore, QtGui, QtWidgets
+from . import expressions, placement, task_sync
 
 #: The property each task panel field sets, where it is known.
 PROPERTIES = {
@@ -383,7 +383,7 @@ class Field(QtCore.QObject):
         value it gives), and the field is given that value, so the panel
         and the model agree when the task closes.
         """
-        from .. import expressions
+        from . import expressions
         prop = PROPERTIES.get(spin.objectName())
         obj = self._obj
         expression = expressions.strip_marker(text)
@@ -724,10 +724,10 @@ class FloatingInput(QtCore.QObject):
         return widget
 
     def _theme(self) -> Any:
-        from .. import services
+        from ..app import services
         theme = services.theme()
         if theme is None:
-            from .theme import Theme
+            from ..ui.theme import Theme
             theme = Theme(self)
         return theme
 

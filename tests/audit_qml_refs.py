@@ -44,7 +44,7 @@ def py_members(path):
 
 
 bridge = py_members(PY / "bridge.py")
-theme = py_members(PY / "theme.py")
+theme = py_members(PY.parent / "ui" / "theme.py")
 panel = py_members(PY / "panel.py")
 
 # roleNames -> the properties a delegate may declare

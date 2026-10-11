@@ -22,7 +22,7 @@ sys.modules.setdefault("FreeCAD", App)
 sys.modules.setdefault("FreeCADGui", Gui)
 Gui = sys.modules["FreeCADGui"]
 
-from freecad.nxt.tree import editing  # noqa: E402
+from freecad.nxt.tools import editing  # noqa: E402
 
 
 class Obj:

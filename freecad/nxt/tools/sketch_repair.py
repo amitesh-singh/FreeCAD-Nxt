@@ -32,12 +32,13 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from . import services, sketch_closure
-from .core import log
-from .i18n import QT_TRANSLATE_NOOP, translate
-from .qt import QtCore
+from ..app import services
+from ..app.i18n import QT_TRANSLATE_NOOP, translate
+from ..core import log, settings
+from ..core.qt import QtCore
+from ..tree import health
+from . import editing, sketch_closure
 from .sketch_closure import END, START, Edge, Findings
-from .tree import editing, health, settings
 
 SKETCH = "Sketcher::SketchObject"
 LINE = "Part::GeomLineSegment"

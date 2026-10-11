@@ -36,8 +36,8 @@ sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
-from freecad.nxt import expressions as ex  # noqa: E402
-from freecad.nxt.tree.theme import Theme  # noqa: E402
+from freecad.nxt.tools import expressions as ex  # noqa: E402
+from freecad.nxt.ui.theme import Theme  # noqa: E402
 
 QML = ROOT / "freecad" / "nxt" / "resources" / "qml"
 #: Every view made, kept to the end of the run: torn down mid-run, the

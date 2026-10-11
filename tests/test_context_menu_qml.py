@@ -34,7 +34,7 @@ App.ParamGet = lambda _group: types.SimpleNamespace(
     GetFloat=lambda _k, d: d, GetString=lambda _k, d: d)
 
 from freecad.nxt.menus import definitions, present  # noqa: E402
-from freecad.nxt.tree.theme import Theme  # noqa: E402
+from freecad.nxt.ui.theme import Theme  # noqa: E402
 
 QML = ROOT / "freecad" / "nxt" / "resources" / "qml"
 DEFAULT = ROOT / "freecad" / "nxt" / "resources" / "menus" / "default.toml"

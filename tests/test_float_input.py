@@ -50,8 +50,8 @@ sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
-from freecad.nxt.tree import float_input  # noqa: E402
-from freecad.nxt.tree.theme import Theme  # noqa: E402
+from freecad.nxt.tools import float_input  # noqa: E402
+from freecad.nxt.ui.theme import Theme  # noqa: E402
 
 QML = ROOT / "freecad" / "nxt" / "resources" / "qml" / "FloatingValue.qml"
 QML_PROBLEMS: list[str] = []

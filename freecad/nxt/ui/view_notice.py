@@ -12,9 +12,9 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from . import qtquick, resources
-from .core import widgets
-from .qt import QtCore, QtGui, QtWidgets
+from .. import resources
+from ..core import qtquick, widgets
+from ..core.qt import QtCore, QtGui, QtWidgets
 
 #: Gap between the top of the 3D view, or the notice above, and a notice.
 TOP_MARGIN = 10

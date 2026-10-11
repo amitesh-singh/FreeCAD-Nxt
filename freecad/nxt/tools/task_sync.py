@@ -21,7 +21,7 @@ from typing import Any
 import FreeCADGui as Gui
 
 from ..core import units
-from ..qt import QtWidgets
+from ..core.qt import QtWidgets
 
 #: How a field is set: a quantity spin box, a check box, a combo box by
 #: the enumeration's index, or Type's combo box (see _mode_index).

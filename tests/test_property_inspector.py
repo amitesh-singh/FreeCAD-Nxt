@@ -60,7 +60,7 @@ import freecad.nxt.tree as tree_pkg  # noqa: E402
 
 tree_pkg.panel = panel_stub
 
-from freecad.nxt import property_inspector  # noqa: E402
+from freecad.nxt.inspector import host as property_inspector  # noqa: E402
 
 
 class FakeView(QtWidgets.QWidget):

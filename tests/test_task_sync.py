@@ -27,7 +27,7 @@ Gui = sys.modules["FreeCADGui"]
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
-from freecad.nxt.tree import task_sync  # noqa: E402
+from freecad.nxt.tools import task_sync  # noqa: E402
 
 TYPES = ["Length", "UpToLast", "UpToFirst", "UpToFace", "TwoLengths",
          "UpToShape"]

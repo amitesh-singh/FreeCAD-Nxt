@@ -19,7 +19,7 @@ import QtQuick.Controls.Basic
 // window), which never takes focus - a popup window grabs the keyboard,
 // and the field being typed in lost it the moment the list appeared.
 //
-// It needs `expressions` (freecad/nxt/expressions.py) on the QML context.
+// It needs `expressions` (freecad/nxt/tools/expressions.py) on the QML context.
 // Without it, or without an owner, it does nothing at all.
 Item {
     id: assist

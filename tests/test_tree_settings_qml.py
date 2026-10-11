@@ -30,7 +30,7 @@ App.ParamGet = lambda _group: types.SimpleNamespace(
     GetBool=lambda _k, d: d, GetInt=lambda _k, d: d,
     GetFloat=lambda _k, d: d, GetString=lambda _k, d: d)
 
-from freecad.nxt.tree.theme import Theme  # noqa: E402
+from freecad.nxt.ui.theme import Theme  # noqa: E402
 
 QML = ROOT / "freecad" / "nxt" / "resources" / "qml"
 BAD = ("binding loop", "is not defined", "cannot read property",

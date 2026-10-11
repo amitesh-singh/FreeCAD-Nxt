@@ -21,9 +21,9 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .qt import QtCore, QtWidgets
-from .tree import settings
-from .tree.float_input import task_ok_button
+from ..core import settings
+from ..core.qt import QtCore, QtWidgets
+from .float_input import task_ok_button
 
 SKETCH = "Sketcher::SketchObject"
 #: The attachment mode FreeCAD lists as "Plane by 3 points".

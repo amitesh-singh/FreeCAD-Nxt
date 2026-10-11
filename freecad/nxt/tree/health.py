@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..i18n import QT_TRANSLATE_NOOP, translate
+from ..app.i18n import QT_TRANSLATE_NOOP, translate
 
 #: A FreeCAD document object; FreeCAD ships no usable type stubs.
 DocObject = Any

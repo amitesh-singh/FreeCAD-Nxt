@@ -13,15 +13,17 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .. import expressions, fc, qtquick, resources
-from ..i18n import QT_TRANSLATE_NOOP, translate
-from ..qt import QtCompat, QtCore, QtGui, QtWidgets
+from .. import resources
+from ..app.i18n import QT_TRANSLATE_NOOP, translate
+from ..core import fc, qtquick
+from ..core import settings as settings_mod
+from ..core.qt import QtCompat, QtCore, QtGui, QtWidgets
+from ..tools import expressions
+from ..ui import prefs as prefs_mod
+from ..ui import theme as theme_mod
 from . import bridge as bridge_mod
 from . import icons as icons_mod
 from . import observers as observers_mod
-from . import prefs as prefs_mod
-from . import settings as settings_mod
-from . import theme as theme_mod
 
 OBJECT_NAME = "NxtModelPanel"
 TITLE = QT_TRANSLATE_NOOP("Nxt", "Model (Nxt)")
@@ -340,7 +342,8 @@ class ModelPanel(QtWidgets.QDockWidget):
         The services' own; with the services not running, an idle one, so
         the QML binds cleanly.
         """
-        from .. import isolate, services
+        from ..app import services
+        from ..tools import isolate
         live = services.isolation()
         return live if live is not None else isolate.Isolation(self)
 
@@ -613,7 +616,7 @@ class ModelPanel(QtWidgets.QDockWidget):
         App.Console.PrintMessage(
             "Nxt: the panel was overlaid last session, but %s did not land "
             "on it. Use the title bar button to overlay it again, and run "
-            "'from freecad.nxt.tree import probe; probe.overlay()' "
+            "'from freecad.nxt.diagnostics import probe; probe.overlay()' "
             "to show what "
             "this build offers for aiming it.\n" % HOST_OVERLAY_COMMAND)
 

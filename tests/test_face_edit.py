@@ -34,7 +34,7 @@ Gui = sys.modules["FreeCADGui"]
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
 from freecad.nxt.core import view3d  # noqa: E402
-from freecad.nxt.tree import face_edit  # noqa: E402
+from freecad.nxt.tools import face_edit  # noqa: E402
 
 
 class View3D(QtWidgets.QWidget):

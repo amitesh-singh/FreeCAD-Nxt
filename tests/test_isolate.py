@@ -22,7 +22,7 @@ import test_inspector  # noqa: E402,F401  (installs the FreeCAD stub)
 App = sys.modules["FreeCAD"]
 Gui = sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
 
-from freecad.nxt import isolate  # noqa: E402
+from freecad.nxt.tools import isolate  # noqa: E402
 
 
 class Obj:
@@ -149,7 +149,7 @@ class EscapeTests(unittest.TestCase):
     def setUp(self) -> None:
         from PySide6 import QtCore, QtGui, QtWidgets
 
-        from freecad.nxt import isolate_notice
+        from freecad.nxt.ui import isolate_notice
         self.QtCore, self.QtGui = QtCore, QtGui
         self.app = (QtWidgets.QApplication.instance()
                     or QtWidgets.QApplication([]))

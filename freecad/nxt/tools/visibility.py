@@ -23,10 +23,10 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .core import view3d
-from .core.events import ApplicationEventFilter
-from .core.transaction import transaction
-from .qt import QtCore
+from ..core import view3d
+from ..core.events import ApplicationEventFilter
+from ..core.qt import QtCore
+from ..core.transaction import transaction
 
 BODY = "PartDesign::Body"
 FEATURE = "PartDesign::Feature"

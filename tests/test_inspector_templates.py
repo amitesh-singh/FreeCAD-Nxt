@@ -20,7 +20,8 @@ App.Console = types.SimpleNamespace(PrintError=lambda _m: None,
                                     PrintMessage=lambda _m: None)
 sys.modules.setdefault("FreeCAD", App)
 
-from freecad.nxt.tree import inspector, inspector_templates  # noqa: E402
+from freecad.nxt.inspector import layout as inspector  # noqa: E402
+from freecad.nxt.inspector import templates  # noqa: E402
 
 TYPES = ["Length", "UpToLast", "UpToFirst", "UpToFace", "TwoLengths"]
 SIDES = ["One side", "Two sides", "Symmetric"]
@@ -198,10 +199,10 @@ def started(start: str = "Profile plane", offset: str = "0 mm") -> Feature:
 class StartTests(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.template = inspector_templates.for_objects([started()])
+        self.template = templates.for_objects([started()])
 
     def edits(self, pad: Feature, prop: str, value: Any) -> Any:
-        return inspector_templates.coupled(self.template, [pad], prop, value)
+        return templates.coupled(self.template, [pad], prop, value)
 
     def test_profile_plane_shows_as_an_offset_of_zero(self) -> None:
         start = next(g for g in layout(started()) if g["name"] == "Start")
@@ -242,21 +243,21 @@ class StartTests(unittest.TestCase):
 class ShowIfTests(unittest.TestCase):
 
     def test_a_missing_property_is_left_out_of_the_test(self) -> None:
-        item = inspector_templates.Item(
+        item = templates.Item(
             "Length2", show_if=(("SideType", ("Two sides",)),))
-        self.assertTrue(inspector_templates.shown(item, [Feature()]))
+        self.assertTrue(templates.shown(item, [Feature()]))
 
     def test_any_test_holding_is_enough(self) -> None:
-        item = inspector_templates.Item(
+        item = templates.Item(
             "Length2", show_if=(("Type", ("TwoLengths",)),
                                 ("Midplane", (True,))))
-        self.assertFalse(inspector_templates.shown(item, [Feature()]))
-        self.assertTrue(inspector_templates.shown(
+        self.assertFalse(templates.shown(item, [Feature()]))
+        self.assertTrue(templates.shown(
             item, [Feature(Midplane=True)]))
 
     def test_the_shipped_files_load(self) -> None:
-        inspector_templates.invalidate()
-        ids = [t.id for t in inspector_templates.loaded()]
+        templates.invalidate()
+        ids = [t.id for t in templates.loaded()]
         self.assertIn("pd-extrude", ids)
 
 

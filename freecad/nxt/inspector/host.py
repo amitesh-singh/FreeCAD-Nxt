@@ -1,7 +1,7 @@
 """The Property Inspector: every property of the selection, beside the panel.
 
 The inspector is a frame over the main window. Its contents are QML
-(`Inspector.qml`, laid out by `tree/inspector.py` from what the objects say
+(`Inspector.qml`, laid out by `inspector/layout.py` from what the objects say
 about themselves), with FreeCAD's own `Gui::PropertyView` behind it: a
 property the QML has no editor for is handed to the real editor, which is
 borrowed from wherever FreeCAD keeps it and put back exactly there. If
@@ -29,10 +29,10 @@ from typing import Any, cast
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from . import expressions
-from .i18n import translate
-from .qt import QtCore, QtGui, QtWidgets
-from .tree import settings
+from ..app.i18n import translate
+from ..core import settings
+from ..core.qt import QtCore, QtGui, QtWidgets
+from ..tools import expressions
 
 
 def table_icon(size: int, colour: QtGui.QColor,
@@ -526,7 +526,7 @@ class PropertyInspector(QtWidgets.QFrame):
     @staticmethod
     def _dock_edge(mw: QtWidgets.QWidget) -> int:
         """Just past the Nxt dock's border, or the window's margin."""
-        from .tree import panel
+        from ..tree import panel
         dock = panel.instance()
         if dock is None or not dock.isVisible():
             return INSPECTOR_MARGIN
@@ -597,7 +597,7 @@ class PropertyInspector(QtWidgets.QFrame):
 
     def _follow_theme(self) -> None:
         """Redraw the header's icons now, and whenever the theme changes."""
-        from . import services
+        from ..app import services
         theme = services.theme()
         if theme is not None and not getattr(self, "_theme_hooked", False):
             theme.changed.connect(self._draw_pin)
@@ -611,7 +611,7 @@ class PropertyInspector(QtWidgets.QFrame):
         leave that saying white on a light background - the same reason the
         panel stopped trusting the palette (theme.py, qss_colours.py).
         """
-        from . import services
+        from ..app import services
         theme = services.theme()
         if theme is not None:
             try:
@@ -708,9 +708,11 @@ class PropertyInspector(QtWidgets.QFrame):
 
 def _make_inspector(parent: QtWidgets.QWidget) -> QtWidgets.QWidget:
     """The QML page: Inspector.qml on its own QQuickWidget."""
-    from . import qtquick, resources, services
-    from .tree import inspector_bridge
-    from .tree.theme import Theme
+    from .. import resources
+    from ..app import services
+    from ..core import qtquick
+    from ..ui.theme import Theme
+    from . import bridge as inspector_bridge
 
     qtquick.use_shared_graphics_api()
     _qml, _quick, quick_widgets = qtquick.modules()
@@ -786,7 +788,7 @@ def toggle() -> None:
     if is_open():
         close()
         return
-    from .tree import panel
+    from ..tree import panel
     bridge = panel.bridge() if panel.is_open() else None
     if bridge is not None:
         bridge.request_property_inspector()

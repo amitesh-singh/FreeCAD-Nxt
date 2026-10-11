@@ -25,7 +25,7 @@ App.ParamGet = lambda _group: types.SimpleNamespace(
     GetBool=lambda k, d: STORE.get(k, d), GetInt=lambda _k, d: d,
     GetFloat=lambda _k, d: d, GetString=lambda _k, d: d)
 
-from freecad.nxt.tree.theme import Theme  # noqa: E402
+from freecad.nxt.ui.theme import Theme  # noqa: E402
 
 QML = ROOT / "freecad" / "nxt" / "resources" / "qml"
 HOST = """

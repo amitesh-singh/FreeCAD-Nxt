@@ -33,7 +33,7 @@ APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 MAIN = QtWidgets.QMainWindow()
 Gui.getMainWindow = lambda: MAIN  # type: ignore[attr-defined]
 
-from freecad.nxt import sketch_attach  # noqa: E402
+from freecad.nxt.tools import sketch_attach  # noqa: E402
 
 
 class Thing:

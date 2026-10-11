@@ -30,7 +30,7 @@ import FreeCAD as App
 
 from ..core import property_kinds, units
 from ..core.transaction import transaction
-from . import inspector_templates
+from . import templates as inspector_templates
 
 DocObject = Any
 

@@ -12,8 +12,9 @@ from typing import Any
 
 import FreeCAD as App
 
-from ..qt import QtCore
-from . import icons, properties
+from ..core.qt import QtCore
+from ..inspector import properties
+from . import icons
 
 _ROLE: int = QtCore.Qt.ItemDataRole.UserRole
 

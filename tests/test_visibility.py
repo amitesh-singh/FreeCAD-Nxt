@@ -28,8 +28,8 @@ Gui = sys.modules["FreeCADGui"]
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
-from freecad.nxt import visibility  # noqa: E402
 from freecad.nxt.core import view3d  # noqa: E402
+from freecad.nxt.tools import visibility  # noqa: E402
 
 
 class Obj:

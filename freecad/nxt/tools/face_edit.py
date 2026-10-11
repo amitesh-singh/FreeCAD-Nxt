@@ -33,11 +33,11 @@ from typing import TYPE_CHECKING, Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .. import fc
-from ..core import view3d
+from ..core import fc, settings, view3d
 from ..core.events import ApplicationEventFilter
-from ..qt import QtCore, QtWidgets
-from . import editing, picking, settings
+from ..core.qt import QtCore, QtWidgets
+from ..tree import picking
+from . import editing
 
 if TYPE_CHECKING:
     from typing import Protocol

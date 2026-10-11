@@ -25,7 +25,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from .qt import QtCore, QtGui, QtWidgets
+from ..core.qt import QtCore, QtGui, QtWidgets
 
 #: FreeCAD's expression functions, those worth offering by name.
 FUNCTIONS: tuple[str, ...] = (

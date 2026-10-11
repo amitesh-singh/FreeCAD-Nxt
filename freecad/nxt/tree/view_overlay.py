@@ -34,8 +34,8 @@ from typing import Any
 import FreeCAD as App
 
 from ..core import view3d, widgets
-from ..qt import QtCore, QtGui, QtWidgets
-from ..qtquick import modules as _quick_modules
+from ..core.qt import QtCore, QtGui, QtWidgets
+from ..core.qtquick import modules as _quick_modules
 
 _PRESSES = (QtCore.QEvent.Type.MouseButtonPress,
             QtCore.QEvent.Type.MouseButtonDblClick)

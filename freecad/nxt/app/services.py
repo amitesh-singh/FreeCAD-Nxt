@@ -21,8 +21,8 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .core import log
-from .qt import QtCore, QtWidgets
+from ..core import log
+from ..core.qt import QtCore, QtWidgets
 
 #: Events on the main window that mean the stylesheet or palette changed.
 _RESTYLE = (QtCore.QEvent.Type.StyleChange,
@@ -68,42 +68,42 @@ class Services(QtCore.QObject):
 
     def install(self) -> None:
         try:
-            from .tree.face_edit import DoubleClickEditor
+            from ..tools.face_edit import DoubleClickEditor
             self._double_click = DoubleClickEditor(self)
             self._double_click.install()
         except Exception:
             log.error("could not install the 3D double-click editor")
             self._double_click = None
         try:
-            from .tree.float_input import FloatingInput
+            from ..tools.float_input import FloatingInput
             self._floating = FloatingInput(self)
             self._floating.install()
         except Exception:
             log.error("could not install the floating value field")
             self._floating = None
         try:
-            from .sketch_repair import SketchRepair
+            from ..tools.sketch_repair import SketchRepair
             self._sketch_repair = SketchRepair(self)
             self._sketch_repair.install()
         except Exception:
             log.error("could not install the sketch profile repair")
             self._sketch_repair = None
         try:
-            from .sketch_attach import SketchAttach
+            from ..tools.sketch_attach import SketchAttach
             self._sketch_attach = SketchAttach(self)
             self._sketch_attach.install()
         except Exception:
             log.error("could not install the new sketch attachment")
             self._sketch_attach = None
         try:
-            from .face_snap import FaceSnap
+            from ..tools.face_snap import FaceSnap
             self._face_snap = FaceSnap(self)
             self._face_snap.install()
         except Exception:
             log.error("could not install the face snapping")
             self._face_snap = None
         try:
-            from .visibility import SpaceInView
+            from ..tools.visibility import SpaceInView
             self._space = SpaceInView(self)
             self._space.install()
         except Exception:
@@ -141,7 +141,8 @@ class Services(QtCore.QObject):
     def isolation(self) -> Any:
         """The isolate mode (isolate.py), with its 3D view notice."""
         if self._isolation is None:
-            from . import isolate, isolate_notice
+            from ..tools import isolate
+            from ..ui import isolate_notice
             self._isolation = isolate.Isolation(self)
             self._isolation_observer = isolate.Observer(self._isolation)
             try:
@@ -193,7 +194,7 @@ class Services(QtCore.QObject):
     def toasts(self) -> Any:
         """The undo toast (toast.py), under the isolate notice if any."""
         if self._toasts is None:
-            from . import toast as toast_mod
+            from ..ui import toast as toast_mod
             self._toasts = toast_mod.Toast(
                 self.theme(), lambda: self._notice, self)
             self._toasts.install()
@@ -208,7 +209,7 @@ class Services(QtCore.QObject):
         the panel's own, so the two agree without either owning the other.
         """
         if self._theme is None:
-            from .tree import theme as theme_mod
+            from ..ui import theme as theme_mod
             self._theme = theme_mod.Theme(
                 self, theme_mod.find_reference_widget(self._main_window))
         return self._theme
@@ -222,7 +223,7 @@ class Services(QtCore.QObject):
         if self._theme is None:
             return
         try:
-            from .tree import theme as theme_mod
+            from ..ui import theme as theme_mod
             self._theme.set_reference(
                 theme_mod.find_reference_widget(self._main_window))
         except Exception:
@@ -244,7 +245,7 @@ class Services(QtCore.QObject):
     def _enter_pending_edit(self) -> None:
         pending, self._pending_edit = self._pending_edit, None
         if pending is not None:
-            from .tree import editing
+            from ..tools import editing
             editing.open_for_edit(*pending)
 
 

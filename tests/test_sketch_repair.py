@@ -224,7 +224,7 @@ sys.modules.update(FreeCAD=App, FreeCADGui=Gui, Sketcher=Sketcher,
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
-from freecad.nxt import sketch_repair  # noqa: E402
+from freecad.nxt.tools import sketch_repair  # noqa: E402
 
 
 class RepairTests(unittest.TestCase):

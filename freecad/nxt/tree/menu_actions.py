@@ -14,9 +14,10 @@ from typing import TYPE_CHECKING, Any
 
 import FreeCAD as App
 
-from .. import fc, menus
+from .. import menus
+from ..app.i18n import translate
+from ..core import fc
 from ..core.transaction import transaction
-from ..i18n import translate
 from ..menus import facts, present, runner
 
 if TYPE_CHECKING:
@@ -85,7 +86,7 @@ Action = Callable[["TreeBridge", list[Any]], None]
 
 def _isolate(bridge: TreeBridge, objects: list[Any]) -> None:
     """Enter or leave the isolate mode (isolate.py) for these objects."""
-    from .. import services
+    from ..app import services
     isolation = services.isolation()
     if isolation is None:
         return
@@ -263,7 +264,7 @@ def _copy_expressions(objects: list[Any]) -> None:
             lines.append("##@@ %s %s#%s.ExpressionEngine (%s)\n##@@\n%s\n"
                          % (path, obj.Document.Name, obj.Name, obj.Label,
                             expression))
-    from ..qt import QtWidgets
+    from ..core.qt import QtWidgets
     clipboard = QtWidgets.QApplication.clipboard()
     if clipboard is not None:
         clipboard.setText("\n".join(lines))
@@ -285,7 +286,7 @@ def _copy_all(bridge: TreeBridge, objects: list[Any]) -> None:
 
 
 def _paste_expressions(bridge: TreeBridge, objects: list[Any]) -> None:
-    from ..qt import QtWidgets
+    from ..core.qt import QtWidgets
     clipboard = QtWidgets.QApplication.clipboard()
     text = clipboard.text() if clipboard is not None else ""
     found = list(_EXPRESSION.finditer(text))

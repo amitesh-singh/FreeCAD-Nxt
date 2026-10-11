@@ -46,7 +46,7 @@ App.ParamGet = Group
 App.Console = types.SimpleNamespace(PrintError=lambda _m: None)
 sys.modules["FreeCAD"] = App
 
-from freecad.nxt.tree import gizmos  # noqa: E402
+from freecad.nxt.tools import gizmos  # noqa: E402
 
 
 class GizmoTests(unittest.TestCase):

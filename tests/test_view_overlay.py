@@ -36,7 +36,8 @@ App = sys.modules["FreeCAD"]
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
-from freecad.nxt.tree import theme, view_overlay  # noqa: E402
+from freecad.nxt.tree import view_overlay  # noqa: E402
+from freecad.nxt.ui import theme  # noqa: E402
 
 E = QtCore.QEvent.Type
 LEFT = QtCore.Qt.MouseButton.LeftButton

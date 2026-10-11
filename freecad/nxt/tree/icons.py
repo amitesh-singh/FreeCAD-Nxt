@@ -28,7 +28,7 @@ import FreeCADGui as Gui
 # Imported only when the panel builds its QML (see qtquick.py).
 from PySide6.QtQuick import QQuickImageProvider
 
-from ..qt import QtCore, QtGui, QtWidgets
+from ..core.qt import QtCore, QtGui, QtWidgets
 
 _IMAGE_TYPE = QQuickImageProvider.ImageType.Pixmap
 

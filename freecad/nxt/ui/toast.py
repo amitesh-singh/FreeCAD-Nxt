@@ -22,10 +22,10 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .core.view3d import active_viewport
-from .core.widgets import alive
-from .i18n import translate
-from .qt import QtCore
+from ..app.i18n import translate
+from ..core.qt import QtCore
+from ..core.view3d import active_viewport
+from ..core.widgets import alive
 from .view_notice import TopNotice
 
 #: Called with the document once the toast's Undo has undone the change,

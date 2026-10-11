@@ -48,8 +48,8 @@ APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 MAIN = QtWidgets.QMainWindow()
 Gui.getMainWindow = lambda: MAIN  # type: ignore[attr-defined]
 
-from freecad.nxt import toast as toast_mod  # noqa: E402
-from freecad.nxt.tree import theme as theme_mod  # noqa: E402
+from freecad.nxt.ui import theme as theme_mod  # noqa: E402
+from freecad.nxt.ui import toast as toast_mod  # noqa: E402
 
 VIEW_WIDTH = 800
 THEME = theme_mod.Theme(None, MAIN)

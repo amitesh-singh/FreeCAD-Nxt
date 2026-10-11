@@ -13,7 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from ..i18n import translate
+from ..app.i18n import translate
 from . import labels
 from .definitions import Item, Resolved
 
@@ -132,7 +132,7 @@ def _counted(label: str, command: str, subject: Subject) -> str:
 
 def _isolating() -> bool:
     try:
-        from .. import services
+        from ..app import services
         isolation = services.isolation()
         return isolation is not None and isolation.active()
     except Exception:

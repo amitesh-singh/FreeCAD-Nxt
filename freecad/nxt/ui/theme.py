@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..qt import QtCore, QtGui, QtWidgets
-from . import qss_colours, settings
+from ..core import settings
+from ..core.qt import QtCore, QtGui, QtWidgets
+from . import qss_colours
 
 #: How far each derived colour travels from the palette it is mixed from.
 SURFACE_MIX = 0.55

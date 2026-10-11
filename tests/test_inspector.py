@@ -20,7 +20,7 @@ App.Console = types.SimpleNamespace(PrintError=lambda _m: None,
                                     PrintMessage=lambda _m: None)
 sys.modules["FreeCAD"] = App
 
-from freecad.nxt.tree import inspector  # noqa: E402
+from freecad.nxt.inspector import layout as inspector  # noqa: E402
 
 
 class Quantity:

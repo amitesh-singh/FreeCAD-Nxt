@@ -103,7 +103,7 @@ def command_icon(name: str) -> Any:
         return None
     if hasattr(Gui, "getIcon"):
         return Gui.getIcon(pixmap)
-    from ..qt import QtGui
+    from ..core.qt import QtGui
     return QtGui.QIcon(":/icons/%s.svg" % pixmap)
 
 
@@ -141,7 +141,7 @@ def open_native_menu() -> None:
     Sent to FreeCAD's Model tree as if it had been right-clicked there.
     Deferred, so the Nxt menu that asked for it has closed first.
     """
-    from ..qt import QtCore, QtGui, QtWidgets
+    from ..core.qt import QtCore, QtGui, QtWidgets
 
     def show() -> None:
         trees = [w for w in Gui.getMainWindow().findChildren(

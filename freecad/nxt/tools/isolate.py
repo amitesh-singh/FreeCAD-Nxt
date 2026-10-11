@@ -30,9 +30,9 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .core import log
-from .i18n import translate
-from .qt import QtCore
+from ..app.i18n import translate
+from ..core import log
+from ..core.qt import QtCore
 
 # --------------------------------------------------------------------------- #
 # the plan: which objects to show and hide. Pure over duck-typed objects.

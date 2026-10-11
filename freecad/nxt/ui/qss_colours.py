@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from ..qt import QtGui
+from ..core.qt import QtGui
 
 #: Most specific first: the first of these a stylesheet colours wins. The
 #: tree's own classes, then what a tree sits in - a theme can leave the tree

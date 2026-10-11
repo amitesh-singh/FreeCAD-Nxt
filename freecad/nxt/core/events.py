@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..qt import QtCore, QtWidgets
+from .qt import QtCore, QtWidgets
 
 
 class ApplicationEventFilter(QtCore.QObject):

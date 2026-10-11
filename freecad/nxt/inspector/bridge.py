@@ -7,8 +7,10 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from ..qt import QtCore, QtWidgets
-from . import inspector, inspector_templates, task_sync
+from ..core.qt import QtCore, QtWidgets
+from ..tools import task_sync
+from . import layout as inspector
+from . import templates as inspector_templates
 
 #: Selection and the undo stack are polled: together they change whenever
 #: what the inspector shows could have, and reading them is cheap.
@@ -161,7 +163,7 @@ class InspectorBridge(QtCore.QObject):
 
     @QtCore.Slot(str, str)
     def pickColour(self, prop: str, current: str) -> None:
-        from ..qt import QtGui
+        from ..core.qt import QtGui
         colour = QtWidgets.QColorDialog.getColor(
             QtGui.QColor(current or "#808080"),
             Gui.getMainWindow(), inspector.label_for(prop))

@@ -25,9 +25,9 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .. import fc, qtquick
-from ..qt import QtCompat
-from . import health, scene
+from ..core import fc, qtquick
+from ..core.qt import QtCompat
+from ..tree import health, scene
 
 
 def _line(label: str, ok: bool, detail: str = "") -> bool:
@@ -223,7 +223,7 @@ def active() -> dict[str, str]:
 
 def _panel_active() -> Any:
     try:
-        from . import panel
+        from ..tree import panel
         bridge = panel.bridge()
         return bridge.active_container() if bridge is not None else None
     except Exception:
@@ -401,7 +401,7 @@ def context_menu() -> dict[str, list[dict[str, Any]]]:
       * which commands Nxt's definitions would not place, and so would go
         under More.
     """
-    from ..qt import QtCore, QtGui, QtWidgets
+    from ..core.qt import QtCore, QtGui, QtWidgets
 
     App.Console.PrintMessage("\n=== FreeCAD's tree menu ===\n")
     tree = _native_tree()
@@ -491,7 +491,7 @@ def context_menu() -> dict[str, list[dict[str, Any]]]:
 
 
 def _native_tree() -> Any:
-    from ..qt import QtWidgets
+    from ..core.qt import QtWidgets
 
     trees = [w for w in Gui.getMainWindow().findChildren(
         QtWidgets.QTreeWidget)
@@ -658,7 +658,7 @@ def draggers(to_file: bool = True) -> dict[str, Any]:
 
     say("\nTask panel number fields")
     try:
-        from ..qt import QtWidgets
+        from ..core.qt import QtWidgets
         main = Gui.getMainWindow()
         for widget in main.findChildren(QtWidgets.QWidget):
             kind = widget.metaObject().className()
@@ -724,7 +724,7 @@ def pick() -> list[dict[str, Any]]:
     the object FreeCAD selected, the element's history from the shape's
     element map, and the row the panel reveals for it (see picking.py).
     """
-    from . import picking
+    from ..tree import picking
     out: list[dict[str, Any]] = []
     for sel in Gui.Selection.getSelectionEx("", 0):
         doc = sel.Document

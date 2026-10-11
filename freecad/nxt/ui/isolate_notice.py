@@ -14,9 +14,9 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .core.events import ApplicationEventFilter
-from .core.view3d import active_viewport
-from .qt import QtCore, QtWidgets
+from ..core.events import ApplicationEventFilter
+from ..core.qt import QtCore, QtWidgets
+from ..core.view3d import active_viewport
 from .view_notice import TopNotice
 
 

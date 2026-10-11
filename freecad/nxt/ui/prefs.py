@@ -18,9 +18,10 @@ from typing import Any
 import FreeCAD as App
 
 from .. import resources
-from ..i18n import translate
-from ..qt import QtCore, QtGui, QtWidgets
-from . import gizmos, settings
+from ..app.i18n import translate
+from ..core import settings
+from ..core.qt import QtCore, QtGui, QtWidgets
+from ..tools import gizmos
 
 #: The page's group in FreeCAD's Preferences dialog.
 GROUP = "FreeCAD-Nxt"
@@ -50,7 +51,7 @@ _live: weakref.WeakSet[Preferences] = weakref.WeakSet()
 
 def apply(keys: set[str] | frozenset[str]) -> None:
     """Bring the open panel, and every `prefs`, in line with the store."""
-    from . import panel
+    from ..tree import panel
     dock = panel.instance()
     if dock is not None:
         if keys & _VIEW:

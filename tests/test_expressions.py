@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 sys.modules.setdefault("FreeCAD", types.ModuleType("FreeCAD"))
 sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
 
-from freecad.nxt import expressions as ex  # noqa: E402
+from freecad.nxt.tools import expressions as ex  # noqa: E402
 
 
 class TokenTests(unittest.TestCase):

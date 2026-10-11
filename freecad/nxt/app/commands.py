@@ -41,7 +41,7 @@ class ModelPanel(_Command):
     pixmap = ICON
 
     def Activated(self) -> None:  # noqa: N802 - FreeCAD command API
-        from .tree import panel
+        from ..tree import panel
         panel.toggle()
 
 
@@ -55,11 +55,11 @@ class ModelPanelOverlay(_Command):
         "Draw the model panel as floating labels with no background")
 
     def Activated(self) -> None:  # noqa: N802 - FreeCAD command API
-        from .tree import panel
+        from ..tree import panel
         panel.toggle_overlay()
 
     def IsActive(self) -> bool:  # noqa: N802 - FreeCAD command API
-        from .tree import panel
+        from ..tree import panel
         return panel.is_open()
 
 
@@ -73,7 +73,7 @@ class PropertyInspector(_Command):
         "Show the selection's properties beside the model panel")
 
     def Activated(self) -> None:  # noqa: N802 - FreeCAD command API
-        from . import property_inspector
+        from ..inspector import host as property_inspector
         property_inspector.toggle()
 
 
@@ -108,7 +108,7 @@ class Reload(_Command):
                                  "Hot-reload the addon's Python modules")
 
     def Activated(self) -> None:  # noqa: N802 - FreeCAD command API
-        from . import reload_all
+        from .. import reload_all
         reload_all()
 
 

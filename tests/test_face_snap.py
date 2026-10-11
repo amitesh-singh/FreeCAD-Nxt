@@ -6,15 +6,15 @@ Run with: python3 tests/test_face_snap.py
 from __future__ import annotations
 
 import sys
-import types
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-sys.modules.setdefault("FreeCAD", types.ModuleType("FreeCAD"))
-sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
+import fakes  # noqa: E402
+
+fakes.install()
 
 from freecad.nxt.tools import face_snap  # noqa: E402
 from freecad.nxt.tools.face_snap import BACKWARD, FORWARD, Face  # noqa: E402

@@ -16,14 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
-import types  # noqa: E402
 
-import test_inspector  # noqa: E402,F401  (installs the FreeCAD stub)
+import fakes  # noqa: E402
 from PySide6 import QtWidgets  # noqa: E402
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 MAIN = QtWidgets.QMainWindow()
-Gui = sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
+App, Gui = fakes.install()
 Gui.getMainWindow = lambda: MAIN  # type: ignore[attr-defined]
 
 from freecad.nxt.app import services  # noqa: E402

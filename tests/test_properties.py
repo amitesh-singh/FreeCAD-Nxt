@@ -6,7 +6,6 @@ Run with: python3 tests/test_properties.py
 from __future__ import annotations
 
 import sys
-import types
 import unittest
 from pathlib import Path
 from typing import Any
@@ -14,10 +13,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-App = types.ModuleType("FreeCAD")
-App.Console = types.SimpleNamespace(PrintError=lambda _m: None,
-                                    PrintMessage=lambda _m: None)
-sys.modules["FreeCAD"] = App
+import fakes  # noqa: E402
+
+App, Gui = fakes.install()
 
 from freecad.nxt.inspector import properties  # noqa: E402
 

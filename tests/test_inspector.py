@@ -10,116 +10,22 @@ import sys
 import types
 import unittest
 from pathlib import Path
-from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-App = types.ModuleType("FreeCAD")
-App.Console = types.SimpleNamespace(PrintError=lambda _m: None,
-                                    PrintMessage=lambda _m: None)
-sys.modules["FreeCAD"] = App
+import fakes  # noqa: E402
+
+App, Gui = fakes.install(Rotation=fakes.Rotation)
+
+from fakes import (  # noqa: E402
+    Document,
+    Quantity,
+    Thing,
+    helix,
+)
 
 from freecad.nxt.inspector import layout as inspector  # noqa: E402
-
-
-class Quantity:
-    def __init__(self, text: str) -> None:
-        self.UserString = text
-
-
-class Vector:
-    def __init__(self, x: float = 0, y: float = 0, z: float = 0) -> None:
-        self.x, self.y, self.z = x, y, z
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, Vector) and (
-            (self.x, self.y, self.z) == (other.x, other.y, other.z))
-
-
-class Rotation:
-    def __init__(self, axis: Vector, angle_degrees: float) -> None:
-        self.Axis = axis
-        self.Angle = math.radians(angle_degrees)
-
-
-class Placement:
-    def __init__(self) -> None:
-        self.Base = Vector(1, 2, 3)
-        self.Rotation = Rotation(Vector(0, 0, 1), 90)
-
-
-App.Rotation = Rotation
-
-
-class Document:
-    def __init__(self) -> None:
-        self.log: list[str] = []
-
-    def openTransaction(self, name: str) -> None:
-        self.log.append("open " + name)
-
-    def commitTransaction(self) -> None:
-        self.log.append("commit")
-
-    def abortTransaction(self) -> None:
-        self.log.append("abort")
-
-    def recompute(self) -> None:
-        self.log.append("recompute")
-
-
-class Thing:
-    """A document object: properties with a group, a kind and modes."""
-
-    def __init__(self, type_id: str, props: dict[str, tuple[str, str, Any]],
-                 modes: dict[str, list[str]] | None = None,
-                 document: Document | None = None) -> None:
-        self.TypeId = type_id
-        self.Label = type_id.split("::")[-1]
-        self.Name = self.Label
-        self.Document = document or Document()
-        self._props = props
-        self._modes = modes or {}
-        self.PropertiesList = list(props)
-        self.ExpressionEngine: list[tuple[str, str]] = []
-        for name, (_group, _type, value) in props.items():
-            setattr(self, name, value)
-
-    def getGroupOfProperty(self, prop: str) -> str:
-        return self._props[prop][0]
-
-    def getTypeIdOfProperty(self, prop: str) -> str:
-        return self._props[prop][1]
-
-    def getEditorMode(self, prop: str) -> list[str]:
-        return self._modes.get(prop, [])
-
-    def getDocumentationOfProperty(self, prop: str) -> str:
-        return "about " + prop
-
-    def getEnumerationsOfProperty(self, prop: str) -> list[str]:
-        return ["Dimension", "ThroughAll"]
-
-    def setExpression(self, prop: str, expression: str | None) -> None:
-        self.ExpressionEngine = [e for e in self.ExpressionEngine
-                                 if e[0] != prop]
-        if expression is not None:
-            self.ExpressionEngine.append((prop, expression))
-
-
-def helix(**overrides: Any) -> Thing:
-    props = {
-        "Label": ("Base", "App::PropertyString", "Helix"),
-        "Placement": ("Base", "App::PropertyPlacement", Placement()),
-        "Pitch": ("Helix", "App::PropertyLength", Quantity("5.00 mm")),
-        "Height": ("Helix", "App::PropertyLength", Quantity("40.00 mm")),
-        "LocalCoord": ("Helix", "App::PropertyEnumeration", "Dimension"),
-        "Visible2": ("Helix", "App::PropertyBool", True),
-        "Secret": ("Helix", "App::PropertyFloat", 1.0),
-    }
-    props.update(overrides)
-    return Thing("Part::Helix", props, {"Secret": ["Hidden"]})
 
 
 class DescribeTests(unittest.TestCase):

@@ -15,7 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
-import test_inspector  # noqa: E402,F401  (installs the FreeCAD stub)
+import fakes  # noqa: E402
+
+fakes.install()
 
 from freecad.nxt.ui import qss_colours as q  # noqa: E402
 

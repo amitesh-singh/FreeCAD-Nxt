@@ -6,7 +6,6 @@ Run with: python3 tests/test_inspector_templates.py
 from __future__ import annotations
 
 import sys
-import types
 import unittest
 from pathlib import Path
 from typing import Any
@@ -14,11 +13,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-App = types.ModuleType("FreeCAD")
-App.Console = types.SimpleNamespace(PrintError=lambda _m: None,
-                                    PrintWarning=lambda _m: None,
-                                    PrintMessage=lambda _m: None)
-sys.modules.setdefault("FreeCAD", App)
+import fakes  # noqa: E402
+
+App, Gui = fakes.install()
 
 from freecad.nxt.inspector import layout as inspector  # noqa: E402
 from freecad.nxt.inspector import templates  # noqa: E402
@@ -28,9 +25,7 @@ SIDES = ["One side", "Two sides", "Symmetric"]
 STARTS = ["Profile plane", "Offset", "Reference"]
 
 
-class Quantity:
-    def __init__(self, text: str) -> None:
-        self.UserString = text
+Quantity = fakes.Quantity
 
 
 class Feature:

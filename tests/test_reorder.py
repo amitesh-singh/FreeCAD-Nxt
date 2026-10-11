@@ -13,7 +13,10 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.modules.setdefault("FreeCAD", types.ModuleType("FreeCAD"))
+
+import fakes  # noqa: E402
+
+fakes.install()
 
 from freecad.nxt.tree import reorder  # noqa: E402
 from freecad.nxt.tree.reorder import dependencies, plan  # noqa: E402

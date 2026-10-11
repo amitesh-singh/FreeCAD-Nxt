@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import os
 import sys
-import types
 import unittest
 from pathlib import Path
 from typing import Any
@@ -20,19 +19,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import fakes  # noqa: E402
 from PySide6 import QtCore, QtGui, QtQml, QtQuick, QtWidgets  # noqa: E402,F401
 from PySide6.QtTest import QTest  # noqa: E402
 
-App = types.ModuleType("FreeCAD")
-App.Console = types.SimpleNamespace(PrintError=lambda _m: None,
-                                    PrintWarning=lambda _m: None,
-                                    PrintLog=lambda _m: None)
-App.ParamGet = lambda _g: types.SimpleNamespace(
-    GetBool=lambda _k, d: d, GetInt=lambda _k, d: d,
-    GetFloat=lambda _k, d: d, GetString=lambda _k, d: d,
-    GetUnsigned=lambda _k, d: d)
-sys.modules.setdefault("FreeCAD", App)
-sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
+App, Gui = fakes.install()
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 

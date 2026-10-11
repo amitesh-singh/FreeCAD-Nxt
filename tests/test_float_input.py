@@ -21,11 +21,6 @@ sys.path.insert(0, str(ROOT))
 from PySide6 import QtCore, QtGui, QtQuick, QtWidgets  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 
-App = types.ModuleType("FreeCAD")
-App.Console = types.SimpleNamespace(PrintError=lambda _m: None,
-                                    PrintWarning=lambda _m: None,
-                                    PrintLog=lambda _m: None)
-
 
 class Quantity:
     """FreeCAD's quantity parser, for the few forms the tests use."""
@@ -39,14 +34,10 @@ class Quantity:
         self.Value = float(number) * self.UNITS[unit.strip()]
 
 
-App.Units = types.SimpleNamespace(Quantity=Quantity)
-App.ParamGet = lambda _g: types.SimpleNamespace(
-    GetBool=lambda _k, d: d, GetInt=lambda _k, d: d,
-    GetFloat=lambda _k, d: d, GetString=lambda _k, d: d)
-sys.modules.setdefault("FreeCAD", App)
-sys.modules["FreeCAD"].Units = App.Units
-sys.modules["FreeCAD"].Console = App.Console
-sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
+import fakes  # noqa: E402
+
+App, Gui = fakes.install(
+    Units=types.SimpleNamespace(Quantity=Quantity))
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 

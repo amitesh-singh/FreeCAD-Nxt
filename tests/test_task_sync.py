@@ -16,14 +16,10 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import fakes  # noqa: E402
 from PySide6 import QtWidgets  # noqa: E402
 
-App = types.ModuleType("FreeCAD")
-Gui = types.ModuleType("FreeCADGui")
-sys.modules.setdefault("FreeCAD", App)
-sys.modules.setdefault("FreeCADGui", Gui)
-App = sys.modules["FreeCAD"]
-Gui = sys.modules["FreeCADGui"]
+App, Gui = fakes.install()
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 

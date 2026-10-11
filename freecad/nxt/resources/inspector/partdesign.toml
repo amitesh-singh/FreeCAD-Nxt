@@ -1,0 +1,124 @@
+# Property Inspector templates for Part Design.
+#
+# A template lays out the properties it names, in cards of its own, on the
+# Data tab of the objects it matches. Every property it does not name is
+# laid out as before, under "Everything else", so nothing goes missing -
+# not an addon's extension, nor a property a newer FreeCAD adds.
+#
+# Keys of a template:
+#   id        a name, for error messages.
+#   types     TypeId patterns (* wildcards); a template applies when every
+#             selected object matches one.
+#   choices   { enumeration value = "label shown" }, for enumerations.
+#   couple    [[template.couple]] { value, mode, zero, nonzero }: a mode
+#             (zero) that is another (nonzero) at a value of zero. Shown
+#             and written as nonzero; typing the value writes it too.
+#   hide_if   { Property = "OtherProperty" }: never show Property while
+#             the object has OtherProperty (it supersedes it).
+#   card      [[template.card]] tables, in order:
+#     title   the card's heading.
+#     hint    an optional line under the card.
+#     column  [[template.card.column]] tables: { title, items, show_if },
+#             laid side by side under the card's items; a heading shows
+#             only when there are two. show_if as for an item.
+#     after   items laid out under the columns.
+#     items   a property name, or an inline table:
+#               { prop = "...", label = "...", wide = true/false,
+#                 editor = "...", labels = ["no", "yes"],
+#                 show_if = { Prop = value or [values] },
+#                 omit_if = { value = "Property" } }
+#             editor: "dropdown" (an enumeration's default), "segmented"
+#             (every choice in view, joined: for a few choices that change
+#             the shape; on a yes/no, `labels` names its two states) or
+#             "switch" (a yes/no, labelled in place).
+#             show_if shows the item only while one of the named
+#             properties holds one of its values; a property the object
+#             does not have is left out of the test.
+#             omit_if leaves an enumeration value out of the choices when
+#             the object has the named property (Type's TwoLengths,
+#             superseded by SideType in FreeCAD 27).
+#
+# Names a FreeCAD version does not have are skipped, so one template covers
+# versions with Midplane/TwoLengths and those with SideType.
+
+version = 1
+
+[[template]]
+id = "pd-extrude"
+types = ["PartDesign::Pad", "PartDesign::Pocket"]
+
+# Midplane is deprecated where SideType exists (FreeCAD warns on setting
+# it); Symmetric is one of the Sides.
+[template.hide_if]
+Midplane = "SideType"
+
+# A "Profile plane" start is an "Offset" start at zero, and is never
+# chosen here: an offset start shows its drag handle in the 3D view.
+[[template.couple]]
+value = "StartOffset"
+mode = "StartType"
+zero = "Profile plane"
+nonzero = "Offset"
+
+[template.choices]
+Length = "Dimension"
+TwoLengths = "Two lengths"
+ThroughAll = "Through all"
+UpToLast = "To last"
+UpToFirst = "To first"
+UpToFace = "Up to face"
+UpToShape = "Up to shape"
+
+[[template.card]]
+title = "Extent"
+items = [
+    { prop = "SideType", label = "Sides", editor = "segmented", wide = true },
+]
+after = [
+    { prop = "UseCustomVector", label = "Direction", editor = "segmented", labels = ["Sketch normal", "Custom"], wide = true },
+    { prop = "Direction", show_if = { UseCustomVector = true } },
+    { prop = "ReferenceAxis", label = "Reference axis", show_if = { UseCustomVector = true } },
+    { prop = "AlongSketchNormal", label = "Measure length along sketch normal", editor = "switch", wide = true, show_if = { UseCustomVector = true } },
+    { prop = "Reversed", editor = "switch" },
+]
+
+# One column per side: what bounds it, how far, and its taper. The second
+# appears beside the first for two sides.
+[[template.card.column]]
+title = "First side"
+items = [
+    { prop = "Type", editor = "dropdown", omit_if = { TwoLengths = "SideType" } },
+    { prop = "Length", show_if = { Type = ["Length", "TwoLengths"] } },
+    { prop = "UpToFace", label = "Up to face", show_if = { Type = "UpToFace" } },
+    { prop = "UpToShape", label = "Up to shape", show_if = { Type = "UpToShape" } },
+    { prop = "Offset", show_if = { Type = ["UpToLast", "UpToFirst", "UpToFace", "UpToShape"] } },
+    { prop = "TaperAngle", label = "Taper angle", show_if = { Type = ["Length", "TwoLengths"] } },
+]
+
+[[template.card.column]]
+title = "Second side"
+show_if = { SideType = "Two sides", Type = "TwoLengths" }
+items = [
+    { prop = "Type2", label = "Type", editor = "dropdown", omit_if = { TwoLengths = "SideType" } },
+    { prop = "Length2", label = "Length", show_if = { Type2 = "Length" } },
+    { prop = "UpToFace2", label = "Up to face", show_if = { Type2 = "UpToFace" } },
+    { prop = "UpToShape2", label = "Up to shape", show_if = { Type2 = "UpToShape" } },
+    { prop = "Offset2", label = "Offset", show_if = { Type2 = ["UpToLast", "UpToFirst", "UpToFace", "UpToShape"] } },
+    { prop = "TaperAngle2", label = "Taper angle", show_if = { Type2 = "Length" } },
+]
+
+[[template.card]]
+title = "Start"
+items = [
+    { prop = "StartType", label = "From", editor = "segmented", labels = ["Profile", "Reference"] },
+    { prop = "StartOffset", label = "Offset" },
+    { prop = "StartReference", label = "Reference", wide = true, show_if = { StartType = "Reference" } },
+]
+
+[[template.card]]
+title = "Profile"
+items = [
+    { prop = "Profile", label = "Sketch", wide = true },
+    { prop = "Refine", editor = "switch" },
+    { prop = "AllowMultiFace", label = "Multiple faces", editor = "switch" },
+]

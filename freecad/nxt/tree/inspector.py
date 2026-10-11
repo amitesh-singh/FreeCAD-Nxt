@@ -1,8 +1,9 @@
 """The Property Inspector's contents, laid out from what objects say.
 
-No per-type layouts. FreeCAD already files every property in a named group
-and gives it a kind, and addons use the same kinds, so the inspector is built
-from those alone:
+No per-type layouts here: templates (inspector_templates.py) only
+rearrange what this lays out. FreeCAD already files every property in a
+named group and gives it a kind, and addons use the same kinds, so the
+inspector is built from those alone:
 
 * groups are FreeCAD's own, in FreeCAD's order;
 * each property gets the editor for its kind, not for its object's type;
@@ -26,6 +27,8 @@ import traceback
 from typing import Any
 
 import FreeCAD as App
+
+from . import inspector_templates
 
 DocObject = Any
 
@@ -261,17 +264,27 @@ def describe(objects: list[DocObject], tab: str = DATA,
             group = ""
         groups.setdefault(group or "Other", []).append(entry)
 
+    template = (inspector_templates.for_objects(objects)
+                if tab == DATA else None)
+    cards = (inspector_templates.apply(template, objects, groups)
+             if template is not None else [])
+
     own = _type_name(objects[0]) if len(objects) == 1 else ""
     out = []
     for index, (name, items) in enumerate(groups.items()):
-        opened = (bool(needle) or name == own
+        # Behind a template, what it leaves is the rarely wanted rest:
+        # closed unless an expression or a filter calls for it.
+        opened = (bool(needle)
                   or any(item["expression"] for item in items)
-                  or name not in QUIET_GROUPS)
+                  or (not cards and (name == own
+                                     or name not in QUIET_GROUPS)))
         out.append({"name": name, "open": opened, "items": items,
-                    "first": name == own})
+                    "first": name == own and not cards})
     # The object's own group leads, whatever order FreeCAD keeps it in.
     out.sort(key=lambda group: not group["first"])
-    return out
+    if cards and out:
+        out[0]["rest"] = True       # "Everything else" goes above it
+    return cards + out
 
 
 # ---------------------------------------------------------------- editing
@@ -347,24 +360,37 @@ def _assign_part(container: Any, prop: str, path: str, text: str) -> None:
 def apply(objects: list[DocObject], prop: str, value: Any,
           tab: str = DATA, unit: str = "", part: str = "") -> bool:
     """Set `prop` on every object as one undo step, then recompute."""
-    if not objects:
+    return apply_many(objects, [(prop, value, unit)], tab, part)
+
+
+def apply_many(objects: list[DocObject],
+               edits: list[tuple[str, Any, str]], tab: str = DATA,
+               part: str = "") -> bool:
+    """Make several (property, value, unit) edits as one undo step.
+
+    For a template's coupled properties: a start offset and the start
+    type it implies are one change to the user.
+    """
+    if not objects or not edits:
         return False
     doc = getattr(objects[0], "Document", None)
     if doc is None:
         return False
-    doc.openTransaction("Edit %s" % prop)
+    doc.openTransaction("Edit %s" % edits[-1][0])
     try:
-        for obj in objects:
-            container = _container(obj, tab)
-            if part:
-                _assign_part(container, prop, part, str(value))
-            else:
-                _assign(container, obj, prop, value, unit)
+        for prop, value, unit in edits:
+            for obj in objects:
+                container = _container(obj, tab)
+                if part:
+                    _assign_part(container, prop, part, str(value))
+                else:
+                    _assign(container, obj, prop, value, unit)
         doc.commitTransaction()
     except Exception:
         doc.abortTransaction()
-        App.Console.PrintError("Nxt: could not set %s to %r\n"
-                               % (prop, value))
+        App.Console.PrintError("Nxt: could not set %s\n"
+                               % ", ".join("%s to %r" % (p, v)
+                                           for p, v, _u in edits))
         App.Console.PrintError(traceback.format_exc())
         return False
     doc.recompute()

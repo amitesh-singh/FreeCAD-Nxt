@@ -70,12 +70,34 @@ Rectangle {
         model: inspector.groups
         bottomMargin: root.pad
 
-        delegate: Rectangle {
-            id: group
+        delegate: Item {
+            id: slot
             required property var modelData
+            readonly property bool rest: !!modelData.rest
+
+            width: root.width
+            height: group.y + group.height
+
+            // Behind a template's cards, the generic groups it left.
+            Text {
+                id: restHeading
+                visible: slot.rest
+                x: root.pad + 2
+                y: 2
+                text: qsTr("Everything else")
+                font.pixelSize: theme.fontAside
+                font.capitalization: Font.AllUppercase
+                font.letterSpacing: 0.6
+                color: theme.textDim
+            }
+
+        Rectangle {
+            id: group
+            readonly property var modelData: slot.modelData
             property bool opened: modelData.open
 
             x: root.pad
+            y: slot.rest ? restHeading.height + 6 : 0
             width: root.width - 2 * root.pad
             height: groupBody.implicitHeight + 2 * root.pad
             radius: 4
@@ -114,7 +136,8 @@ Rectangle {
                     }
                     Text {
                         visible: !group.opened
-                        text: group.modelData.items.length
+                        text: group.modelData.count
+                              || group.modelData.items.length
                         font.pixelSize: theme.fontSmall
                         color: theme.textDim
                     }
@@ -127,62 +150,84 @@ Rectangle {
                     spacing: root.gap
 
                     Repeater {
-                        model: group.opened ? group.modelData.items.length
-                                            : 0
-
-                        Column {
-                            id: item
-                            required property int index
-                            readonly property var spec:
-                                group.modelData.items[index]
-
-                            width: item.spec.wide
+                        model: group.opened ? group.modelData.items : []
+                        InspectorField {
+                            required property var modelData
+                            spec: modelData
+                            width: modelData.wide
                                    ? groupBody.width
                                    : (groupBody.width - root.gap) / 2
-                            spacing: 2
+                        }
+                    }
+                }
 
-                            Row {
-                                spacing: 4
-                                Text {
-                                    text: item.spec.label
-                                    font.pixelSize: theme.fontAside
-                                    color: theme.textDim
-                                    width: Math.min(implicitWidth,
-                                                    item.width - 12)
-                                    elide: Text.ElideRight
-                                }
-                                Text {
-                                    // An expression drives this value.
-                                    visible: item.spec.expression.length > 0
-                                    text: "ƒ"
-                                    font.pixelSize: theme.fontAside
-                                    font.italic: true
-                                    font.bold: true
-                                    color: theme.textDim
-                                }
+                // A template's columns: one per side of an extrusion, the
+                // second beside the first when there is a second.
+                Row {
+                    visible: group.opened && !!group.modelData.columns
+                             && group.modelData.columns.length > 0
+                    width: parent.width
+                    spacing: root.gap
+
+                    Repeater {
+                        model: group.opened && group.modelData.columns
+                               ? group.modelData.columns : []
+
+                        Column {
+                            id: column
+                            required property var modelData
+                            width: (groupBody.width - root.gap) / 2
+                            spacing: root.gap
+
+                            Text {
+                                visible: column.modelData.title.length > 0
+                                text: column.modelData.title
+                                font.pixelSize: theme.fontAside
+                                font.bold: true
+                                color: theme.textDim
                             }
-
-                            ValueEditor {
-                                width: item.width
-                                spec: item.spec
-                                owner: inspector.owner
-                                onEdited: function (value) {
-                                    inspector.setValue(item.spec.name, value,
-                                                  item.spec.unit);
+                            Repeater {
+                                model: column.modelData.items
+                                InspectorField {
+                                    required property var modelData
+                                    spec: modelData
+                                    width: column.width
                                 }
-                                onPartEdited: function (path, text) {
-                                    inspector.setPart(item.spec.name, path, text);
-                                }
-                                onColourRequested:
-                                    inspector.pickColour(item.spec.name,
-                                                    item.spec.text)
-                                onNativeRequested:
-                                    inspector.editNative(item.spec.name)
                             }
                         }
                     }
                 }
+
+                Flow {
+                    visible: group.opened && !!group.modelData.after
+                             && group.modelData.after.length > 0
+                    width: parent.width
+                    spacing: root.gap
+
+                    Repeater {
+                        model: group.opened && group.modelData.after
+                               ? group.modelData.after : []
+                        InspectorField {
+                            required property var modelData
+                            spec: modelData
+                            width: modelData.wide
+                                   ? groupBody.width
+                                   : (groupBody.width - root.gap) / 2
+                        }
+                    }
+                }
+
+                Text {
+                    // A template's note on the card.
+                    visible: group.opened && !!group.modelData.hint
+                    width: parent.width
+                    text: group.modelData.hint || ""
+                    wrapMode: Text.Wrap
+                    font.pixelSize: theme.fontAside
+                    color: theme.textDim
+                }
             }
+        }
         }
     }
 

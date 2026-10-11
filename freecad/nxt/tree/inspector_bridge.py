@@ -8,7 +8,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from ..qt import QtCore, QtWidgets
-from . import inspector
+from . import inspector, inspector_templates, task_sync
 
 #: Selection and the undo stack are polled: together they change whenever
 #: what the inspector shows could have, and reading them is cheap.
@@ -127,7 +127,30 @@ class InspectorBridge(QtCore.QObject):
 
     @QtCore.Slot(str, "QVariant", str)
     def setValue(self, prop: str, value: Any, unit: str) -> None:
-        if inspector.apply(self._objects(), prop, value, self._tab, unit):
+        objects = self._objects()
+        edits: list[tuple[str, Any]] = [(prop, value)]
+        if self._tab == inspector.DATA:
+            # A template may tie this to another property: a start
+            # offset and the start type its zero stands for.
+            coupled = inspector_templates.coupled(
+                inspector_templates.for_objects(objects), objects, prop,
+                value)
+            if coupled is not None:
+                edits = coupled
+            if not edits:
+                return
+            # A feature whose task panel is open is edited through the
+            # panel, so its preview and 3D handles follow (task_sync.py).
+            rest = [(p, v) for p, v in edits
+                    if not task_sync.set_in_task(
+                        objects, p, v, unit if p == prop else "")]
+            if not rest:
+                self.refresh()
+                return
+            edits = rest
+        if inspector.apply_many(
+                objects, [(p, v, unit if p == prop else "")
+                          for p, v in edits], self._tab):
             self.refresh()
 
     @QtCore.Slot(str, str, str)

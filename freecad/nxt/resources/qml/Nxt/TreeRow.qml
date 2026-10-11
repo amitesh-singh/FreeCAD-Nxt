@@ -172,6 +172,9 @@ Item {
     // reminder of where it came from, while its image follows the pointer.
     readonly property bool dragSource:
         ListView.view && ListView.view.dragSources.indexOf(row.name) >= 0
+    // A sliding drag will drop *into* this row (NxtTree.qml's ghost).
+    readonly property bool slideInto: ListView.view
+                                      && ListView.view.intoRow === row.index
     property real gap: 0
     onGapBelowChanged: gap = gapBelow ? row.dragGapHeight : 0
 
@@ -393,7 +396,7 @@ Item {
                  : theme.pill
             opacity: theme.overlay ? 1.0
                    : (row.selected || hover.hovered || row.dropTarget
-                      || row.pickOrigin) ? 1.0
+                      || row.slideInto || row.pickOrigin) ? 1.0
                    : row.highlighted ? 0.5
                    : row.isActive ? 0.28
                    : 0.0
@@ -451,7 +454,8 @@ Item {
             anchors.fill: fill
             radius: fill.radius
             color: "transparent"
-            border.width: row.dropTarget ? 2 : row.highlighted ? 1 : 0
+            border.width: row.dropTarget || row.slideInto ? 2
+                        : row.highlighted ? 1 : 0
             border.color: theme.accent
         }
 
@@ -823,24 +827,46 @@ Item {
             }
 
             onEntered: function (drag) {
-                row.dropTarget = nxt.canDropOn(
+                var says = nxt.dropHint(
                     row.dragGhost ? row.dragGhost.names : [], row.name);
+                row.dropTarget = says !== "";
                 if (!row.dropTarget) drag.accepted = false;
                 // A reparent puts the dragged object *inside* the target,
                 // which is to say on the rows below it - so the space opens
                 // under the target rather than above it.
                 setGap(row.dropTarget);
+                // And says so beside the pointer: where it ends up.
+                if (row.dragGhost)
+                    row.dragGhost.say(row.dropTarget ? says
+                        : qsTr("Can't drop on %1").arg(row.label),
+                        row.dropTarget);
+                // A closed container held over opens, to drop deeper.
+                if (row.dropTarget && row.hasChildren && !row.expanded)
+                    springOpen.restart();
             }
             onExited: {
                 row.dropTarget = false;
                 setGap(false);
+                springOpen.stop();
+                if (row.dragGhost && !row.dragGhost.sliding)
+                    row.dragGhost.say("", true);
             }
             onDropped: function (drop) {
+                springOpen.stop();
                 if (row.dropTarget)
                     nxt.dropOn(row.dragGhost ? row.dragGhost.names : [],
                                row.name);
                 row.dropTarget = false;
                 setGap(false);
+            }
+
+            Timer {
+                id: springOpen
+                interval: 700
+                onTriggered: {
+                    if (row.dropTarget && !row.expanded)
+                        nxt.toggleExpanded(row.name);
+                }
             }
         }
 
@@ -920,9 +946,11 @@ Item {
                     // Body they still slide, behind the row that was
                     // grabbed.
                     var names = held ? nxt.dragNames(row.name) : [row.name];
-                    var sliding = row.bodyName !== ""
-                                  && (names.length === 1
-                                      || nxt.inOneBody(names));
+                    // A Body's members, and a Part's or group's, slide:
+                    // the drag is a reorder, with "into" a sibling and out
+                    // of the container still on offer (NxtTree.qml).
+                    var container = nxt.slideContainer(names);
+                    var sliding = container !== "";
                     // In an overlay the row is its pill: the picture is
                     // that much of the line, not the whole of it.
                     var cropLeft = theme.overlay ? Math.max(0, row.pillLeft - 2)
@@ -930,6 +958,9 @@ Item {
                     var cropWidth = theme.overlay
                                   ? row.pillRight + 2 - cropLeft
                                   : head.width;
+                    row.dragGhost.container = container;
+                    row.dragGhost.inBody = row.bodyName !== "";
+                    row.dragGhost.sourceDepth = row.depth;
                     row.dragGhost.begin(
                         names,
                         names.length > 1

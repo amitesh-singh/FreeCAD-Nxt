@@ -8,7 +8,12 @@ import QtQuick
 //                            leading "=" binds an expression. Entering it
 //                            selects what you would retype.
 //   bool                     a box.
-//   enum                     a drop-down, its list above the whole panel.
+//   enum                     a drop-down, its list above the whole panel;
+//                            joined buttons where a template asks
+//                            (spec.editor "segmented").
+//   bool, by a template      a switch (spec.editor "switch", labelled in
+//                            place), or two joined buttons naming the two
+//                            states ("segmented", spec.optionLabels).
 //   color                    a swatch; clicking it opens a colour picker.
 //   vector, placement        one small field per component.
 //   link                     chips naming what it points at.
@@ -67,10 +72,19 @@ Item {
         ChoiceList {}
     }
 
+    //: An enumeration value as a template names it.
+    function labelOf(value) {
+        var values = editor.spec.options || [];
+        var labels = editor.spec.optionLabels || [];
+        var i = values.indexOf(value);
+        return (i >= 0 && labels[i]) || value;
+    }
+
     function openChoices(anchor) {
         var root = anchor.Window.contentItem;
         var list = choices.createObject(root, {
             options: editor.spec.options,
+            labels: editor.spec.optionLabels || [],
             current: editor.spec.text,
             below: anchor.mapToItem(root, 0, anchor.height),
             anchorHeight: anchor.height,
@@ -147,7 +161,7 @@ Item {
 
         // --- a yes/no ---------------------------------------------------- #
         Row {
-            visible: editor.kind === "bool"
+            visible: editor.kind === "bool" && !editor.spec.editor
             spacing: 5
             height: theme.fieldHeight
 
@@ -193,10 +207,58 @@ Item {
         }
 
         // --- a choice ---------------------------------------------------- #
+        // A template's "segmented": every option in view, joined. For an
+        // enumeration its values; for a yes/no, no then yes.
+        Segmented {
+            id: joined
+            visible: editor.spec.editor === "segmented"
+                     && (editor.kind === "enum" || editor.kind === "bool")
+            enabled: !editor.locked
+            width: parent.width
+            height: theme.fieldHeight
+            value: editor.spec.mixed ? undefined
+                 : editor.kind === "bool" ? !!editor.spec.checked
+                 : editor.spec.text
+            options: {
+                var labels = editor.spec.optionLabels || [];
+                if (editor.kind === "bool")
+                    return [{value: false, label: labels[0] || qsTr("Off")},
+                            {value: true, label: labels[1] || qsTr("On")}];
+                var out = [];
+                var values = editor.spec.options || [];
+                for (var i = 0; i < values.length; ++i)
+                    out.push({value: values[i], label: labels[i] || values[i]});
+                return out;
+            }
+            onPicked: function (value) {
+                if (value !== joined.value)
+                    editor.edited(value);
+            }
+        }
+
+        // A template's "switch": a yes/no labelled in place.
+        NxtSwitch {
+            id: toggle
+            visible: editor.kind === "bool" && editor.spec.editor === "switch"
+            enabled: !editor.locked
+            width: parent.width
+            height: theme.fieldHeight
+            text: editor.spec.label || ""
+            checked: !!editor.spec.checked && !editor.spec.mixed
+            onToggled: {
+                editor.edited(toggle.checked);
+                // Shows what is stored, not what was clicked.
+                toggle.checked = Qt.binding(function () {
+                    return !!editor.spec.checked && !editor.spec.mixed;
+                });
+            }
+        }
+
         Chip {
             id: choice
-            visible: editor.kind === "enum"
-            text: (editor.spec.mixed ? qsTr("— mixed") : (editor.spec.text || ""))
+            visible: editor.kind === "enum" && editor.spec.editor !== "segmented"
+            text: (editor.spec.mixed ? qsTr("— mixed")
+                   : editor.labelOf(editor.spec.text || ""))
                   + (editor.locked ? "" : "  ▾")
             active: editor.choosing
             interactive: !editor.locked

@@ -186,12 +186,85 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: problems.visible ? problems.right : docLabel.right
             anchors.leftMargin: 10
-            anchors.right: dockButton.visible ? dockButton.left : gear.left
+            anchors.right: collapseButton.left
             anchors.rightMargin: 4
             placeholder: qsTr("search")
             results: nxt.searchResults
             onQueryChanged: function (value) { nxt.setSearch(value); }
             onChosen: function (name) { nxt.revealObject(name); }
+        }
+
+        // Collapse the whole tree, keeping the way to the active Body; with
+        // Shift, open everything. For long trees.
+        Item {
+            id: collapseButton
+            objectName: "collapseButton"
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.right: dockButton.visible ? dockButton.left : gear.left
+            anchors.rightMargin: 2
+            width: gear.width
+            height: width
+            enabled: nxt.hasDocument
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 4
+                color: theme.hover
+                visible: collapseHover.hovered
+            }
+
+            // Two chevrons closing on a line: everything folded up.
+            Canvas {
+                anchors.centerIn: parent
+                width: Math.round(parent.width * 0.62)
+                height: width
+                antialiasing: true
+                property color ink: collapseHover.hovered ? theme.text
+                                                          : theme.textDim
+                onInkChanged: requestPaint()
+                onWidthChanged: requestPaint()
+                onPaint: {
+                    var ctx = getContext("2d");
+                    ctx.reset();
+                    var w = width, h = height;
+                    ctx.strokeStyle = ink;
+                    ctx.lineWidth = Math.max(1.2, w / 9);
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    ctx.beginPath();
+                    ctx.moveTo(w * 0.2, h * 0.08);
+                    ctx.lineTo(w * 0.5, h * 0.34);
+                    ctx.lineTo(w * 0.8, h * 0.08);
+                    ctx.moveTo(w * 0.2, h * 0.92);
+                    ctx.lineTo(w * 0.5, h * 0.66);
+                    ctx.lineTo(w * 0.8, h * 0.92);
+                    ctx.moveTo(w * 0.1, h * 0.5);
+                    ctx.lineTo(w * 0.9, h * 0.5);
+                    ctx.stroke();
+                }
+            }
+
+            HoverHandler {
+                id: collapseHover
+                cursorShape: Qt.PointingHandCursor
+            }
+            // A MouseArea, for the click's modifiers: a TapHandler's
+            // event point does not carry them.
+            MouseArea {
+                anchors.fill: parent
+                onClicked: function (mouse) {
+                    nxt.collapseTree(
+                        (mouse.modifiers & Qt.ShiftModifier) !== 0);
+                }
+            }
+            NxtToolTip {
+                shown: collapseHover.hovered
+                text: qsTr("Collapse all") + "\n"
+                      + qsTr("Shift-click: expand all")
+            }
+
+            Accessible.role: Accessible.Button
+            Accessible.name: qsTr("Collapse all")
         }
 
         // Inside the 3D view (Nxt's overlay) the dock and its title bar are
@@ -381,6 +454,8 @@ Rectangle {
             property int heldRow: -1
             property real heldOffset: 0
             property bool reorderDrag: false
+            // The row a sliding drag would drop into, or -1.
+            property int intoRow: -1
 
             delegate: TreeRow { dragGhost: ghost; detailCap: root.contentCap }
 
@@ -520,6 +595,16 @@ Rectangle {
         visible: Drag.active
 
         property var names: []
+        //: Where a drop would put what is in hand, in words ("Into Body",
+        //: "After Pad"); empty when nothing is under the pointer.
+        property string hint: ""
+        //: False when the hint says a drop is refused, and is drawn so.
+        property bool hintOk: true
+
+        function say(text, ok) {
+            hint = text;
+            hintOk = ok;
+        }
         // Sliding: a reorder within a Body. The ghost is then a picture of
         // the row itself, locked to its column and held at the point it was
         // grabbed, so the row moves rather than a label beside the pointer.
@@ -528,6 +613,17 @@ Rectangle {
         // is allowed there, and what the panel said about each row asked.
         property string slideTarget: ""
         property var verdicts: ({})
+        // While sliding: the row it would drop into instead - the middle
+        // of a sibling that takes it - and what was said of each asked.
+        property string slideInto: ""
+        property var intoVerdicts: ({})
+        // Set by the row that starts the drag: the container it slides in,
+        // whether that is a Body (whose members only reorder), and how
+        // deep its rows sit - a row shallower than that, other than the
+        // container, is outside it.
+        property string container: ""
+        property bool inBody: false
+        property int sourceDepth: 0
 
         Drag.active: false
         Drag.hotSpot.x: 12
@@ -540,13 +636,20 @@ Rectangle {
             sliding = grabbedAt !== null && grabbedAt !== undefined;
             shot.sourceItem = null;
             slideTarget = "";
+            slideInto = "";
             verdicts = ({});
+            intoVerdicts = ({});
             // The drop target is the row under the pointer, so the hot spot
             // is the point that was grabbed.
             Drag.hotSpot.x = sliding ? grabbedAt.x : 12;
             Drag.hotSpot.y = sliding ? grabbedAt.y : height / 2;
             treeList.dragSources = objectNames;
             treeList.reorderDrag = sliding;
+            hint = "";
+            // Rows scrolled out of view are kept while a drag lasts: the
+            // row being dragged holds the pointer, and must not be
+            // recycled when the list scrolls under it (edgeScroll).
+            treeList.cacheBuffer = 100000;
             Drag.active = true;
         }
 
@@ -570,18 +673,25 @@ Rectangle {
         function finish() {
             if (sliding) {
                 Drag.active = false;
-                if (slideTarget !== "")
-                    nxt.dropOn(names, slideTarget);
+                if (slideInto !== "")
+                    nxt.dropInto(names, slideInto);
+                else if (slideTarget !== "")
+                    nxt.reorderOn(names, slideTarget);
                 treeList.dropGap = -1;
+                treeList.intoRow = -1;
+                slideInto = "";
+                intoSpring.stop();
             } else {
                 Drag.drop();
                 Drag.active = false;
             }
             names = [];
             sliding = false;
+            hint = "";
             shot.sourceItem = null;
             treeList.dragSources = [];
             treeList.reorderDrag = false;
+            treeList.cacheBuffer = 400;
         }
 
         // A drag moves pixels over the translucent surface in overlay mode;
@@ -597,8 +707,76 @@ Rectangle {
 
         function allowed(target) {
             if (verdicts[target] === undefined)
-                verdicts[target] = nxt.canDropOn(names, target);
+                verdicts[target] = nxt.canReorderOn(names, target);
             return verdicts[target];
+        }
+
+        function takesIt(target) {
+            if (intoVerdicts[target] === undefined)
+                intoVerdicts[target] = nxt.canDropInto(names, target);
+            return intoVerdicts[target];
+        }
+
+        // Out of a Part or group: the drag stops sliding and becomes a
+        // free one, the label following the pointer and any row a target.
+        function unslide() {
+            sliding = false;
+            shot.sourceItem = null;
+            slideTarget = "";
+            slideInto = "";
+            intoSpring.stop();
+            treeList.reorderDrag = false;
+            treeList.dropGap = -1;
+            treeList.intoRow = -1;
+            Drag.hotSpot.x = 12;
+            Drag.hotSpot.y = height / 2;
+            say("", true);
+        }
+
+        // Over the middle of a sibling that would take it: into that row.
+        // Over a row outside the container: no longer a slide. Returns
+        // true when either decided the matter.
+        function slideAcross() {
+            if (inBody)
+                return false;
+            var at = ghost.mapToItem(treeList.contentItem,
+                                     Drag.hotSpot.x, Drag.hotSpot.y);
+            var under = treeList.itemAt(10, at.y);
+            if (!under || names.indexOf(under.name) >= 0)
+                return false;
+            if (under.depth < sourceDepth && under.name !== container) {
+                unslide();
+                return true;
+            }
+            var within = (at.y - under.y) / Math.max(1, under.height);
+            if (within > 0.25 && within < 0.75 && takesIt(under.name)) {
+                if (slideInto !== under.name) {
+                    slideInto = under.name;
+                    if (!under.expanded && under.hasChildren)
+                        intoSpring.restart();
+                    else
+                        intoSpring.stop();
+                }
+                treeList.intoRow = under.index;
+                treeList.dropGap = -1;
+                slideTarget = "";
+                say(qsTr("Into %1").arg(under.label), true);
+                return true;
+            }
+            return false;
+        }
+
+        // Held over the middle of a closed container for a moment, it
+        // opens, to drop deeper.
+        Timer {
+            id: intoSpring
+            interval: 700
+            onTriggered: {
+                var item = treeList.intoRow >= 0
+                           ? treeList.itemAtIndex(treeList.intoRow) : null;
+                if (item && item.name === ghost.slideInto && !item.expanded)
+                    nxt.toggleExpanded(item.name);
+            }
         }
 
         // Opens the gap where the dragged row is, so it sits over the
@@ -608,6 +786,13 @@ Rectangle {
         // The slot chosen is the row boundary nearest the dragged row's
         // top edge; the gap opens there, a row high, under the ghost.
         function slide() {
+            if (slideAcross())
+                return;
+            if (slideInto !== "") {
+                slideInto = "";
+                intoSpring.stop();
+            }
+            treeList.intoRow = -1;
             var want = ghost.mapToItem(treeList.contentItem, 0, 0).y;
             var first = treeList.indexAt(10, treeList.contentY);
             var last = treeList.indexAt(10, treeList.contentY
@@ -630,10 +815,73 @@ Rectangle {
                     best = i;
                 }
             }
-            var target = best >= 0 ? treeList.itemAtIndex(best).name : "";
+            var item = best >= 0 ? treeList.itemAtIndex(best) : null;
+            var target = item ? item.name : "";
             var ok = target !== "" && allowed(target);
             slideTarget = ok ? target : "";
             treeList.dropGap = ok ? best : -1;
+            // Onto the Body itself is to its start; onto a member, after it.
+            say(!ok ? qsTr("Can't move here")
+                : item.name === container ? qsTr("To the start of %1")
+                                             .arg(item.label)
+                : qsTr("After %1").arg(item.label), ok);
+        }
+
+        // While a drag is near the top or bottom of the list, the list
+        // scrolls, faster the further in; a reorder keeps finding its
+        // slot as the rows pass under it.
+        Timer {
+            id: edgeScroll
+            interval: 16
+            repeat: true
+            running: ghost.Drag.active
+            onTriggered: {
+                var at = ghost.mapToItem(treeList, ghost.Drag.hotSpot.x,
+                                         ghost.Drag.hotSpot.y);
+                var edge = theme.rowHeight * 1.5;
+                var step = 0;
+                if (at.y < edge)
+                    step = -Math.min(1, (edge - at.y) / edge);
+                else if (at.y > treeList.height - edge)
+                    step = Math.min(1, (at.y - treeList.height + edge)
+                                       / edge);
+                if (step === 0)
+                    return;
+                var top = treeList.originY;
+                var bottom = treeList.originY + treeList.contentHeight
+                             - treeList.height;
+                var next = Math.max(top, Math.min(bottom,
+                                    treeList.contentY + step * 14));
+                if (next === treeList.contentY)
+                    return;
+                treeList.contentY = next;
+                if (ghost.sliding)
+                    ghost.slide();
+            }
+        }
+
+        // Where it will land, beside the pointer.
+        Rectangle {
+            id: hintPill
+            z: 2
+            visible: ghost.hint.length > 0
+            x: ghost.sliding ? shot.width + 8 : 0
+            y: ghost.sliding ? (ghost.height - height) / 2
+                             : ghost.height + 3
+            width: hintText.implicitWidth + 12
+            height: theme.chipHeight
+            radius: height / 2
+            color: theme.surface
+            border.width: 1
+            border.color: ghost.hintOk ? theme.accent : theme.border
+
+            Text {
+                id: hintText
+                anchors.centerIn: parent
+                text: ghost.hint
+                font.pixelSize: theme.fontSmall
+                color: ghost.hintOk ? theme.text : theme.textDim
+            }
         }
 
         ShaderEffectSource {

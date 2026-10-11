@@ -7,7 +7,7 @@ model: indentation here is presentation, not structure. See DESIGN.md.
 from __future__ import annotations
 
 import difflib
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any
 
 import FreeCAD as App
@@ -160,6 +160,12 @@ class TreeRowModel(QtCore.QAbstractListModel):
         self._snapshot: Any = None
         self._rows: list[tuple[str, int]] = []            # [(name, depth)]
         self._expanded: set[str] = set()
+        #: What was open in each document left for another, by name.
+        self._kept: dict[str, set[str]] = {}
+        #: What is open when a document is first shown; the bridge sets
+        #: this to read the preference and the document's saved state.
+        self.opening: Callable[[Any], Iterable[str]] = (
+            lambda snap: snap.opening_expansion())
         self._selection: set[str] = set()
         self._highlight: set[str] = set()
         self._detail: set[str] = set()
@@ -214,8 +220,15 @@ class TreeRowModel(QtCore.QAbstractListModel):
             self._icon_rev += 1
 
         if first:
+            # Leaving a document keeps what was open in it; coming back
+            # restores that. Only a document never shown asks `opening`.
+            if previous is not None and previous.doc_name:
+                self._kept[previous.doc_name] = set(self._expanded)
             self._known = set()
-            self._expanded = set(snapshot.default_expansion())
+            kept = self._kept.get(snapshot.doc_name)
+            self._expanded = (set(kept) & set(snapshot.nodes)
+                              if kept is not None
+                              else set(self.opening(snapshot)))
         else:
             # keep what the user opened, drop what is gone, and open any
             # container that appeared since the last snapshot
@@ -303,6 +316,9 @@ class TreeRowModel(QtCore.QAbstractListModel):
 
     # -- interaction state -------------------------------------------------- #
 
+    def expanded(self) -> frozenset[str]:
+        return frozenset(self._expanded)
+
     def is_expanded(self, name: str) -> bool:
         return name in self._expanded
 
@@ -318,9 +334,17 @@ class TreeRowModel(QtCore.QAbstractListModel):
         self.refresh_rows()
 
     def expand_all(self) -> None:
+        """Open everything but Origins and coordinate systems.
+
+        Their point, axes and planes are the same seven rows in every
+        Body and Part, and rarely what opening everything is for. One
+        already open stays open.
+        """
         if self._snapshot is None:
             return
-        self._expanded = set(self._snapshot.nodes)
+        nodes = self._snapshot.nodes
+        self._expanded |= {n for n, node in nodes.items()
+                           if not node.is_coordinate_system}
         self.refresh_rows()
 
     def collapse_all(self) -> None:

@@ -9,11 +9,13 @@ import sys
 import types
 import unittest
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.modules.setdefault("FreeCAD", types.ModuleType("FreeCAD"))
 
+from freecad.nxt.tree import reorder  # noqa: E402
 from freecad.nxt.tree.reorder import dependencies, plan  # noqa: E402
 
 # Sketch -> Pad -> Sketch001 (on Pad's face) -> Pocket -> Fillet (Pocket's
@@ -119,6 +121,61 @@ class FreeCADRuleTests(unittest.TestCase):
         self.assertNotIn("Sketch001", self.rules)
         result = plan(self.members, ["Sketch002"], "Sketch", self.rules)
         self.assertTrue(result.ok, result.problem)
+
+
+class Member:
+    """A document object listed in a container's Group."""
+
+    def __init__(self, name: str) -> None:
+        self.Name = self.Label = name
+        self.InList: list[Any] = []
+        self.TypeId = "PartDesign::Body"
+
+
+class Container(Member):
+    def __init__(self, name: str, type_id: str, *members: Member) -> None:
+        super().__init__(name)
+        self.TypeId = type_id
+        self.Group = list(members)
+        for member in members:
+            member.InList.append(self)
+        self.log: list[str] = []
+        self.Document = types.SimpleNamespace(
+            openTransaction=lambda _t: self.log.append("open"),
+            commitTransaction=lambda: self.log.append("commit"),
+            abortTransaction=lambda: self.log.append("abort"),
+            getObject=lambda n: next(m for m in self.Group if m.Name == n))
+
+
+class GroupTests(unittest.TestCase):
+    """Bodies and other members reordered inside a Part or a group."""
+
+    def setUp(self) -> None:
+        self.a, self.b, self.c = Member("A"), Member("B"), Member("C")
+        self.part = Container("Part", "App::Part", self.a, self.b, self.c)
+
+    def names(self) -> list[str]:
+        return [m.Name for m in self.part.Group]
+
+    def test_onto_a_sibling_goes_after_it(self) -> None:
+        box, the_plan = reorder.plan_group_drop([self.a], self.c)
+        self.assertIs(box, self.part)
+        reorder.apply_group(box, the_plan)
+        self.assertEqual(self.names(), ["B", "C", "A"])
+        self.assertEqual(self.part.log, ["open", "commit"])
+
+    def test_onto_the_container_goes_first(self) -> None:
+        box, the_plan = reorder.plan_group_drop([self.c], self.part)
+        reorder.apply_group(box, the_plan)
+        self.assertEqual(self.names(), ["C", "A", "B"])
+
+    def test_not_across_containers_nor_inside_a_body(self) -> None:
+        other = Member("Other")
+        Container("Group", "App::DocumentObjectGroup", other)
+        self.assertIsNone(reorder.plan_group_drop([self.a], other)[0])
+        feature = Member("Pad")
+        Container("Body", "PartDesign::Body", feature)
+        self.assertIsNone(reorder.group_of(feature))
 
 
 if __name__ == "__main__":

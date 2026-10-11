@@ -67,6 +67,13 @@ class _AppObserver(object):
     def slotDeletedDocument(self, doc: Any) -> None:
         self._bridge.invalidate(icons=True)
 
+    def slotStartSaveDocument(self, doc: Any, label: str) -> None:
+        # Before FreeCAD writes the file: it saves what is open.
+        try:
+            self._bridge.save_expansion(doc)
+        except Exception:
+            pass
+
     def slotFinishSaveDocument(self, doc: Any, label: str) -> None:
         pass
 

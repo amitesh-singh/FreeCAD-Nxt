@@ -46,7 +46,7 @@ class Plan:
 def plan(members: Sequence[str], moving: Sequence[str], after: str | None,
          depends_on: Mapping[str, set[str]], base: str | None = None
          ) -> Plan:
-    """The Body's order with `moving` placed after `after` (None: first).
+    """The order with `moving` placed after `after` (None: first).
 
     `members` is the Body's Group in order; `depends_on` maps each member
     to everything it reads, directly or not. The plan is refused if it
@@ -59,7 +59,7 @@ def plan(members: Sequence[str], moving: Sequence[str], after: str | None,
     if base is not None and base in moving:
         return Plan(problem="the Body's base feature cannot be moved")
     if after is not None and after not in members:
-        return Plan(problem="%s is not in this Body" % after)
+        return Plan(problem="%s is not in the same container" % after)
     if after in moving:
         return Plan(problem="cannot drop onto what is being moved")
 
@@ -155,6 +155,57 @@ def dependencies(body: Any) -> dict[str, set[str]]:
 
 def _name(obj: Any) -> str | None:
     return None if obj is None else str(obj.Name)
+
+
+def group_of(obj: Any) -> Any:
+    """The Part, group or other container whose Group lists `obj`, or None.
+
+    A Body is not one of these: its order is its history (plan_drop).
+    """
+    for parent in getattr(obj, "InList", None) or ():
+        if getattr(parent, "TypeId", "") == "PartDesign::Body":
+            continue
+        members = getattr(parent, "Group", None)
+        if not isinstance(members, (list, tuple)):
+            continue
+        if any(_name(m) == obj.Name for m in members):
+            return parent
+    return None
+
+
+def plan_group_drop(sources: Sequence[Any], target: Any
+                    ) -> tuple[Any, Plan]:
+    """The container and plan when this drop reorders a Part or group.
+
+    It is one when every source is listed by the same container and the
+    target is the container itself (place first) or another of its members
+    (place after it). Order in a Part or group means nothing to the model,
+    so no order is refused for what depends on what.
+    """
+    container = group_of(sources[0]) if sources else None
+    if container is None or any(_name(group_of(s)) != container.Name
+                                for s in sources):
+        return None, Plan()
+    if target.Name == container.Name:
+        after = None
+    elif _name(group_of(target)) == container.Name:
+        after = target.Name
+    else:
+        return None, Plan()
+    members = [m.Name for m in container.Group]
+    return container, plan(members, [s.Name for s in sources], after, {})
+
+
+def apply_group(container: Any, the_plan: Plan) -> None:
+    """Put a Part's or group's members in the planned order: one undo."""
+    doc = container.Document
+    doc.openTransaction("Reorder %s" % container.Label)
+    try:
+        container.Group = [doc.getObject(n) for n in the_plan.order]
+        doc.commitTransaction()
+    except Exception:
+        doc.abortTransaction()
+        raise
 
 
 def _is(obj: Any, type_name: str) -> bool:

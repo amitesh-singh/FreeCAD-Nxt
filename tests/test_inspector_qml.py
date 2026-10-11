@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
 import test_inspector as fakes  # noqa: E402  (installs the FreeCAD stub)
+import test_inspector_templates as pads  # noqa: E402
 from PySide6 import QtCore, QtQuick, QtWidgets  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 
@@ -245,6 +246,72 @@ view, root = load(bridge)
 mixed = [i for i in items_of(root, "QQuickText")
          if i.property("text") == "— mixed" and i.property("visible")]
 check("a differing value shows as mixed", len(mixed) == 1)
+finish(view, bridge)
+
+# --- a Pad, laid out by its template ------------------------------------- #
+print("template: PartDesign::Pad")
+bridge = Bridge(inspector.describe([pads.modern(SideType="Two sides")]))
+view, root = load(bridge)
+shown = texts(root)
+check("the template's cards and the rest's heading",
+      {"Extent", "Direction", "Everything else"} <= shown
+      and "Direction" not in [g["name"] for g in bridge._groups])
+check("two sides give two titled columns",
+      {"First side", "Second side"} <= shown)
+check("Type is a drop-down showing its readable label",
+      any("Dimension" in (t or "") for t in shown))
+check("no Symmetric switch beside Sides", "Symmetric" in shown
+      and not any(i.property("text") == "Symmetric"
+                  for i in items_of(root, "NxtSwitch")))
+custom = next(i for i in items_of(root, "QQuickText")
+              if i.property("text") == "Custom")
+click(view, custom)
+check("a two-state choice sets the yes/no",
+      ("value", "UseCustomVector", True, "") in bridge.calls)
+switches = [i for i in items_of(root, "NxtSwitch")
+            if i.property("visible")]
+click(view, next(i for i in switches if i.property("text") == "Reversed"))
+check("a switch sets its yes/no",
+      ("value", "Reversed", True, "") in bridge.calls)
+two = next(i for i in items_of(root, "QQuickText")
+           if i.property("text") == "One side")
+click(view, two)
+check("Sides is a segmented control",
+      ("value", "SideType", "One side", "") in bridge.calls)
+finish(view, bridge)
+
+# --- a choice that rebuilds the form ------------------------------------- #
+print("template: a drop-down choice that changes the fields")
+
+
+class Rebuilding(Bridge):
+    """Lays the form out again after every edit, as the real bridge does."""
+
+    @QtCore.Slot(str, "QVariant", str)
+    def setValue(self, prop: str, value: Any, unit: str) -> None:
+        self.calls.append(("value", prop, value, unit))
+        self._groups = inspector.describe([pads.modern(**{prop: value})])
+        self.changed.emit()
+
+
+bridge = Rebuilding(inspector.describe([pads.modern()]))
+view, root = load(bridge)
+kind = next(i for i in items_of(root, "Chip")
+            if "Dimension" in (i.property("text") or ""))
+click(view, kind)
+# The list opens on the window's content item, above the whole panel.
+choice = next(i for i in items_of(view.contentItem(), "QQuickText")
+              if i.property("text") == "Up to face" and i.property("visible"))
+click(view, choice)
+settle()
+check("the choice reached the bridge",
+      ("value", "Type", "UpToFace", "") in bridge.calls)
+check("the list closed though its field was rebuilt",
+      not [i for i in items_of(view.contentItem(), "ChoiceList")
+           if i.property("visible")])
+check("the panel still takes clicks",
+      any(i.property("text") == "Offset"
+          for i in items_of(root, "QQuickText")))
 finish(view, bridge)
 
 print("PROBLEMS: %d" % len(problems))

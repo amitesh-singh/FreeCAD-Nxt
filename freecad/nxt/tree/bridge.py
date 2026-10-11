@@ -33,6 +33,7 @@ from . import (
     picking,
     properties,
     reorder,
+    saved_expansion,
     scene,
     settings,
 )
@@ -89,6 +90,7 @@ class TreeBridge(QtCore.QObject):
         super().__init__(parent)
         self._widen = widen
         self._tree = models.TreeRowModel(self)
+        self._tree.opening = self._opening
         self._snapshot = scene.Snapshot()
         self._dirty = False
         self._icons_dirty = False
@@ -201,12 +203,75 @@ class TreeBridge(QtCore.QObject):
                 return name
         return ""
 
+    def _opening(self, snap: Any) -> set[str]:
+        """What a document opens with: as FreeCAD saved it, else closed.
+
+        Read from the file (saved_expansion.py): FreeCAD restores the same
+        state into each object only later, through its own tree. What an
+        object's State says already is added, for a document whose file
+        is gone or not yet saved.
+        """
+        saved: set[str] = set()
+        try:
+            doc = App.getDocument(snap.doc_name)
+            saved = saved_expansion.read(getattr(doc, "FileName", "") or "")
+            saved |= {o.Name for o in doc.Objects
+                      if "Expanded" in (getattr(o, "State", None) or ())}
+        except Exception:
+            pass
+        return snap.opening_expansion(saved)
+
+    def save_expansion(self, doc: Any) -> None:
+        """Hand what is open in the panel to FreeCAD, as a save begins.
+
+        FreeCAD writes into the file what its own tree has open, which is
+        where `_opening` reads it back - here or in stock FreeCAD. Its tree
+        is told container by container, parents first, since a stock tree
+        item does not exist until its parent has been opened.
+        """
+        snap = self._snapshot
+        if snap is None or doc is None or snap.doc_name != doc.Name:
+            return
+        try:
+            gui_doc = Gui.getDocument(doc.Name)
+        except Exception:
+            return
+        wanted = self._tree.expanded()
+        depth: dict[str, int] = {}
+
+        def level(name: str) -> int:
+            if name not in depth:
+                parent = snap.nodes[name].parent
+                depth[name] = 0 if parent not in snap.nodes \
+                    else level(parent) + 1
+            return depth[name]
+
+        names = [n for n, node in snap.nodes.items()
+                 if node.is_container and not node.is_virtual]
+        for name in sorted(names, key=level):
+            obj = doc.getObject(name)
+            if obj is None:
+                continue
+            want = name in wanted
+            have = "Expanded" in (getattr(obj, "State", None) or ())
+            if want == have:
+                continue
+            try:
+                # 2 expands the stock tree's item, 1 collapses it.
+                gui_doc.toggleTreeItem(obj, 2 if want else 1)
+            except Exception:
+                pass
+
     def _sync_active(self) -> None:
         name = self._read_active()
         if name == self._active:
             return
         self._active = name
         self._tree.set_active(name)
+        if name:
+            # The Body you are working in, and the way down to it, open.
+            self._tree.reveal(name)
+            self._tree.set_expanded(name, True)
         self._publish_tip_bars()        # the bar goes with the active Body
 
     def _deferral(self, slot: Callable[[], Any]) -> QtCore.QTimer:
@@ -971,6 +1036,20 @@ class TreeBridge(QtCore.QObject):
     def collapseAll(self) -> None:
         self._tree.collapse_all()
 
+    @QtCore.Slot(bool)
+    def collapseTree(self, expand: bool) -> None:  # noqa: N802
+        """The header's control: everything closed, or with Shift, open.
+
+        Closing keeps the way down to the active Body or Part open, so
+        where you are working is still a row in view.
+        """
+        if expand:
+            self._tree.expand_all()
+            return
+        self._tree.collapse_all()
+        if self._active:
+            self._tree.reveal(self._active)
+
     # ------------------------------------------------------------------ #
     # cross-panel navigation
     # ------------------------------------------------------------------ #
@@ -1599,14 +1678,133 @@ class TreeBridge(QtCore.QObject):
             return False
         return len(bodies) == 1 and None not in bodies
 
+    @QtCore.Slot("QVariantList", result=str)
+    def slideContainer(self, names: list[Any]) -> str:  # noqa: N802
+        """The container a drag of `names` slides within, or "".
+
+        A Body, or a Part or group that lists them all: there a drag is a
+        reorder, the row sliding up and down its column (NxtTree.qml's
+        ghost), with "into" a sibling container and out of the container
+        still to be had.
+        """
+        doc = App.ActiveDocument
+        if doc is None or not names:
+            return ""
+        objects = [doc.getObject(str(n)) for n in names]
+        if any(o is None for o in objects):
+            return ""
+        for find in (reorder.body_of, reorder.group_of):
+            try:
+                holders = {getattr(find(o), "Name", None) for o in objects}
+            except Exception:
+                continue
+            if len(holders) == 1 and None not in holders:
+                return str(holders.pop())
+        return ""
+
+    @QtCore.Slot("QVariantList", str, result=bool)
+    def canReorderOn(self, sources: list[Any], target_name: str) -> bool:  # noqa: N802
+        """May `sources` go after the row, or first on their container?"""
+        body, plan = self._body_reorder(sources, target_name)
+        if body is None:
+            body, plan = self._group_reorder(sources, target_name)
+        return body is not None and plan.ok
+
+    @QtCore.Slot("QVariantList", str, result=bool)
+    def canDropInto(self, sources: list[Any], target_name: str) -> bool:  # noqa: N802
+        """Would the row take `sources` inside, not being their container?"""
+        if target_name in {self.slideContainer(sources)}:
+            return False
+        if self._body_reorder(sources, target_name)[0] is not None:
+            return False        # a Body's own members reorder, never nest
+        return self._can_drop_into(sources, target_name)
+
+    @QtCore.Slot("QVariantList", str, result=bool)
+    def reorderOn(self, sources: list[Any], target_name: str) -> bool:  # noqa: N802
+        """Place `sources` after the row, or first on their container."""
+        body, plan = self._body_reorder(sources, target_name)
+        if body is not None:
+            return self.dropOn(sources, target_name)
+        container, group_plan = self._group_reorder(sources, target_name)
+        if container is None or not group_plan.ok:
+            return False
+        try:
+            reorder.apply_group(container, group_plan)
+        except Exception:
+            _err("could not reorder %s" % container.Name)
+            return False
+        what = self._named(container.Document, group_plan.moving)
+        self._toast(container.Document, translate(
+            "Nxt", "Moved %s to the start of %s")
+            % (what, container.Label) if target_name == container.Name
+            else translate("Nxt", "Moved %s after %s")
+            % (what, self._named(container.Document, [target_name])))
+        self.invalidate(icons=True)
+        return True
+
+    @QtCore.Slot("QVariantList", str, result=bool)
+    def dropInto(self, sources: list[Any], target_name: str) -> bool:  # noqa: N802
+        """Put `sources` inside the row's object."""
+        if not self.canDropInto(sources, target_name):
+            return False
+        return self._move_into(sources, target_name)
+
     @QtCore.Slot("QVariantList", str, result=bool)
     def canDropOn(self, sources: list[Any], target_name: str) -> bool:
+        return bool(self.dropHint(sources, target_name))
+
+    @QtCore.Slot("QVariantList", str, result=str)
+    def dropHint(self, sources: list[Any], target_name: str) -> str:  # noqa: N802
+        """What dropping `sources` on this row does, in words; "" if not.
+
+        In a Body, a reorder (after the row, or to the Body's start). In a
+        Part or group, onto a sibling that would take it, into that
+        sibling; onto any other sibling, after it; onto the container, to
+        its start. Elsewhere, into the row.
+        """
+        doc = App.ActiveDocument
+        if doc is None or not sources:
+            return ""
+        target = doc.getObject(target_name)
+        label = getattr(target, "Label", target_name)
+        body, plan = self._body_reorder(sources, target_name)
+        if body is not None:
+            if not plan.ok:
+                return ""
+            return (translate("Nxt", "To the start of %s") % label
+                    if target_name == body.Name
+                    else translate("Nxt", "After %s") % label)
+        container, group_plan = self._group_reorder(sources, target_name)
+        into = self._can_drop_into(sources, target_name)
+        if container is not None and (target_name == container.Name
+                                      or not into):
+            if not group_plan.ok:
+                return ""
+            return (translate("Nxt", "To the start of %s") % label
+                    if target_name == container.Name
+                    else translate("Nxt", "After %s") % label)
+        return translate("Nxt", "Into %s") % label if into else ""
+
+    def _group_reorder(self, sources: list[Any], target_name: str
+                       ) -> tuple[Any, reorder.Plan]:
+        doc = App.ActiveDocument
+        if doc is None:
+            return None, reorder.Plan()
+        objects = [doc.getObject(str(n)) for n in sources]
+        target = doc.getObject(target_name)
+        if target is None or any(o is None for o in objects):
+            return None, reorder.Plan()
+        try:
+            return reorder.plan_group_drop(objects, target)
+        except Exception:
+            _err("could not plan a reorder onto %s" % target_name)
+            return None, reorder.Plan()
+
+    def _can_drop_into(self, sources: list[Any], target_name: str) -> bool:
+        """Would the row's object take `sources` inside it?"""
         doc = App.ActiveDocument
         if doc is None or not sources:
             return False
-        body, plan = self._body_reorder(sources, target_name)
-        if body is not None:
-            return plan.ok
         target = doc.getObject(target_name)
         tvo = getattr(target, "ViewObject", None)
         if tvo is None:
@@ -1659,8 +1857,30 @@ class TreeBridge(QtCore.QObject):
                     % (what, self._named(body.Document, [target_name])))
             self.invalidate(icons=True)
             return True
-        if not self.canDropOn(sources, target_name):
+        container, group_plan = self._group_reorder(sources, target_name)
+        if container is not None and (
+                target_name == container.Name
+                or not self._can_drop_into(sources, target_name)):
+            if not group_plan.ok:
+                return False
+            try:
+                reorder.apply_group(container, group_plan)
+            except Exception:
+                _err("could not reorder %s" % container.Name)
+                return False
+            what = self._named(container.Document, group_plan.moving)
+            self._toast(container.Document, translate(
+                "Nxt", "Moved %s to the start of %s")
+                % (what, container.Label) if target_name == container.Name
+                else translate("Nxt", "Moved %s after %s")
+                % (what, self._named(container.Document, [target_name])))
+            self.invalidate(icons=True)
+            return True
+        if not self._can_drop_into(sources, target_name):
             return False
+        return self._move_into(sources, target_name)
+
+    def _move_into(self, sources: list[Any], target_name: str) -> bool:
         doc = App.ActiveDocument
         if doc is None:
             return False

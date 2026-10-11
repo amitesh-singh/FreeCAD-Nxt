@@ -112,6 +112,30 @@ def _derived(obj: DocObject, bases: Iterable[str]) -> bool:
     return False
 
 
+#: What holds an origin's or a local coordinate system's own point, axes
+#: and planes.
+COORDINATE_SYSTEM_BASES = ("App::LocalCoordinateSystem", "App::Origin")
+
+
+def _in_coordinate_system(obj: DocObject) -> bool:
+    """One of an Origin's or LCS's own point, axes or planes.
+
+    These stay with their Origin. FreeCAD 26 and later make them datum
+    elements and drop App::OriginFeature, so the type alone no longer
+    tells them from a datum plane the user made: what lists them does.
+    """
+    for holder in getattr(obj, "InList", None) or ():
+        if not _derived(holder, COORDINATE_SYSTEM_BASES):
+            continue
+        try:
+            features = getattr(holder, "OriginFeatures", None) or ()
+        except Exception:
+            features = ()
+        if any(getattr(f, "Name", None) == obj.Name for f in features):
+            return True
+    return False
+
+
 def is_profile(obj: DocObject, widen: bool = False) -> bool:
     if _derived(obj, PROFILE_BASES):
         return True
@@ -367,6 +391,11 @@ def linking_properties(holder: DocObject, target: DocObject) -> list[str]:
 # snapshot
 # --------------------------------------------------------------------------- #
 
+#: Rows a document's saved expansion may open before it is set aside and
+#: the tree opens collapsed: an assembly saved fully open buries the rest.
+OPENING_ROWS = 300
+
+
 @dataclass(slots=True, eq=False)
 class Node:
     """One document object, resolved for display.
@@ -394,6 +423,8 @@ class Node:
     #: Models: every input in build order, filed sketches and datums too.
     sources: list[str] = field(default_factory=list)
     is_datum: bool = False
+    #: An Origin or local coordinate system: holds a point, axes, planes.
+    is_coordinate_system: bool = False
     filed: bool = False             # lives in a Sketches/Datum compartment
     is_virtual: bool = False        # a panel-only group, not an object
     is_binder: bool = False
@@ -492,8 +523,11 @@ class Snapshot:
             node.is_container = is_container(obj)
             node.nests_operands = nests_operands(obj)
             node.is_binder = _derived(obj, BINDER_BASES)
-            node.is_datum = (_derived(obj, DATUM_BASES) and
-                             not _derived(obj, ORIGIN_BASES))
+            node.is_coordinate_system = _derived(
+                obj, COORDINATE_SYSTEM_BASES)
+            node.is_datum = (_derived(obj, DATUM_BASES)
+                             and not _derived(obj, ORIGIN_BASES)
+                             and not _in_coordinate_system(obj))
             if _derived(obj, BODY_BASES):
                 bodies.append(name)
 
@@ -1266,6 +1300,26 @@ class Snapshot:
     def default_expansion(self) -> set[str]:
         """Containers open, features closed: how people actually work."""
         return {n for n, node in self.nodes.items() if node.is_container}
+
+    def opening_expansion(self, saved: set[str] | None = None,
+                          cap: int = OPENING_ROWS) -> set[str]:
+        """What is open when a document is first shown.
+
+        What FreeCAD saved as expanded (`saved`), with the panel's own
+        folders inside them open as before - as long as that gives no
+        more than `cap` rows. Otherwise, or with nothing saved, everything
+        is closed: the top-level rows, and the collapse-all control to
+        get back there.
+        """
+        if not saved:
+            return set()
+        chosen = ({n for n in saved if n in self.nodes}
+                  | {n for n, node in self.nodes.items()
+                     if node.is_virtual and node.is_container
+                     and node.parent is not None})
+        if len(self.flatten(chosen)) > cap:
+            return set()
+        return chosen
 
 
 def capture(doc: DocObject = None, widen: bool = False,

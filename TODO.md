@@ -37,6 +37,12 @@ Tick items off as they land; add notes under an item as decisions are made.
 
 - [x] Tree lines ("Show tree lines", off by default): dotted connectors from each container to its children, in the accent colour for the active Body, Part or assembly and everything inside it (`branch_lines` in tree/models.py, TreeLines.qml)
 - [x] Double-click a Body, Part or assembly that is not active to make it active; the active one opens and closes as before
+- [x] Opening a document: as FreeCAD saved it (objects whose State has "Expanded"), else everything collapsed, and collapsed too past 300 rows; a document left for another keeps what was open when you come back; as a save begins, what is open in the panel is handed to FreeCAD's tree (`toggleTreeItem`, parents first) so the file keeps it (`opening_expansion` in tree/scene.py, `save_expansion` in tree/bridge.py). **Untested inside FreeCAD**: that the hidden stock tree takes `toggleTreeItem` and that the state round-trips
+- [x] Collapse-all in the tree header: collapses everything but the way to the active Body; Shift-click expands everything (`collapseTree`)
+- [x] Dragging: the list scrolls near its top and bottom edges; a label beside the pointer says where a drop lands ("Into Body001", "After Pad", "To the start of Body", "To the top of the document", or why not); a closed container held over for 0.7 s opens
+- [x] Reorder inside a Part or group by dragging: onto a sibling that would not take it inside, after it; onto the container, to its start; the drop label says which (`plan_group_drop` in tree/reorder.py, `dropHint` in tree/bridge.py). A sibling that accepts the object (a Body for a sketch, a group) still takes it inside
+- [x] Members of a Part or group slide as a Body's features do, the row moving and a gap opening where it lands; over the middle of a sibling that takes it (a Body for a sketch, a group), it drops into that sibling, which opens after 0.7 s; over a row outside the container the drag stops sliding and goes anywhere (`slideContainer`, `canDropInto`, `reorderOn` in tree/bridge.py; `slideAcross` in NxtTree.qml)
+- [ ] Drop zones above and below a row, to insert before or after an object in another container (needs a positioned insert in the bridge; today a drop across containers goes into the row it is on)
 
 - [x] 3D-view picks, as SolidWorks does: a face is traced through the element map to the feature that made it (tree/picking.py), which stays outlined until the selection changes; its path opens, the tree scrolls to it and it flashes (setting "Show objects picked in the 3D view")
 - [x] Double-click a face in the 3D view to edit the feature that made it (tree/face_edit.py; setting "Double-click a face to edit its feature")
@@ -59,7 +65,9 @@ Not planned (decided 2026-10-09): stepping the tip from the keyboard, dragging a
 
 ## Property Inspector
 
-- [ ] **M** Part Design and Sketch templates (after the three card cases are confirmed)
+- [ ] **M** Part Design and Sketch templates
+  - [x] Template mechanism and Pad/Pocket: cards named for the task (Extent, Start, Profile); Extent has Sides as a segmented control and one column per side (type, length or bound, taper), the second beside the first for two sides; dropdowns for types, switches for yes/no, Direction (Sketch normal | Custom) and Reversed under the columns; deprecated Midplane hidden where SideType exists; edits to a feature in edit go through its task panel (tree/task_sync.py); everything not placed stays below under "Everything else", closed (tree/inspector_templates.py, resources/inspector/partdesign.toml). **Untested inside FreeCAD**; enumeration values for FreeCAD 27's SideType/Type2 are guesses
+  - [ ] Revolution/Groove, Fillet/Chamfer, Hole, patterns, Sketch, Body
 - [ ] **S** Drag to change numbers: horizontal drag on a field's label, Shift fine / Ctrl coarse
 - [x] Expression editing with autocomplete: `=` in a value field lists the document's objects, the properties after a dot, the owner's own properties and FreeCAD's functions, with the live result under them; in the inspector, the detail strip and the floating fields (freecad/nxt/expressions.py, Nxt/ExpressionAssist.qml; independent of the tree)
 - [ ] **M** Compare mode for multi-select: "— mixed" lists each object's value; pick one to apply to all

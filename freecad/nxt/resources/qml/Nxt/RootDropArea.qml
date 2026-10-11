@@ -26,6 +26,19 @@ DropArea {
         return ghost && !ghost.sliding ? ghost.names : [];
     }
 
+    //: What a drop here does, in words, for the ghost to say.
+    property string hint: qsTr("To the top of the document")
+
+    onAcceptingChanged: {
+        if (!ghost || ghost.sliding)
+            return;
+        // Cleared only if it is still this area's: a row may have spoken
+        // since, the rows lying over this area.
+        if (accepting)
+            ghost.say(area.hint, true);
+        else if (ghost.hint === area.hint)
+            ghost.say("", true);
+    }
     onEntered: function (drag) {
         accepting = wanted(drag.x, drag.y);
     }

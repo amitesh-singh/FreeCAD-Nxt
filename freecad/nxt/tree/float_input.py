@@ -67,7 +67,7 @@ import FreeCADGui as Gui
 from .. import expressions, qtquick, resources
 from ..i18n import translate
 from ..qt import QtCore, QtGui, QtWidgets
-from . import placement, settings
+from . import placement, settings, task_sync
 
 #: The property each task panel field sets, where it is known.
 PROPERTIES = {
@@ -575,6 +575,8 @@ class FloatingInput(QtCore.QObject):
         # The edit the first box last took the keyboard for: it does so
         # once per edit, when the edit begins.
         self._session: tuple[str, str] | None = None
+        #: The edit whose start was set to an offset (_update).
+        self._started: tuple[str, str] | None = None
         self._claim = FocusClaim()
 
     def install(self) -> None:
@@ -655,14 +657,23 @@ class FloatingInput(QtCore.QObject):
         return [(spin.objectName() or "value", spin, corners)]
 
     def _update(self) -> bool:
-        if not settings.get("FloatingValues"):
-            return False
         gui_doc: Any = Gui.ActiveDocument
         edit = gui_doc.getInEdit() if gui_doc is not None else None
         obj = getattr(edit, "Object", None)
         if obj is None:
             self._session = None        # the edit is over
+            self._started = None
             self._claim.stop()
+            return False
+        started = (gui_doc.Document.Name, obj.Name)
+        if started != self._started:
+            # Once per edit: a Pad or Pocket starts at an offset, so its
+            # start handle shows (task_sync.start_with_offset). Tried
+            # again on the next tick while its panel is still being built.
+            if task_sync.start_with_offset(obj) \
+                    or not task_sync.wants_offset_start(obj):
+                self._started = started
+        if not settings.get("FloatingValues"):
             return False
         view = gui_doc.ActiveView
         targets = self._targets(view, str(obj.TypeId))

@@ -25,3 +25,4 @@ ExpressionAssist 1.0 ExpressionAssist.qml
 UndoToast 1.0 UndoToast.qml
 DependencyArrows 1.0 DependencyArrows.qml
 Breadcrumb 1.0 Breadcrumb.qml
+InspectorField 1.0 InspectorField.qml

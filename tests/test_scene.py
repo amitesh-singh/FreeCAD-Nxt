@@ -1383,6 +1383,23 @@ class CompartmentTests(unittest.TestCase):
         self.assertEqual(snap.roots, ["X_Axis", "~Sketches", "~DatumObjects"])
         self.assertEqual(snap.nodes["~DatumObjects"].label, "Datum Objects")
 
+    def test_an_origins_own_axes_stay_with_it(self):
+        # FreeCAD 26+: datum elements, no App::OriginFeature base.
+        axis = FakeObject("X_Axis001", "App::Line", ["App::DatumElement"])
+        point = FakeObject("Origin_Point", "App::Point",
+                           ["App::DatumElement"])
+        origin = FakeObject("Origin014", "App::Origin",
+                            ["App::LocalCoordinateSystem", "App::Origin"])
+        origin.claims(axis, point)
+        origin.link("OriginFeatures", [axis, point])
+        plane = FakeObject("Plane", "Part::DatumPlane", ["Part::Datum"])
+        snap = scene.Snapshot(FakeDocument("Doc", [origin, axis, point,
+                                                   plane]))
+        self.assertFalse(snap.nodes["X_Axis001"].is_datum)
+        self.assertEqual(snap.nodes["~DatumObjects"].children, ["Plane"])
+        self.assertEqual(snap.nodes["X_Axis001"].parent, "Origin014")
+        self.assertTrue(snap.nodes["Origin014"].is_coordinate_system)
+
     def test_an_app_part_gets_its_own(self):
         p = part("Part")
         sk = sketch("Inner")
@@ -1449,6 +1466,44 @@ class BinderTests(unittest.TestCase):
         b.Group = [binder]
         snap = scene.Snapshot(FakeDocument("Doc", [b, binder]))
         self.assertEqual(snap.nodes["Binder"].parent, "Body")
+
+
+class OpeningTests(unittest.TestCase):
+    """What a document shows when it is first opened."""
+
+    def _doc(self):
+        base, lid = part("Base"), part("Lid")
+        fasteners = group("Fasteners")
+        fasteners.claims(FakeObject("Screw", "Part::Feature",
+                                    ["Part::Feature"]))
+        b1 = body("Body")
+        b1.claims(feature("Pad"))
+        base.claims(b1, fasteners)
+        b2 = body("Body001")
+        b2.claims(feature("Pocket"))
+        lid.claims(b2)
+        return scene.Snapshot(FakeDocument(
+            "Doc", [base, lid, fasteners, b1, b2, sketch("Loose")]))
+
+    def test_nothing_saved_opens_collapsed(self):
+        self.assertEqual(self._doc().opening_expansion(), set())
+        self.assertEqual(self._doc().opening_expansion(set()), set())
+
+    def test_saved_state_is_used(self):
+        opened = self._doc().opening_expansion(saved={"Base", "Fasteners"})
+        self.assertTrue({"Base", "Fasteners"} <= opened)
+        self.assertNotIn("Lid", opened)
+
+    def test_saved_state_keeps_folders_inside_open_not_top_level(self):
+        snap = self._doc()
+        opened = snap.opening_expansion(saved={"Base"})
+        tops = {n for n in snap.roots if snap.nodes[n].is_virtual}
+        self.assertFalse(tops & opened)
+
+    def test_saved_state_that_opens_too_much_gives_way(self):
+        snap = self._doc()
+        self.assertEqual(snap.opening_expansion(saved=set(snap.nodes),
+                                                cap=3), set())
 
 
 if __name__ == "__main__":

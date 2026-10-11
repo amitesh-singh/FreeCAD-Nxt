@@ -12,6 +12,8 @@ Item {
     id: popup
 
     property var options: []
+    //: What to show for each option, where it differs from the value.
+    property var labels: []
     property string current: ""
     property point below            // anchor's bottom-left, in our coords
     property real anchorHeight: 0
@@ -43,10 +45,14 @@ Item {
     readonly property real widest: {
         var most = 0;
         for (var i = 0; i < popup.options.length; ++i)
-            most = Math.max(most, metrics.advanceWidth(popup.options[i]));
+            most = Math.max(most, metrics.advanceWidth(popup.labelAt(i)));
         return most;
     }
     readonly property int optionPad: 10
+
+    function labelAt(i) {
+        return (popup.labels && popup.labels[i]) || popup.options[i];
+    }
 
     Keys.onEscapePressed: popup.dismiss()
 
@@ -89,6 +95,7 @@ Item {
                 Rectangle {
                     id: option
                     required property string modelData
+                    required property int index
                     readonly property bool isCurrent:
                         modelData === popup.current
 
@@ -100,7 +107,7 @@ Item {
                         id: label
                         anchors.verticalCenter: parent.verticalCenter
                         x: popup.optionPad
-                        text: option.modelData
+                        text: popup.labelAt(option.index)
                         font.pixelSize: theme.fontSmall
                         font.bold: option.isCurrent
                         color: theme.text
@@ -115,8 +122,17 @@ Item {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            popup.chosen(option.modelData);
-                            popup.dismiss();
+                            // Closed first: choosing can rebuild the
+                            // field that opened the list (a choice that
+                            // changes which fields show), and with it the
+                            // context this handler runs in - after which
+                            // `popup` no longer resolves, the list never
+                            // closed, and its full-window catcher kept
+                            // every click from the panel.
+                            var value = option.modelData;
+                            var list = popup;
+                            list.dismiss();
+                            list.chosen(value);
                         }
                     }
                 }

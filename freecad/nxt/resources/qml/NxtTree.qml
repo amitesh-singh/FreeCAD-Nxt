@@ -55,7 +55,11 @@ Rectangle {
         if (breadcrumb.visible
                 && breadcrumb.contains(breadcrumb.mapFromItem(root, x, y)))
             return true;
-        var bar = tipLayer.childAt(x - tipLayer.x, y - treePane.y);
+        if (scrollBar.visible
+                && scrollBar.contains(scrollBar.mapFromItem(root, x, y)))
+            return true;
+        var bar = tipContent.childAt(x - tipLayer.x,
+                                     y - treePane.y - tipContent.y);
         if (bar !== null)
             return true;
         var p = treeList.mapFromItem(root, x, y);
@@ -74,15 +78,27 @@ Rectangle {
     // view_overlay.py; the list itself takes no input there, so that the
     // wheel elsewhere zooms the model). `angle` is in eighths of a degree,
     // as Qt reports a wheel; `pixel` is a touchpad's own distance, if any.
-    function scrollWheel(angle, pixel) {
+    property real wheelBoost: 1
+    property double lastWheel: 0
+
+    function scrollWheel(angle, pixel, paging) {
         // Over a breadcrumb too long for its strip, the wheel scrolls the
         // trail, as it does docked.
         if (breadcrumb.visible && breadcrumb.hovered && breadcrumb.overflows) {
             breadcrumb.scrollBy(pixel !== 0 ? pixel : angle / 120 * 40);
             return;
         }
-        var step = pixel !== 0 ? pixel
-                               : angle / 120 * theme.rowHeight * 3;
+        var now = Date.now();
+        wheelBoost = now - lastWheel < 150 ? Math.min(5, wheelBoost + 0.5)
+                                           : 1;
+        lastWheel = now;
+        var step;
+        if (paging)
+            step = Math.sign(angle || pixel) * treeList.height * 0.9;
+        else if (pixel !== 0)
+            step = pixel;
+        else
+            step = angle / 120 * theme.rowHeight * 3 * wheelBoost;
         var top = treeList.originY;
         var bottom = Math.max(top, top + treeList.contentHeight
                                    - treeList.height);
@@ -404,6 +420,9 @@ Rectangle {
         anchors.bottom: parent.bottom
         width: parent.width
 
+        readonly property real overlayBarSpace:
+            host.viewOverlay ? theme.scrollBarWidth : 0
+
         // Docked, empty space below the rows is the document's top level:
         // a row dropped there leaves its container. Beneath the list, so a
         // row under the pointer is always the target first. Not in Nxt's
@@ -423,6 +442,7 @@ Rectangle {
         ListView {
             id: treeList
             anchors.fill: parent
+            anchors.leftMargin: treePane.overlayBarSpace
             anchors.topMargin: 3
             clip: true
             model: nxt.treeModel
@@ -438,6 +458,19 @@ Rectangle {
             // the model behind, and reach it by propagation
             // (view_overlay.py).
             interactive: !host.viewOverlay
+
+            // Ahead of the list's own wheel handling, which has no
+            // acceleration or paging.
+            WheelHandler {
+                target: null
+                enabled: !host.viewOverlay
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: function (event) {
+                    root.scrollWheel(event.angleDelta.y, event.pixelDelta.y,
+                                     event.modifiers & Qt.ShiftModifier);
+                    event.accepted = true;
+                }
+            }
 
             // Which row, if any, has opened a space under it for something
             // being dragged. Two sources that cannot both be active - you
@@ -536,8 +569,22 @@ Rectangle {
         Item {
             id: tipLayer
             anchors.fill: parent
+            anchors.leftMargin: treePane.overlayBarSpace
             clip: true
             z: 5
+
+            // The bars ride with the rows: scrolling moves this one item,
+            // instead of re-placing every bar on every frame.
+            Item {
+                id: tipContent
+                y: -treeList.contentY
+                width: parent.width
+                height: treeList.contentHeight
+
+                // Advances every few rows scrolled, so bars re-measure
+                // rows the list has realised since.
+                readonly property int realised:
+                    Math.floor(treeList.contentY / (theme.rowHeight * 5))
 
             Repeater {
                 model: nxt.tipBars
@@ -557,12 +604,16 @@ Rectangle {
                     rowHeight: theme.rowHeight
                     list: treeList
                     fullWidth: treeList.width
-                    listContentY: treeList.contentY
+                    listContentY: 0
+                    realised: tipContent.realised
                     listTopMargin: treeList.anchors.topMargin
+                    visible: y + height >= treeList.contentY
+                             && y <= treeList.contentY + treeList.height
 
                     onDragPosChanged: if (dragging) treeList.barGap = dragPos
                     onDraggingChanged: treeList.barGap = dragging ? dragPos : -1
                 }
+            }
             }
         }
 
@@ -573,7 +624,15 @@ Rectangle {
             z: 4
         }
 
-        ScrollHint { target: treeList }
+        NxtScrollBar {
+            id: scrollBar
+            target: treeList
+            z: 6
+            anchors.top: treeList.top
+            anchors.bottom: parent.bottom
+            x: host.viewOverlay ? 0 : parent.width - width
+        }
+
 
         Text {
             anchors.centerIn: parent

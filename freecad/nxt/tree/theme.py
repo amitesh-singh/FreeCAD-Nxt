@@ -60,6 +60,7 @@ ROW_PADDING_BY_DENSITY = {"compact": 3, "normal": ROW_TEXT_PADDING,
                           "roomy": 14}
 INDENT = 14
 ROW_PAD = 4
+SCROLL_BAR_WIDTH = 10
 MIN_TIP_GUTTER = 14
 TIP_GUTTER_RATIO = 0.85
 ICON_RATIO = 0.72
@@ -654,6 +655,10 @@ class Theme(QtCore.QObject):
         grid as the rows.
         """
         return ROW_PAD
+
+    @QtCore.Property(int, notify=changed)
+    def scrollBarWidth(self) -> int:
+        return SCROLL_BAR_WIDTH
 
     @QtCore.Property(int, notify=changed)
     def tipGutter(self) -> int:

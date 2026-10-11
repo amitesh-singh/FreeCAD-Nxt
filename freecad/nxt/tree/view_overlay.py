@@ -328,7 +328,9 @@ class ViewOverlay(QtCore.QObject):
         QtCore.QMetaObject.invokeMethod(
             root, "scrollWheel", QtCore.Qt.ConnectionType.DirectConnection,
             QtCore.Q_ARG("QVariant", float(event.angleDelta().y())),
-            QtCore.Q_ARG("QVariant", float(event.pixelDelta().y())))
+            QtCore.Q_ARG("QVariant", float(event.pixelDelta().y())),
+            QtCore.Q_ARG("QVariant", bool(
+                event.modifiers() & QtCore.Qt.KeyboardModifier.ShiftModifier)))
 
     def _pass_wheel(self, event: Any) -> None:
         """Send the panel's wheel event to the 3D view, in its coordinates."""

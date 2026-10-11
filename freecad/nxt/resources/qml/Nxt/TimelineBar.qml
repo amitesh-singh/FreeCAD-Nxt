@@ -12,6 +12,7 @@ Item {
     property real rowHeight: 20
     property real listContentY: 0
     property real listTopMargin: 0
+    property int realised: 0
     // The list itself, so the bar can ask where a row actually is. Rows are
     // no longer a uniform height - opening a row's detail strip makes that
     // delegate taller - so multiplying an index by a row height is no
@@ -52,7 +53,7 @@ Item {
     // contentY gives it two properties to depend on that change whenever
     // the rows move - which is exactly when these answers go stale.
     function rowAt(index) {
-        var watch = bar.listContentY
+        var watch = bar.listContentY + bar.realised
                   + (bar.list ? bar.list.contentHeight : 0);
         return bar.list ? bar.list.itemAtIndex(index) : null;
     }

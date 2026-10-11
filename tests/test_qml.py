@@ -74,6 +74,7 @@ def theme_properties():
 # a value missing here falls back to 20, which would silently change what
 # the geometry assertions below mean.
 SIZES = {"rowHeight": 20, "rowPad": 6, "indent": 12, "tipGutter": 14,
+         "scrollBarWidth": 10,
          "iconSize": 14, "markSize": 12, "markSizeSmall": 10,
          "fontRow": 10, "fontSmall": 9, "fontAside": 8,
          "chipHeight": 14, "fieldHeight": 17,
@@ -869,7 +870,7 @@ def run(overlay):
         # on `y` made it trail the list and rubber-band into place.
         listview.setProperty("contentY", 12)
         app.processEvents()
-        scrolled = bar.property("y")
+        scrolled = bar.property("y") + bar.parentItem().property("y")
         listview.setProperty("contentY", 0)
         settle(0.2)
         print("     scroll: rest %.2f  scrolled 12 -> %.2f" % (back, scrolled))

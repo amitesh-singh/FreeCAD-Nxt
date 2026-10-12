@@ -27,7 +27,16 @@ from ..core.qt import QtCore
 from ..core.transaction import transaction
 from ..inspector import properties
 from ..tools import editing, visibility
-from . import icons, links, models, picking, reorder, saved_expansion, scene
+from . import (
+    drag_drop,
+    icons,
+    links,
+    models,
+    picking,
+    rollback,
+    saved_expansion,
+    scene,
+)
 
 #: Kept importable from here: tests and older callers use this name.
 open_edit_transaction = editing.open_edit_transaction
@@ -82,13 +91,8 @@ class TreeBridge(QtCore.QObject):
         # relayout - an expand/collapse moves them without the document
         # changing at all.
         self._tree.rowsRefreshed.connect(self._row_layout_changed)
-        self._tip_drag: dict[str, Any] | None = None
-        # Where each Body's bar was last put down, as the *object* whose row
-        # it sits under rather than a row index - indices move whenever a
-        # branch is expanded. Only a resting place that still resolves to
-        # the current tip is honoured, so any other route to moving the tip
-        # falls back to the tip's own row without having to know about this.
-        self._bar_anchor: dict[str, str] = {}
+        self._rollback = rollback.Rollback(self)
+        self._drag_drop = drag_drop.DragDrop(self)
         self._search: list[dict[str, Any]] = []
         # Where Shift+click and Shift+arrow ranges start, and where the
         # arrow keys last moved to. Names, not rows: rows shift whenever a
@@ -116,12 +120,8 @@ class TreeBridge(QtCore.QObject):
         self._auto_name = ""        # the row the timer is running for
         self._auto_detail = ""      # the strip auto-show has open
         self._pinned: set[str] = set()
-        self._bars_timer = self._deferral(self.tipBarsChanged.emit)
-        self._drain_timer = self._deferral(self._drain_tip_drag)
-        self._finish_timer = self._deferral(self._finish_pending_drag)
         self._edit_timer = self._deferral(self._enter_pending_edit)
         self._recompute_timer = self._deferral(self._recompute_document)
-        self._restore_timer = self._deferral(self._show_finished_models)
         # Objects picked outside the panel since the last reveal, collected
         # so a box selection - one observer call per object - reveals once.
         self._picked: list[str] = []
@@ -136,10 +136,6 @@ class TreeBridge(QtCore.QObject):
         self._arrows_timer = self._deferral(self._update_arrows)
         self._reveal_timer = self._deferral(self._reveal_picked)
         self._pending_edit: tuple[str, str] | None = None
-        # model -> (tip, steps it was set against)
-        self._model_tips: dict[str, tuple[str, tuple[str, ...]]] = {}
-        self._pending_restore: list[str] = []
-        self._pending_finish: tuple[str, bool] | None = None
 
         # Which container new operations land in. There is no observer for
         # this - activating a Body is a Gui action and emits no document
@@ -254,7 +250,7 @@ class TreeBridge(QtCore.QObject):
             # The Body you are working in, and the way down to it, open.
             self._tree.reveal(name)
             self._tree.set_expanded(name, True)
-        self._publish_tip_bars()        # the bar goes with the active Body
+        self._rollback.publish()        # the bar goes with the active Body
 
     def _deferral(self, slot: Callable[[], Any]) -> QtCore.QTimer:
         timer = QtCore.QTimer(self)
@@ -295,98 +291,13 @@ class TreeBridge(QtCore.QObject):
         # mid-drag would destroy the bar under the cursor and drop the mouse
         # grab. The live preview relays out constantly, so hold the signal
         # until the drag finishes.
-        if self._tip_drag is None:
-            self._publish_tip_bars()
+        if self._rollback.drag is None:
+            self._rollback.publish()
         self._arrows_timer.start()
-
-    def _publish_tip_bars(self) -> None:
-        """Announce new marker positions on the next event-loop turn.
-
-        Never synchronously. `Repeater` destroys and rebuilds every delegate
-        when its model changes, and this is reached from slots QML calls out
-        of a marker's own `onReleased`. Destroying an object while one of
-        its signal handlers is still on the stack is not merely unsupported
-        in QML - `QQmlData::destroyed` calls qFatal, which aborts the
-        process. One turn of the event loop is enough for the handler to
-        have returned.
-        """
-        self._bars_timer.start()
 
     @QtCore.Property(list, notify=tipBarsChanged)
     def tipBars(self) -> list[dict[str, Any]]:
-        """The rollback bars: the active Body's, and each Part model's.
-
-        Only the active Body has one. A bar on every Body offered a
-        handle that changes the model on Bodies that are not being worked
-        on; the one being worked on is the active one. A Part model has
-        no active state, so its history bar is always there.
-
-        `pos` is the row the bar sits *below*. A collapsed Body contributes
-        nothing: there is no gap to put a bar in.
-        """
-        index = self._tree.row_index_map()
-        bars: list[dict[str, Any]] = []
-        for name, node in self._snapshot.nodes.items():
-            if not node.stack:
-                continue
-            if not node.is_model and name != self._active:
-                continue
-            feature_rows = [index[f] for f in node.stack if f in index]
-            if not feature_rows:
-                continue
-            child_rows = [index[c] for c in node.children if c in index]
-            first_feature = min(feature_rows)
-            last_child = max(child_rows) if child_rows else max(feature_rows)
-            pos = self._resting_position(name, node, index)
-            if pos is None and node.is_model and node.tip == name:
-                pos = max(feature_rows)
-            if pos is None:
-                pos = index.get(node.tip) if node.tip else None
-            if pos is None:
-                pos = first_feature
-            bars.append({
-                "body": name,
-                "label": node.label,
-                "pos": pos,
-                "minPos": first_feature,
-                "maxPos": max(last_child, first_feature),
-                "depth": self._tree.depth_at(first_feature),
-            })
-        return bars
-
-    def _resting_position(self, name: str, node: Any,
-                          index: dict[str, int]) -> int | None:
-        """Where the bar was last put down, if it still sets this tip."""
-        anchor = self._bar_anchor.get(name)
-        resting = index.get(anchor) if anchor is not None else None
-        if (resting is not None and
-                self._tip_for_row(name, resting) == node.tip):
-            return resting
-        return None
-
-    def _tip_for_row(self, body_name: str, row: int) -> str | None:
-        """The feature a bar dropped below `row` sets.
-
-        Only a solid feature can be a tip, so a bar parked under a sketch
-        sets the last feature above it and stays where it was put. Scanning
-        rows rather than timeline positions makes this agree with what is
-        on screen even when part of the Body is collapsed.
-        """
-        node = self._snapshot.nodes.get(body_name)
-        if node is None or not node.stack:
-            return None
-        stack = set(node.stack)
-        if node.is_model and row >= max(
-                (self._tree.row_index_map().get(n, -1) for n in node.stack),
-                default=-1):
-            return body_name    # below the last step: the finished model
-        cursor = min(row, self._tree.rowCount() - 1)
-        while cursor >= 0:
-            name = self._tree.name_at(cursor)
-            if name in stack:
-                return name
-            cursor -= 1
-        return None
+        return self._rollback.bars()
 
     # ------------------------------------------------------------------ #
     # rebuild plumbing
@@ -405,11 +316,12 @@ class TreeBridge(QtCore.QObject):
         re-walk the whole document, re-read every sketch's solver state and
         rebuild every row, to learn a handful of facts the bridge itself
         just wrote. The snapshot is patched in place instead (see
-        `_apply_tip`), and the staleness is remembered until the drag ends.
+        `Rollback._apply_tip`), and the staleness is remembered until the
+        drag ends.
         """
         self._icons_dirty = self._icons_dirty or icons
         self._dirty = True
-        if self._tip_drag is None:
+        if self._rollback.drag is None:
             self._rebuild_timer.start()
 
     def _rebuild_if_dirty(self) -> None:
@@ -424,7 +336,7 @@ class TreeBridge(QtCore.QObject):
         previous = self._snapshot.doc_name if self._snapshot else ""
         self._snapshot = scene.capture(
             widen=self._widen, part_layout=settings.get("PartLayout"))
-        self._restore_model_tips()
+        self._rollback.restore_model_tips()
         self._tree.set_snapshot(self._snapshot, bump_icons=bump)
         self.sync_selection()
         # The snapshot may have replaced the node the mark was on, so the
@@ -673,351 +585,27 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot(str)
     def beginTipDrag(self, body_name: str) -> None:
-        """Start an interactive tip move.
-
-        One transaction spans the whole drag, so a rollback that crossed six
-        features is still a single undo step rather than six.
-        """
-        if self._tip_drag is not None:
-            self.endTipDrag(self._tip_drag["body"])
-        node = self._snapshot.nodes.get(body_name)
-        doc = App.ActiveDocument
-        if doc is None or node is None or not node.stack:
-            return
-        try:
-            doc.openTransaction("Move tip")
-        except Exception:
-            log.error("could not open a transaction for the tip drag")
-            return
-        self._tip_drag = {
-            "body": body_name,
-            "original": node.tip,
-            "current": node.tip,    # what the document is actually showing
-            "wanted": node.tip,     # which feature the bar would set
-            "anchor": None,         # the row the bar is resting under
-            "live": True,
-            "applying": False,
-            "ending": False,
-        }
+        self._rollback.begin_drag(body_name)
 
     @QtCore.Slot(str, int)
     def previewTipRow(self, body_name: str, row: int) -> None:
-        """Note where the marker now is; the apply happens off this stack.
-
-        Deliberately does not recompute here. This runs inside QML's delivery
-        of a mouse-move event, and Qt's contract is that an exception must
-        not propagate out of an event handler - it terminates the process
-        rather than unwinding. A recompute on an old or damaged model is
-        exactly where a feature throws, so the work is queued onto a
-        zero-timer and performed from the event loop instead, where an
-        exception has a Python frame to be caught in.
-
-        Queuing also collapses a burst of moves: crossing four features
-        while one recompute is still running applies only the last.
-        """
-        drag = self._tip_drag
-        if drag is None or drag["body"] != body_name:
-            return
-        # Recorded before the early return, not after: a move between two
-        # consecutive sketches changes where the bar is without changing
-        # what it sets, and that is exactly the case this has to remember.
-        drag["anchor"] = self._tree.name_at(row)
-        name = self._tip_for_row(body_name, row)
-        if name is None or name == drag["wanted"]:
-            return
-
-        drag["wanted"] = name
-        if not drag["live"] or drag["applying"]:
-            return  # the running apply picks this up when it drains
-        self._drain_timer.start()
-
-    def _drain_tip_drag(self) -> None:
-        """Apply the marker's latest position until it stops moving.
-
-        Apply the marker's latest position, repeatedly, until it stops
-        moving. Re-entrant by design rather than by accident: a recompute
-        can spin the event loop - FreeCAD's progress indicator calls
-        processEvents - so another mouse move can arrive mid-apply. The
-        guard turns that into another lap of this loop instead of a nested
-        recompute on a document already inside one.
-        """
-        drag = self._tip_drag
-        if drag is None or drag["applying"]:
-            return
-
-        drag["applying"] = True
-        try:
-            while (self._tip_drag is drag and not drag["ending"] and
-                   drag["wanted"] != drag["current"]):
-                target = drag["wanted"]
-                # Shown, not set: only which feature is visible changes
-                # while the bar moves. Tip is set, and the Body
-                # recomputed, once, when it is let go (_commit_tip_drag) -
-                # a recompute per row made the bar unusable on a slow
-                # model.
-                if not self._preview_tip(drag["body"], target):
-                    break
-                drag["current"] = target
-        finally:
-            drag["applying"] = False
-
-    def _defer_finish(self, body_name: str, commit: bool) -> None:
-        """Retry a finish once the apply that is on the stack has unwound."""
-        self._pending_finish = (body_name, commit)
-        self._finish_timer.start()
-
-    def _finish_pending_drag(self) -> None:
-        pending, self._pending_finish = self._pending_finish, None
-        if pending is not None:
-            self._finish_tip_drag(*pending)
+        self._rollback.preview_row(body_name, row)
 
     @QtCore.Slot(str)
     def endTipDrag(self, body_name: str) -> None:
-        self._finish_tip_drag(body_name, commit=True)
+        self._rollback.end_drag(body_name)
 
     @QtCore.Slot(str)
     def cancelTipDrag(self, body_name: str) -> None:
-        self._finish_tip_drag(body_name, commit=False)
-
-    def _finish_tip_drag(self, body_name: str, commit: bool) -> None:
-        drag = self._tip_drag
-        if drag is None:
-            return
-        if drag["applying"]:
-            # Closing the transaction from inside the apply would close it
-            # in the middle of the change it is meant to contain: a
-            # recompute spins the event loop, so the release can arrive
-            # there. Let the apply unwind first.
-            drag["ending"] = True
-            self._defer_finish(body_name, commit)
-            return
-
-        self._tip_drag = None
-        if commit and drag["anchor"]:
-            self._bar_anchor[body_name] = drag["anchor"]
-        elif not commit:
-            self._bar_anchor.pop(body_name, None)
-
-        doc = App.ActiveDocument
-        try:
-            if commit:
-                self._commit_tip_drag(doc, drag, body_name)
-            elif doc is not None:
-                doc.abortTransaction()
-                # Visibility is view state; undo does not restore it. The
-                # tip was never set, so there is nothing to recompute.
-                if drag["current"] != drag["original"]:
-                    self._preview_tip(body_name, drag["original"])
-        except Exception:
-            log.error("could not finish the tip drag on %s" % body_name)
-        self.invalidate(icons=True)
-        self._publish_tip_bars()
-
-    def _commit_tip_drag(self, doc: Any, drag: dict[str, Any],
-                         body_name: str) -> None:
-        # The drag only showed features; the tip is set, and recomputed,
-        # once, here.
-        wanted = drag["wanted"]
-        if wanted == drag["original"]:
-            if drag["current"] != wanted:
-                self._preview_tip(body_name, wanted)
-            if doc is not None:
-                doc.abortTransaction()  # nothing moved; no undo entry
-            return
-        if not self._apply_tip(body_name, wanted):
-            self._preview_tip(body_name, drag["original"])
-            if doc is not None:
-                doc.abortTransaction()
-            return
-        if doc is not None:
-            doc.commitTransaction()
-            self._toast_tip(doc, body_name, wanted)
-
-    def _preview_tip(self, body_name: str, feature_name: str) -> bool:
-        """Show the Body as it would be with this tip, without setting it.
-
-        Only visibility, and the panel's own picture: no Tip, no
-        recompute. A feature past the tip shows its shape as last built.
-        """
-        node = self._snapshot.nodes.get(body_name)
-        doc = App.ActiveDocument
-        if node is None or doc is None:
-            return False
-        if node.is_model:
-            return self._apply_tip(body_name, feature_name)
-        try:
-            for other in node.stack:
-                vo = getattr(doc.getObject(other), "ViewObject", None)
-                if vo is None:
-                    continue
-                wanted = other == feature_name
-                if bool(getattr(vo, "Visibility", not wanted)) != wanted:
-                    vo.Visibility = wanted
-            self._tree.touch(self._snapshot.retip(body_name, feature_name))
-            return True
-        except Exception:
-            log.error("could not show %s at %s" % (body_name, feature_name))
-            return False
-
-    def _restore_model_tips(self) -> None:
-        """Carry each model's history position across a rebuild.
-
-        A Part model has no Tip property, so where its bar was is the
-        panel's to remember. It is honoured only while the model has the
-        same steps: a new operation always lands at the end, so the bar
-        snaps back to the finished model rather than implying an insertion
-        point that does not exist.
-        """
-        kept: dict[str, tuple[str, tuple[str, ...]]] = {}
-        for name, (tip, stack) in self._model_tips.items():
-            node = self._snapshot.nodes.get(name)
-            if node is None or not node.is_model:
-                continue
-            if tuple(node.stack) == stack:
-                self._snapshot.retip(name, tip)
-                kept[name] = (tip, stack)
-            else:
-                self._pending_restore.append(name)
-                self._bar_anchor.pop(name, None)
-        self._model_tips = kept
-        if self._pending_restore:
-            self._restore_timer.start()
-
-    def _show_finished_models(self) -> None:
-        pending, self._pending_restore = self._pending_restore, []
-        for name in pending:
-            if name in self._snapshot.nodes:
-                self._show_model_state(name, name)
-
-    def _show_model_state(self, model_name: str, tip_name: str) -> None:
-        doc = App.ActiveDocument
-        if doc is None:
-            return
-        for name, (_built, shown) in self._snapshot.model_state(
-                model_name, tip_name).items():
-            vo = getattr(doc.getObject(name), "ViewObject", None)
-            if vo is not None and bool(vo.Visibility) != shown:
-                vo.Visibility = shown
-        self._tree.touch(self._snapshot.retip(model_name, tip_name))
-        if tip_name == model_name:
-            self._model_tips.pop(model_name, None)
-        else:
-            self._model_tips[model_name] = (
-                tip_name, tuple(self._snapshot.nodes[model_name].stack))
-
-    def _apply_tip(self, body_name: str, feature_name: str) -> bool:
-        """Set Tip and the stack's visibility.
-
-        No transaction of its own - the caller owns that, whether it is
-        a drag or a one-shot move.
-        """
-        doc = App.ActiveDocument
-        if doc is None:
-            return False
-        body = doc.getObject(body_name)
-        feature = doc.getObject(feature_name)
-        body_node = self._snapshot.nodes.get(body_name)
-        if body is None or feature is None or body_node is None:
-            return False
-        if body_node.is_model:
-            try:
-                self._show_model_state(body_name, feature_name)
-                return True
-            except Exception:
-                log.error("could not roll %s back to %s"
-                          % (body_name, feature_name))
-                return False
-        try:
-            body.Tip = feature
-            # Only the visibilities that actually differ. A Body shows
-            # through exactly one feature, so a move changes two of them -
-            # writing all of them touched the document once per stack
-            # member and woke an observer for each, which on a long history
-            # was most of the cost of a drag step.
-            for other in body_node.stack:
-                obj = doc.getObject(other)
-                vo = getattr(obj, "ViewObject", None)
-                if vo is None:
-                    continue
-                wanted = (other == feature_name)
-                if bool(getattr(vo, "Visibility", not wanted)) != wanted:
-                    vo.Visibility = wanted
-            self._recompute(doc, body)
-            # Patch the snapshot rather than waiting for a rebuild that a
-            # drag suppresses anyway. Everything a tip move changes is
-            # derivable from what the snapshot already holds, and
-            # `Snapshot.retip` is tested against a full rebuild so the two
-            # cannot drift.
-            self._tree.touch(self._snapshot.retip(body_name, feature_name))
-            return True
-        except Exception:
-            log.error("could not set the tip of %s to %s"
-                      % (body_name, feature_name))
-            return False
-
-    @staticmethod
-    def _recompute(doc: Any, body: Any) -> None:
-        """Recompute the Body, not the document.
-
-        Moving the tip touches the Body and nothing else - the features
-        themselves are already up to date - so a whole-document recompute
-        is work nobody asked for. It is also the difference between a
-        recompute fast enough to pass unnoticed and one slow enough to
-        raise FreeCAD's progress indicator, which spins the event loop and
-        invites exactly the re-entrancy this drag path has to survive.
-        """
-        try:
-            doc.recompute([body])
-        except TypeError:
-            doc.recompute()     # older signature, no object list
+        self._rollback.cancel_drag(body_name)
 
     @QtCore.Slot(str, int)
     def setTipToRow(self, body_name: str, row: int) -> None:
-        name = self._tip_for_row(body_name, row)
-        if name is not None:
-            self.setTip(body_name, name)
+        self._rollback.set_tip_to_row(body_name, row)
 
     @QtCore.Slot(str, str)
     def setTip(self, body_name: str, feature_name: str) -> None:
-        """Roll a Body's history to end at `feature_name`.
-
-        Setting Tip is only half of it: FreeCAD shows a Body through exactly
-        one visible feature, so the stock Move-tip command also hides every
-        other member of the stack. Skip that and the Body keeps drawing the
-        old state regardless of what Tip says.
-        """
-        doc = App.ActiveDocument
-        if doc is None:
-            return
-        body = doc.getObject(body_name)
-        feature = doc.getObject(feature_name)
-        if body is None or feature is None:
-            return
-
-        node = self._snapshot.nodes.get(feature_name)
-        body_node = self._snapshot.nodes.get(body_name)
-        if node is None or body_node is None:
-            return
-        if node.body != body_name and feature_name != body_name:
-            return              # not this Body's feature; refuse quietly
-        if body_node.tip == feature_name:
-            return
-
-        # Moved by something other than the bar, so any place the bar was
-        # resting is no longer a statement about this tip.
-        self._bar_anchor.pop(body_name, None)
-        try:
-            doc.openTransaction("Move tip")
-            if self._apply_tip(body_name, feature_name):
-                doc.commitTransaction()
-                self._toast_tip(doc, body_name, feature_name)
-            else:
-                doc.abortTransaction()
-        except Exception:
-            doc.abortTransaction()
-            log.error("could not move the tip of %s to %s"
-                      % (body_name, feature_name))
-        self.invalidate(icons=True)
+        self._rollback.set_tip(body_name, feature_name)
 
     # ------------------------------------------------------------------ #
     # expansion
@@ -1507,33 +1095,9 @@ class TreeBridge(QtCore.QObject):
 
         `body` is the Body whose tip moved, if one did.
         """
-        services.toast(doc, message,
-                       partial(self._show_through_tip, body) if body else None)
-
-    def _toast_tip(self, doc: Any, body_name: str,
-                   feature_name: str | None) -> None:
-        node = self._snapshot.nodes.get(body_name)
-        if node is not None and node.is_model:
-            return      # a Part model's bar is a view; there is no undo
-        self._toast(doc, translate("Nxt", "Tip of %s moved to %s") % (
-            self._named(doc, [body_name]),
-            self._named(doc, [feature_name or body_name])), body_name)
-
-    def _show_through_tip(self, body_name: str, doc: Any) -> None:
-        """Show a Body through its tip again, after a tip move is undone.
-
-        Undo puts Tip back but not what is shown: visibility is view
-        state.
-        """
-        body = doc.getObject(body_name)
-        if body is None:
-            return
-        tip = getattr(getattr(body, "Tip", None), "Name", None)
-        for other in getattr(
-                self._snapshot.nodes.get(body_name), "stack", ()):
-            vo = getattr(doc.getObject(other), "ViewObject", None)
-            if vo is not None and bool(vo.Visibility) != (other == tip):
-                vo.Visibility = other == tip
+        services.toast(
+            doc, message,
+            partial(self._rollback.show_through_tip, body) if body else None)
 
     # ------------------------------------------------------------------ #
     # activation
@@ -1649,422 +1213,53 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot(str, result="QVariantList")
     def dragNames(self, name: str) -> list[str]:  # noqa: N802
-        """What a drag begun on this row carries, in tree order.
-
-        The whole selection when the row is one of several selected - the
-        gesture every file manager has - and otherwise the row alone.
-        Selected objects with no row (inside a collapsed branch) stay
-        where they are: nothing moves that was not visibly picked up.
-        """
-        selected = self._selected_names()
-        if name not in selected or len(selected) < 2:
-            return [name]
-        rows = sorted((self._tree.row_of(n), n) for n in set(selected))
-        names = [n for row, n in rows if row >= 0]
-        return names if name in names and len(names) > 1 else [name]
+        return self._drag_drop.drag_names(name)
 
     @QtCore.Slot("QVariantList", result=bool)
     def inOneBody(self, names: list[Any]) -> bool:  # noqa: N802
-        """Are these all members of the same Part Design Body?
-
-        Then dragging them is a reorder, and they slide as a group.
-        """
-        doc = App.ActiveDocument
-        if doc is None or not names:
-            return False
-        try:
-            bodies = {getattr(reorder.body_of(doc.getObject(str(n))),
-                              "Name", None) for n in names}
-        except Exception:
-            return False
-        return len(bodies) == 1 and None not in bodies
+        return self._drag_drop.in_one_body(names)
 
     @QtCore.Slot("QVariantList", result=str)
     def slideContainer(self, names: list[Any]) -> str:  # noqa: N802
-        """The container a drag of `names` slides within, or "".
-
-        A Body, or a Part or group that lists them all: there a drag is a
-        reorder, the row sliding up and down its column (NxtTree.qml's
-        ghost), with "into" a sibling container and out of the container
-        still to be had.
-        """
-        doc = App.ActiveDocument
-        if doc is None or not names:
-            return ""
-        objects = [doc.getObject(str(n)) for n in names]
-        if any(o is None for o in objects):
-            return ""
-        for find in (reorder.body_of, reorder.group_of):
-            try:
-                holders = {getattr(find(o), "Name", None) for o in objects}
-            except Exception:
-                continue
-            if len(holders) == 1 and None not in holders:
-                return str(holders.pop())
-        return ""
+        return self._drag_drop.slide_container(names)
 
     @QtCore.Slot("QVariantList", str, result=bool)
     def canReorderOn(self, sources: list[Any], target_name: str) -> bool:  # noqa: N802
-        """May `sources` go after the row, or first on their container?"""
-        body, plan = self._body_reorder(sources, target_name)
-        if body is None:
-            body, plan = self._group_reorder(sources, target_name)
-        return body is not None and plan.ok
+        return self._drag_drop.can_reorder_on(sources, target_name)
 
     @QtCore.Slot("QVariantList", str, result=bool)
     def canDropInto(self, sources: list[Any], target_name: str) -> bool:  # noqa: N802
-        """Would the row take `sources` inside, not being their container?"""
-        if target_name in {self.slideContainer(sources)}:
-            return False
-        if self._body_reorder(sources, target_name)[0] is not None:
-            return False        # a Body's own members reorder, never nest
-        return self._can_drop_into(sources, target_name)
+        return self._drag_drop.can_drop_into(sources, target_name)
 
     @QtCore.Slot("QVariantList", str, result=bool)
     def reorderOn(self, sources: list[Any], target_name: str) -> bool:  # noqa: N802
-        """Place `sources` after the row, or first on their container."""
-        body, plan = self._body_reorder(sources, target_name)
-        if body is not None:
-            return self.dropOn(sources, target_name)
-        container, group_plan = self._group_reorder(sources, target_name)
-        if container is None or not group_plan.ok:
-            return False
-        try:
-            reorder.apply_group(container, group_plan)
-        except Exception:
-            log.error("could not reorder %s" % container.Name)
-            return False
-        what = self._named(container.Document, group_plan.moving)
-        self._toast(container.Document, translate(
-            "Nxt", "Moved %s to the start of %s")
-            % (what, container.Label) if target_name == container.Name
-            else translate("Nxt", "Moved %s after %s")
-            % (what, self._named(container.Document, [target_name])))
-        self.invalidate(icons=True)
-        return True
+        return self._drag_drop.reorder_on(sources, target_name)
 
     @QtCore.Slot("QVariantList", str, result=bool)
     def dropInto(self, sources: list[Any], target_name: str) -> bool:  # noqa: N802
-        """Put `sources` inside the row's object."""
-        if not self.canDropInto(sources, target_name):
-            return False
-        return self._move_into(sources, target_name)
+        return self._drag_drop.drop_into(sources, target_name)
 
     @QtCore.Slot("QVariantList", str, result=bool)
     def canDropOn(self, sources: list[Any], target_name: str) -> bool:
-        return bool(self.dropHint(sources, target_name))
+        return self._drag_drop.can_drop_on(sources, target_name)
 
     @QtCore.Slot("QVariantList", str, result=str)
     def dropHint(self, sources: list[Any], target_name: str) -> str:  # noqa: N802
-        """What dropping `sources` on this row does, in words; "" if not.
-
-        In a Body, a reorder (after the row, or to the Body's start). In a
-        Part or group, onto a sibling that would take it, into that
-        sibling; onto any other sibling, after it; onto the container, to
-        its start. Elsewhere, into the row.
-        """
-        doc = App.ActiveDocument
-        if doc is None or not sources:
-            return ""
-        target = doc.getObject(target_name)
-        label = getattr(target, "Label", target_name)
-        body, plan = self._body_reorder(sources, target_name)
-        if body is not None:
-            if not plan.ok:
-                return ""
-            return (translate("Nxt", "To the start of %s") % label
-                    if target_name == body.Name
-                    else translate("Nxt", "After %s") % label)
-        container, group_plan = self._group_reorder(sources, target_name)
-        into = self._can_drop_into(sources, target_name)
-        if container is not None and (target_name == container.Name
-                                      or not into):
-            if not group_plan.ok:
-                return ""
-            return (translate("Nxt", "To the start of %s") % label
-                    if target_name == container.Name
-                    else translate("Nxt", "After %s") % label)
-        return translate("Nxt", "Into %s") % label if into else ""
-
-    def _group_reorder(self, sources: list[Any], target_name: str
-                       ) -> tuple[Any, reorder.Plan]:
-        doc = App.ActiveDocument
-        if doc is None:
-            return None, reorder.Plan()
-        objects = [doc.getObject(str(n)) for n in sources]
-        target = doc.getObject(target_name)
-        if target is None or any(o is None for o in objects):
-            return None, reorder.Plan()
-        try:
-            return reorder.plan_group_drop(objects, target)
-        except Exception:
-            log.error("could not plan a reorder onto %s" % target_name)
-            return None, reorder.Plan()
-
-    def _can_drop_into(self, sources: list[Any], target_name: str) -> bool:
-        """Would the row's object take `sources` inside it?"""
-        doc = App.ActiveDocument
-        if doc is None or not sources:
-            return False
-        target = doc.getObject(target_name)
-        tvo = getattr(target, "ViewObject", None)
-        if tvo is None:
-            return False
-        try:
-            probe = getattr(tvo, "canDropObjects", None)
-            if callable(probe) and not probe():
-                return False
-        except Exception:
-            return False
-        for source_name in sources:
-            source_name = str(source_name)
-            if source_name == target_name:
-                return False
-            if self._snapshot.is_ancestor(target_name, source_name):
-                return False
-            source = doc.getObject(source_name)
-            if source is None:
-                return False
-            try:
-                check = getattr(tvo, "canDropObject", None)
-                if callable(check) and not check(source):
-                    return False
-            except Exception:
-                return False
-        return True
+        return self._drag_drop.drop_hint(sources, target_name)
 
     @QtCore.Slot("QVariantList", str, result=bool)
     def dropOn(self, sources: list[Any], target_name: str) -> bool:
-        body, plan = self._body_reorder(sources, target_name)
-        if body is not None:
-            # Within a Body a drop reorders: onto a member, just after it;
-            # onto the Body, first. See reorder.py.
-            if not plan.ok:
-                reorder.report(plan.problem)
-                return False
-            try:
-                reorder.apply(body, plan)
-            except Exception:
-                log.error("could not reorder %s" % body.Name)
-                return False
-            what = self._named(body.Document, plan.moving)
-            if target_name == body.Name:
-                self._toast(body.Document, translate(
-                    "Nxt", "Moved %s to the start of %s")
-                    % (what, body.Label))
-            else:
-                self._toast(body.Document, translate(
-                    "Nxt", "Moved %s after %s")
-                    % (what, self._named(body.Document, [target_name])))
-            self.invalidate(icons=True)
-            return True
-        container, group_plan = self._group_reorder(sources, target_name)
-        if container is not None and (
-                target_name == container.Name
-                or not self._can_drop_into(sources, target_name)):
-            if not group_plan.ok:
-                return False
-            try:
-                reorder.apply_group(container, group_plan)
-            except Exception:
-                log.error("could not reorder %s" % container.Name)
-                return False
-            what = self._named(container.Document, group_plan.moving)
-            self._toast(container.Document, translate(
-                "Nxt", "Moved %s to the start of %s")
-                % (what, container.Label) if target_name == container.Name
-                else translate("Nxt", "Moved %s after %s")
-                % (what, self._named(container.Document, [target_name])))
-            self.invalidate(icons=True)
-            return True
-        if not self._can_drop_into(sources, target_name):
-            return False
-        return self._move_into(sources, target_name)
-
-    def _move_into(self, sources: list[Any], target_name: str) -> bool:
-        doc = App.ActiveDocument
-        if doc is None:
-            return False
-        target = doc.getObject(target_name)
-        tvo = target.ViewObject
-        moved = False
-        try:
-            with transaction(doc, "Move in tree"):
-                for source_name in sources:
-                    source = doc.getObject(str(source_name))
-                    if source is None:
-                        continue
-                    self._detach(doc, source)
-                    drop = getattr(tvo, "dropObject", None)
-                    if callable(drop):
-                        drop(source)
-                        moved = True
-            if moved:
-                self._toast(doc, translate("Nxt", "Moved %s into %s")
-                            % (self._named(doc, sources), target.Label))
-        except Exception:
-            log.error("drop onto %s failed" % target_name)
-            moved = False
-        # Same reasoning as activate(): a recompute inside a drop handler can
-        # spin the event loop through FreeCAD's progress indicator, and the
-        # relayout that follows destroys the row the handler belongs to.
-        self._recompute_timer.start()
-        self.invalidate(icons=True)
-        return moved
+        return self._drag_drop.drop_on(sources, target_name)
 
     # -- the document root: the header's name, empty space when docked ---- #
 
-    @staticmethod
-    def _container_of(source: Any) -> Any:
-        """The group-like object that really holds `source`, or None.
-
-        Asked of the document, not the snapshot: the panel lifts sketches
-        out of the features that claim them, so a row's parent in the tree
-        is not always the object that owns it.
-        """
-        for parent in getattr(source, "InList", None) or ():
-            group = getattr(parent, "Group", None) or ()
-            if any(getattr(g, "Name", None) == source.Name for g in group):
-                return parent
-        return None
-
-    @staticmethod
-    def _can_leave_body(source: Any, body: Any) -> bool:
-        """May `source` leave its Body, though Part Design refuses the drag?
-
-        Part Design refuses every drag out of a Body. That is right for its
-        solid features, which are the Body's history, and for a sketch
-        attached to the Body's planes or faces, which would lose them - but
-        it also holds back a VarSet or a free-standing sketch, which depend
-        on nothing in the Body and are often better kept outside it. So:
-        never a solid feature, nothing that still links to anything in the
-        Body, and nothing the Body's features are built on - except values
-        they read through expressions.
-        """
-        if not getattr(body, "TypeId", "").startswith("PartDesign::Body"):
-            return False
-        try:
-            if source.isDerivedFrom("PartDesign::Feature"):
-                return False
-        except Exception:
-            return False
-        inside = {o.Name for o in getattr(body, "Group", None) or ()}
-        origin = getattr(body, "Origin", None)
-        if origin is not None:
-            inside.add(origin.Name)
-            inside |= {o.Name for o in
-                       getattr(origin, "OriginFeatures", None) or ()}
-        inside.add(body.Name)
-        try:
-            needs = getattr(source, "OutListRecursive", None)
-            needs = needs if needs is not None else source.OutList
-        except Exception:
-            return False
-        if any(getattr(o, "Name", None) in inside for o in needs):
-            return False
-        # Used from inside the Body: a sketch a Pad is built on cannot move
-        # out from under it. Values read through expressions - a VarSet, a
-        # spreadsheet - are fine to read from outside the Body.
-        used = any(getattr(o, "Name", None) in inside - {body.Name}
-                   for o in getattr(source, "InList", None) or ())
-        if used:
-            kind = getattr(source, "TypeId", "")
-            return kind in ("App::VarSet", "Spreadsheet::Sheet")
-        return True
-
     @QtCore.Slot("QVariantList", result=bool)
     def canDropOnRoot(self, sources: list[Any]) -> bool:  # noqa: N802
-        """Can these all leave their containers for the document's top?"""
-        doc = App.ActiveDocument
-        if doc is None or not sources:
-            return False
-        for name in sources:
-            source = doc.getObject(str(name))
-            parent = self._container_of(source) if source else None
-            if parent is None:
-                return False            # missing, or already at the top
-            pvo = getattr(parent, "ViewObject", None)
-            try:
-                can = getattr(pvo, "canDragObject", None)
-                if callable(can) and not can(source) \
-                        and not self._can_leave_body(source, parent):
-                    return False
-            except Exception:
-                return False
-        return True
+        return self._drag_drop.can_drop_on_root(sources)
 
     @QtCore.Slot("QVariantList", result=bool)
     def dropOnRoot(self, sources: list[Any]) -> bool:  # noqa: N802
-        """Move objects out of their containers to the document's top."""
-        if not self.canDropOnRoot(sources):
-            return False
-        doc = App.ActiveDocument
-        if doc is None:
-            return False
-        moved = False
-        try:
-            with transaction(doc, "Move to top level"):
-                for name in sources:
-                    source = doc.getObject(str(name))
-                    parent = self._container_of(source)
-                    pvo = getattr(parent, "ViewObject", None)
-                    can = getattr(pvo, "canDragObject", None)
-                    drag = getattr(pvo, "dragObject", None)
-                    if callable(drag) and (not callable(can) or can(source)):
-                        drag(source)
-                        moved = True
-                    elif self._can_leave_body(source, parent):
-                        # Out of a Body its view provider will not release it
-                        # from - see _can_leave_body.
-                        parent.removeObject(source)
-                        moved = True
-            if moved:
-                self._toast(doc, translate(
-                    "Nxt", "Moved %s to the top level")
-                    % self._named(doc, sources))
-        except Exception:
-            log.error("could not move to the top level")
-            moved = False
-        # Deferred, as dropOn's: see there.
-        self._recompute_timer.start()
-        self.invalidate(icons=True)
-        return moved
-
-    def _body_reorder(self, sources: list[Any],
-                      target_name: str) -> tuple[Any, reorder.Plan]:
-        """The Body and plan when this drop reorders a Body, else None."""
-        doc = App.ActiveDocument
-        if doc is None:
-            return None, reorder.Plan()
-        objects = [doc.getObject(str(n)) for n in sources]
-        target = doc.getObject(target_name)
-        if target is None or any(o is None for o in objects):
-            return None, reorder.Plan()
-        try:
-            return reorder.plan_drop(objects, target)
-        except Exception:
-            log.error("could not plan a reorder onto %s" % target_name)
-            return None, reorder.Plan()
-
-    def _detach(self, doc: Any, source: Any) -> None:
-        """Ask the current parent's view provider to release the object."""
-        node = self._snapshot.nodes.get(source.Name)
-        if node is None or not node.parent:
-            return
-        parent = doc.getObject(node.parent)
-        pvo = getattr(parent, "ViewObject", None)
-        if pvo is None:
-            return
-        try:
-            can = getattr(pvo, "canDragObject", None)
-            if callable(can) and not can(source):
-                return
-            drag = getattr(pvo, "dragObject", None)
-            if callable(drag):
-                drag(source)
-        except Exception:
-            log.error("could not detach %s from %s"
-                      % (source.Name, node.parent))
+        return self._drag_drop.drop_on_root(sources)
 
     # ------------------------------------------------------------------ #
 

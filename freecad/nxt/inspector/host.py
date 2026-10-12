@@ -708,30 +708,18 @@ class PropertyInspector(QtWidgets.QFrame):
 
 def _make_inspector(parent: QtWidgets.QWidget) -> QtWidgets.QWidget:
     """The QML page: Inspector.qml on its own QQuickWidget."""
-    from .. import resources
     from ..app import services
-    from ..core import qtquick
+    from ..ui import quick_host
     from ..ui.theme import Theme
     from . import bridge as inspector_bridge
 
-    qtquick.use_shared_graphics_api()
-    _qml, _quick, quick_widgets = qtquick.modules()
-    view = quick_widgets.QQuickWidget(parent)
-    view.setResizeMode(
-        quick_widgets.QQuickWidget.ResizeMode.SizeRootObjectToView)
-    bridge = inspector_bridge.InspectorBridge(view)
-    theme = services.theme() or Theme(view)
-    view.engine().addImportPath(str(resources.QML))
-    context = view.rootContext()
-    expressions.register(context)
-    context.setContextProperty("inspector", bridge)
-    context.setContextProperty("theme", theme)
-    view.setSource(QtCore.QUrl.fromLocalFile(
-        str(resources.qml("Inspector.qml"))))
-    if view.status() == quick_widgets.QQuickWidget.Status.Error:
-        detail = "\n".join(str(e.toString()) for e in view.errors())
-        view.deleteLater()
-        raise RuntimeError("Inspector.qml failed to load:\n" + detail)
+    bridge = inspector_bridge.InspectorBridge(parent)
+    theme = services.theme() or Theme(parent)
+    view = quick_host.make_view(
+        parent, "Inspector.qml",
+        {"expressions": expressions.helper(), "inspector": bridge,
+         "theme": theme})
+    bridge.setParent(view)
     view.nxt_bridge = bridge  # type: ignore[attr-defined]
     return view
 

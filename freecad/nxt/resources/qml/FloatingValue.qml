@@ -1,5 +1,5 @@
 import QtQuick
-import Nxt
+import Nxt.Controls
 
 // A value field floating in the 3D view beside a feature's drag arrow.
 //

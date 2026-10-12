@@ -26,7 +26,9 @@ from freecad.nxt.ui.theme import Theme  # noqa: E402
 QML = ROOT / "freecad" / "nxt" / "resources" / "qml"
 HOST = """
 import QtQuick
-import Nxt
+import Nxt.Controls
+import Nxt.Tree
+import Nxt.Inspector
 Rectangle {
     width: 120; height: 40
     property alias shown: tip.shown

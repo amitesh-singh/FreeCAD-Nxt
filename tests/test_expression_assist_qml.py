@@ -82,7 +82,9 @@ class AssistTests(unittest.TestCase):
         cls.component = QtQml.QQmlComponent(cls.view.engine())
         cls.component.setData(b"""
 import QtQuick
-import Nxt
+import Nxt.Controls
+import Nxt.Tree
+import Nxt.Inspector
 Item {
     width: 300; height: 200
     TextField { objectName: "f"; x: 10; y: 10; width: 200

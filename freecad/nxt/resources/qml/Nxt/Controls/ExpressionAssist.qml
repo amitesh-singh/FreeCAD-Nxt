@@ -60,7 +60,7 @@ Item {
             return;
         }
         // Opened from this item; on Wayland shifted by where the view
-        // really is in FreeCAD's window (expressions.anchor_offset).
+        // really is in FreeCAD's window (quick_host.window_offset).
         var below = input.mapToItem(assist, 0, input.height + 2);
         var shift = expressions.anchorOffset(assist);
         // Wayland places a popup window against its parent item, not at

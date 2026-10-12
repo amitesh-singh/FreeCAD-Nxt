@@ -25,7 +25,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from ..core.qt import QtCore, QtGui, QtWidgets
+from ..core.qt import QtCore
+from ..ui import quick_host
 
 #: FreeCAD's expression functions, those worth offering by name.
 FUNCTIONS: tuple[str, ...] = (
@@ -253,8 +254,8 @@ class Expressions(QtCore.QObject):
 
     @QtCore.Slot(QtCore.QObject, result=QtCore.QPointF)
     def anchorOffset(self, item: Any) -> QtCore.QPointF:  # noqa: N802
-        """See anchor_offset: where a popup from `item` really opens."""
-        return anchor_offset(item)
+        """Where a popup from `item` really opens; see quick_host."""
+        return quick_host.popup_offset(item)
 
     @QtCore.Slot(str, str, result="QVariantMap")
     def evaluate(self, owner: str, text: str) -> dict[str, Any]:  # noqa: N802
@@ -272,36 +273,6 @@ class Expressions(QtCore.QObject):
             message = str(exc).strip().splitlines()
             return {"ok": False, "text": message[0] if message else ""}
         return {"ok": True, "text": describe_value(value)}
-
-
-def _quick_widget_of(window: Any) -> Any:
-    """The QQuickWidget whose offscreen window this is, or None."""
-    try:
-        from PySide6.QtQuickWidgets import QQuickWidget
-    except ImportError:
-        return None
-    for widget in QtWidgets.QApplication.allWidgets():
-        if isinstance(widget, QQuickWidget) \
-                and widget.quickWindow() is window:
-            return widget
-    return None
-
-
-def anchor_offset(item: Any) -> QtCore.QPointF:
-    """How far a popup opened from `item` has to be moved, on Wayland.
-
-    A QQuickWidget draws into an offscreen window that sits at the corner
-    of FreeCAD's. Under Wayland a popup window is placed against its
-    parent item's rectangle in *that* window, so it landed the widget's
-    offset away from the field - at the top left of FreeCAD, in the
-    floating fields' case. Elsewhere the placement is already right.
-    """
-    if not QtGui.QGuiApplication.platformName().startswith("wayland"):
-        return QtCore.QPointF(0, 0)
-    widget = _quick_widget_of(item.window()) if item is not None else None
-    if widget is None:
-        return QtCore.QPointF(0, 0)
-    return QtCore.QPointF(widget.mapTo(widget.window(), QtCore.QPoint(0, 0)))
 
 
 _helper: Expressions | None = None

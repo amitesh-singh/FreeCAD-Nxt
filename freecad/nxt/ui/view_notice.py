@@ -12,9 +12,9 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .. import resources
-from ..core import qtquick, widgets
-from ..core.qt import QtCore, QtGui, QtWidgets
+from ..core import widgets
+from ..core.qt import QtCore, QtWidgets
+from . import quick_host
 
 #: Gap between the top of the 3D view, or the notice above, and a notice.
 TOP_MARGIN = 10
@@ -91,25 +91,12 @@ class TopNotice(QtCore.QObject):
         if widgets.alive(self._widget) and self._host is host:
             return self._widget
         self._drop()
-        qtquick.use_shared_graphics_api()
-        _QtQml, _QtQuick, QtQuickWidgets = qtquick.modules()  # noqa: N806
-        widget = QtQuickWidgets.QQuickWidget(host)
-        widget.setResizeMode(
-            QtQuickWidgets.QQuickWidget.ResizeMode.SizeViewToRootObject)
-        widget.setAttribute(QtCore.Qt.WidgetAttribute.WA_AlwaysStackOnTop)
-        widget.setClearColor(QtGui.QColor(0, 0, 0, 0))
-        widget.engine().addImportPath(str(resources.QML))
-        context = widget.rootContext()
-        context.setContextProperty("theme", self._theme)
-        for name, value in self._context().items():
-            context.setContextProperty(name, value)
-        widget.setSource(QtCore.QUrl.fromLocalFile(
-            str(resources.qml(self.SOURCE))))
-        if widget.status() == QtQuickWidgets.QQuickWidget.Status.Error:
-            detail = "; ".join(str(e.toString()) for e in widget.errors())
-            App.Console.PrintError("Nxt: %s failed: %s\n"
-                                   % (self.SOURCE, detail))
-            widget.deleteLater()
+        try:
+            widget = quick_host.make_view(
+                host, self.SOURCE,
+                {"theme": self._theme, **self._context()}, floating=True)
+        except quick_host.QmlLoadError as exc:
+            App.Console.PrintError("Nxt: %s\n" % exc)
             return None
         host.installEventFilter(self)
         self._widget, self._host = widget, host

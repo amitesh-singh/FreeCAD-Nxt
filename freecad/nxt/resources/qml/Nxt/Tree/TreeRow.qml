@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
+import Nxt.Controls
 
 // One row of the panel.
 //

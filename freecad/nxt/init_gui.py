@@ -75,7 +75,7 @@ if _app is not None:
     _app.aboutToQuit.connect(_leaving)
 try:
     from .ui import prefs as _prefs
-    Gui.addPreferencePage(_prefs.PreferencesPage, _prefs.GROUP)
+    Gui.addPreferencePage(_prefs.NxtPreferencesPage, _prefs.GROUP)
 except Exception:
     App.Console.PrintError("Nxt: could not add the Preferences page\n")
     App.Console.PrintError(traceback.format_exc())

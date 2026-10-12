@@ -64,10 +64,10 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .. import resources
 from ..app.i18n import translate
-from ..core import qtquick, settings, units, view3d, widgets
-from ..core.qt import QtCore, QtGui, QtWidgets
+from ..core import settings, units, view3d, widgets
+from ..core.qt import QtCore, QtWidgets
+from ..ui import quick_host
 from . import expressions, placement, task_sync
 
 #: The property each task panel field sets, where it is known.
@@ -698,30 +698,21 @@ class FloatingInput(QtCore.QObject):
         if widgets.alive(box.widget):
             return box.widget
         box.widget = None
-        qtquick.use_shared_graphics_api()
-        _QtQml, _QtQuick, QtQuickWidgets = qtquick.modules()  # noqa: N806
-        widget = QtQuickWidgets.QQuickWidget(viewport)
-        widget.setResizeMode(
-            QtQuickWidgets.QQuickWidget.ResizeMode.SizeViewToRootObject)
-        widget.setAttribute(QtCore.Qt.WidgetAttribute.WA_AlwaysStackOnTop)
-        widget.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
-        widget.installEventFilter(self)
-        widget.setClearColor(QtGui.QColor(0, 0, 0, 0))
-        widget.engine().addImportPath(str(resources.QML))
-        context = widget.rootContext()
-        expressions.register(context)
-        context.setContextProperty("field", box.field)
-        context.setContextProperty("theme", self._theme())
-        widget.setSource(QtCore.QUrl.fromLocalFile(
-            str(resources.qml("FloatingValue.qml"))))
-        if widget.status() == QtQuickWidgets.QQuickWidget.Status.Error:
-            detail = "; ".join(str(e.toString()) for e in widget.errors())
-            App.Console.PrintError("Nxt: floating value failed: %s\n"
-                                   % detail)
-            widget.deleteLater()
+        try:
+            widget = quick_host.make_view(
+                viewport, "FloatingValue.qml",
+                {"expressions": expressions.helper(), "field": box.field,
+                 "theme": self._theme()},
+                floating=True, prepare=self._prepare)
+        except quick_host.QmlLoadError as exc:
+            App.Console.PrintError("Nxt: %s\n" % exc)
             return None
         box.widget = widget
         return widget
+
+    def _prepare(self, widget: Any) -> None:
+        widget.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
+        widget.installEventFilter(self)
 
     def _theme(self) -> Any:
         from ..app import services

@@ -1,4 +1,5 @@
 import QtQuick
+import Nxt.Controls
 
 // One property in the Property Inspector: its label, and the editor for its
 // kind (ValueEditor). Edits go to the `inspector` bridge on the context.

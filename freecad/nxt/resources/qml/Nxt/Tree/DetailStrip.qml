@@ -1,4 +1,5 @@
 import QtQuick
+import Nxt.Controls
 
 // What the gutter mark could not say: the finding in words, the
 // constraint state, what this reads and what reads it.

@@ -1,5 +1,6 @@
 import QtQuick
-import Nxt
+import Nxt.Controls
+import Nxt.Inspector
 
 // The Property Inspector's contents: every property of the selection, laid out
 // from what the objects say about themselves (see inspector.py).

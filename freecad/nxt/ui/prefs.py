@@ -6,7 +6,7 @@ takes effect as it is made: view settings restyle the panel, the Part
 layout rebuilds its snapshot.
 
 `Preferences` is what QML sees, as the context property `prefs`.
-`PreferencesPage` is the page under Edit > Preferences > FreeCAD-Nxt,
+`NxtPreferencesPage` is the page under Edit > Preferences > FreeCAD-Nxt,
 registered by init_gui.
 """
 
@@ -135,8 +135,11 @@ def _labels() -> dict[str, dict[str, str]]:
     }
 
 
-class PreferencesPage:
+class NxtPreferencesPage:
     """Edit > Preferences > FreeCAD-Nxt.
+
+    Named apart from other addons' pages: FreeCAD keys Python pages by
+    class name, and Assembly's is also called PreferencesPage.
 
     FreeCAD's Preferences dialog is a widgets dialog, so this page is made of
     widgets, as every other page in it is; the quick panel is where Nxt's

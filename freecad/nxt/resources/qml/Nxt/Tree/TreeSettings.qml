@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
+import Nxt.Controls
 
 // The tree's quick settings, opened from the gear in the header.
 //

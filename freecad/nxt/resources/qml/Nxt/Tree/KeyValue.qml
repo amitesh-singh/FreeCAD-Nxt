@@ -1,4 +1,5 @@
 import QtQuick
+import Nxt.Controls
 
 // One of an object's defining values in the detail strip: its name, and
 // the editor for its kind (see ValueEditor).

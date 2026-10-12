@@ -101,6 +101,13 @@ class ModeTests(unittest.TestCase):
         self.assertEqual(heard, [True, False])
         self.assertFalse(self.mode.exit())
 
+    def test_what_freecad_changed_meanwhile_is_put_back(self) -> None:
+        self.mode.isolate(["Pad"])
+        # Showing a Body's feature makes FreeCAD hide or show others.
+        self.doc.getObject("Sketch").ViewObject.Visibility = True
+        self.mode.exit()
+        self.assertEqual(shown(self.doc), self.before)
+
     def test_it_does_not_leave_the_document_modified(self) -> None:
         self.gui_doc.Modified = True        # as setting Visibility would
         self.mode._was_modified = None

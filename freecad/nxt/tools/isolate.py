@@ -115,6 +115,16 @@ def plan(objects: Iterable[Any], targets: Iterable[Any]
 # the mode
 # --------------------------------------------------------------------------- #
 
+def _visibility(doc: Any) -> dict[str, bool]:
+    """Every object's visibility, to put back on leaving.
+
+    All of them, not only the ones the mode changes: FreeCAD hides a
+    Body's other features itself when one of them is shown.
+    """
+    return {o.Name: bool(o.ViewObject.Visibility) for o in doc.Objects
+            if getattr(o, "ViewObject", None) is not None}
+
+
 class Isolation(QtCore.QObject):
     """The isolate mode, for one document at a time."""
 
@@ -212,12 +222,10 @@ class Isolation(QtCore.QObject):
             return False
         kept, changes = plan(doc.Objects, targets)
         self._was_modified = self._modified(doc.Name)
-        saved: dict[str, bool] = {}
+        saved = _visibility(doc)
         try:
             for name, shown in changes.items():
-                view = doc.getObject(name).ViewObject
-                saved[name] = bool(view.Visibility)
-                view.Visibility = shown
+                doc.getObject(name).ViewObject.Visibility = shown
         except Exception:
             log.error("could not isolate")
             self._restore(doc.Name, saved)
@@ -256,13 +264,16 @@ class Isolation(QtCore.QObject):
             doc = None                  # closed
         if doc is None:
             return
-        for name, shown in saved.items():
+        # Hidden first: showing a Body's feature hides its siblings, so
+        # the ones to be shown have to come last to stay shown.
+        for name, shown in sorted(saved.items(), key=lambda kv: kv[1]):
             obj = doc.getObject(name)
             view = getattr(obj, "ViewObject", None)
             if view is None:
                 continue                # deleted meanwhile
             try:
-                view.Visibility = shown
+                if bool(view.Visibility) != shown:
+                    view.Visibility = shown
             except Exception:
                 log.error("could not restore the visibility of %s" % name)
 

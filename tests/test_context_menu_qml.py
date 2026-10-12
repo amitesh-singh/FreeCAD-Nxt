@@ -68,7 +68,9 @@ MENU = present.present(
 
 HOST = """
 import QtQuick
-import Nxt
+import Nxt.Controls
+import Nxt.Tree
+import Nxt.Inspector
 Rectangle {
     id: host
     width: 120; height: 200

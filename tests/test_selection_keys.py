@@ -121,6 +121,8 @@ def make_bridge() -> Any:
     bridge._pinned = set()
     bridge.sync_selection = lambda: None
     bridge.invalidate = lambda *a, **k: None
+    bridge._rollback = bridge_mod.rollback.Rollback(bridge)
+    bridge._drag_drop = bridge_mod.drag_drop.DragDrop(bridge)
     return bridge
 
 
@@ -365,7 +367,6 @@ class TipBarTests(unittest.TestCase):
             "B": node(stack=[], children=[], is_model=False),
             "E": node(stack=[], children=[], is_model=False),
         }
-        self.bridge._bar_anchor = {}
         self.bridge._active = ""
 
     def bodies(self) -> list[str]:
@@ -445,7 +446,7 @@ class UndoToastTests(unittest.TestCase):
         DOC.objects["A"].Tip = DOC.objects["B"]
         self.addCleanup(delattr, DOC.objects["A"], "Tip")
         DOC.objects["B"].ViewObject.Visibility = False
-        self.bridge._toast_tip(DOC, "A", "C")
+        self.bridge._rollback._toast_tip(DOC, "A", "C")
         (_message, after_undo), = self.said
         after_undo(DOC)
         self.assertTrue(DOC.objects["B"].ViewObject.Visibility)
@@ -612,18 +613,17 @@ class TipDragTests(unittest.TestCase):
         }
         self.bridge._snapshot.retip = lambda _b, _t: []
         idle = types.SimpleNamespace(start=lambda: None, stop=lambda: None)
-        self.bridge._tip_drag = None
-        self.bridge._drain_timer = self.bridge._finish_timer = idle
-        self.bridge._bar_anchor = {}
-        self.bridge._publish_tip_bars = lambda: None
-        self.bridge._toast_tip = lambda *_a: None
+        bars = self.bridge._rollback
+        bars._drain_timer = bars._finish_timer = idle
+        bars.publish = lambda: None
+        bars._toast_tip = lambda *_a: None
         self.bridge._tree.touch = lambda *_a: None
         self.applied: list[str] = []
 
         def apply(_body: str, feature: str) -> bool:
             self.applied.append(feature)
             return True
-        self.bridge._apply_tip = apply
+        bars._apply_tip = apply
         for name in "ABCD":
             DOC.objects[name].ViewObject.Visibility = name in "AD"
         DOC.log.clear()
@@ -635,8 +635,10 @@ class TipDragTests(unittest.TestCase):
                        if DOC.objects[n].ViewObject.Visibility)
 
     def drag_to(self, feature: str) -> None:
-        self.bridge._tip_drag["wanted"] = feature
-        self.bridge._drain_tip_drag()
+        bars = self.bridge._rollback
+        assert bars.drag is not None
+        bars.drag["wanted"] = feature
+        bars._drain_tip_drag()
 
     def test_moving_only_shows_and_letting_go_sets_the_tip(self) -> None:
         self.bridge.beginTipDrag("A")

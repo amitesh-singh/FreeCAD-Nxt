@@ -882,18 +882,22 @@ def show() -> ModelPanel | None:
                     existing = dock
                     break
 
-        if existing is not None:
-            area = mw.dockWidgetArea(existing)
-        else:
-            area = _dock_area(settings_mod.get("DockArea"))
-        mw.addDockWidget(area, _panel)
+        # Where FreeCAD's saved window layout had it, beside and in order
+        # with the other docks: the layout is read at startup, before this
+        # dock exists, and Qt keeps its place for a dock made afterwards.
+        if existing is not None or not mw.restoreDockWidget(_panel):
+            if existing is not None:
+                area = mw.dockWidgetArea(existing)
+            else:
+                area = _dock_area(settings_mod.get("DockArea"))
+            mw.addDockWidget(area, _panel)
 
-        # Tabbing beside the stock tree is a first-run courtesy only. After
-        # that the user's arrangement is the arrangement, and re-tabbing on
-        # every start would quietly undo it.
-        if existing is not None:
-            mw.tabifyDockWidget(existing, _panel)
-            settings_mod.put("Configured", True)
+            # Tabbing beside the stock tree is a first-run courtesy only.
+            # After that the user's arrangement is the arrangement, and
+            # re-tabbing on every start would quietly undo it.
+            if existing is not None:
+                mw.tabifyDockWidget(existing, _panel)
+                settings_mod.put("Configured", True)
 
         _panel.apply_saved_state(mw)
 

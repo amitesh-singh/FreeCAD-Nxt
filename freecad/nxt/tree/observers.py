@@ -4,7 +4,7 @@ Three separate FreeCAD observer channels feed the panel:
 
     App observer   structure and data - objects created, deleted, relabelled,
                    recomputed, undone.
-    Gui observer   view state - visibility, edit mode, view provider changes.
+    Gui observer   view providers created and deleted, edit mode.
     Selection      the global selection, which we mirror rather than own.
 
 None of them rebuild anything directly. They call `bridge.invalidate()`,
@@ -78,9 +78,11 @@ class _GuiObserver(object):
     def __init__(self, bridge: Any) -> None:
         self._bridge = bridge
 
-    def slotChangedObject(self, vobj: Any, prop: str) -> None:
-        # Visibility is the one view property the panel renders directly.
-        self._bridge.invalidate(icons=(prop != "Visibility"))
+    # No slotChangedObject: FreeCAD hands it each view provider as a Python
+    # object, and does so while the provider is still being constructed -
+    # which fixes its Python type at a base class for good (Assembly then
+    # lost isInEditMode, and with it sub-assemblies). Visibility arrives
+    # through the App observer, as the object's own Visibility property.
 
     def slotCreatedObject(self, vobj: Any) -> None:
         self._bridge.invalidate(icons=True)

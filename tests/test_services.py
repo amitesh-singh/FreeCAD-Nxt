@@ -16,18 +16,17 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
-import types  # noqa: E402
 
-import test_inspector  # noqa: E402,F401  (installs the FreeCAD stub)
+import fakes  # noqa: E402
 from PySide6 import QtWidgets  # noqa: E402
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 MAIN = QtWidgets.QMainWindow()
-Gui = sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
+App, Gui = fakes.install()
 Gui.getMainWindow = lambda: MAIN  # type: ignore[attr-defined]
 
-from freecad.nxt import services  # noqa: E402
-from freecad.nxt.tree import editing  # noqa: E402
+from freecad.nxt.app import services  # noqa: E402
+from freecad.nxt.tools import editing  # noqa: E402
 
 
 class Parts:
@@ -49,8 +48,8 @@ class ServicesTests(unittest.TestCase):
 
     def setUp(self) -> None:
         Parts.log = []
-        import freecad.nxt.tree.face_edit as face_edit
-        import freecad.nxt.tree.float_input as float_input
+        import freecad.nxt.tools.face_edit as face_edit
+        import freecad.nxt.tools.float_input as float_input
         self.saved = (face_edit.DoubleClickEditor,
                       float_input.FloatingInput, editing.enter_edit)
         face_edit.DoubleClickEditor = Parts  # type: ignore
@@ -60,8 +59,8 @@ class ServicesTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         services.stop()
-        import freecad.nxt.tree.face_edit as face_edit
-        import freecad.nxt.tree.float_input as float_input
+        import freecad.nxt.tools.face_edit as face_edit
+        import freecad.nxt.tools.float_input as float_input
         (face_edit.DoubleClickEditor, float_input.FloatingInput,
          editing.enter_edit) = self.saved
 

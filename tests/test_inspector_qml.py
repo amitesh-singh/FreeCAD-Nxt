@@ -21,18 +21,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
-import test_inspector as fakes  # noqa: E402  (installs the FreeCAD stub)
+import fakes  # noqa: E402
 import test_inspector_templates as pads  # noqa: E402
 from PySide6 import QtCore, QtQuick, QtWidgets  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 
-App = sys.modules["FreeCAD"]
-App.ParamGet = lambda _group: types.SimpleNamespace(
-    GetBool=lambda _k, d: d, GetInt=lambda _k, d: d,
-    GetFloat=lambda _k, d: d, GetString=lambda _k, d: d)
+App, Gui = fakes.install()
 
-from freecad.nxt.tree import inspector  # noqa: E402
-from freecad.nxt.tree.theme import Theme  # noqa: E402
+from freecad.nxt.inspector import layout as inspector  # noqa: E402
+from freecad.nxt.ui.theme import Theme  # noqa: E402
 
 QML = ROOT / "freecad" / "nxt" / "resources" / "qml"
 BAD = ("binding loop", "is not defined", "cannot read property",

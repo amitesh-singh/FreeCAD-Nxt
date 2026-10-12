@@ -1,5 +1,5 @@
 import QtQuick
-import Nxt
+import Nxt.Controls
 
 // The undo toast in the 3D view (toast.py). Sized to its content; the
 // Python side centres it at the top of the view, and hides it once it

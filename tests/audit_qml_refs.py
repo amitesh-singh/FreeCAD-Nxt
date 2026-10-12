@@ -44,7 +44,7 @@ def py_members(path):
 
 
 bridge = py_members(PY / "bridge.py")
-theme = py_members(PY / "theme.py")
+theme = py_members(PY.parent / "ui" / "theme.py")
 panel = py_members(PY / "panel.py")
 
 # roleNames -> the properties a delegate may declare
@@ -81,11 +81,16 @@ check("host.* -> panel.py", calls["host"], panel)
 check("TreeRow props -> roleNames", declared - {"index", "modelData"}, roles)
 
 # every Nxt component referenced must be registered
-registered = set()
-for line in (QML / "Nxt" / "qmldir").read_text().splitlines():
-    parts = line.split()
-    if len(parts) == 3:
-        registered.add(parts[0])
+module_of = {}
+present = set()
+for qmldir in sorted((QML / "Nxt").glob("*/qmldir")):
+    module = qmldir.read_text().split()[1]
+    for line in qmldir.read_text().splitlines():
+        parts = line.split()
+        if len(parts) == 3:
+            module_of[parts[0]] = module
+    present |= {path.stem for path in qmldir.parent.glob("*.qml")}
+registered = set(module_of)
 builtin = {"Item", "Rectangle", "Text", "TextInput", "Image", "Row", "Column",
            "Flow", "Canvas", "ListView", "Repeater", "MouseArea", "DropArea",
            "HoverHandler", "TapHandler", "WheelHandler", "DragHandler",
@@ -107,12 +112,26 @@ if unknown:
     fail.append("components")
 
 # files registered but absent, and files present but unregistered
-present = {path.stem for path in (QML / "Nxt").glob("*.qml")}
 print("%-28s registered-but-missing: %s   present-but-unregistered: %s"
       % ("qmldir <-> files", sorted(registered - present) or "none",
          sorted(present - registered) or "none"))
 if registered - present or present - registered:
     fail.append("qmldir")
+
+# every file imports the module of each Nxt component it uses
+unimported = []
+for path in qml_files():
+    src = strip_comments(path.read_text())
+    imports = set(re.findall(r"^import (Nxt\.\w+)", src, re.M))
+    own = path.parent.name if path.parent.parent.name == "Nxt" else None
+    for name in set(re.findall(r"\b([A-Z]\w+)\s*\{", src)):
+        module = module_of.get(name)
+        if module and module != "Nxt." + str(own) and module not in imports:
+            unimported.append("%s: %s" % (path.name, name))
+print("%-28s missing: %s" % ("components -> imports",
+                             sorted(unimported) or "none"))
+if unimported:
+    fail.append("imports")
 
 print()
 print("AUDIT", "FAILED: " + ", ".join(fail) if fail else "PASSED")

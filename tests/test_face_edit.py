@@ -19,22 +19,14 @@ sys.path.insert(0, str(ROOT))
 from PySide6 import QtCore, QtGui, QtWidgets  # noqa: E402
 
 STORE: dict[str, Any] = {}
-App = types.ModuleType("FreeCAD")
-App.Console = types.SimpleNamespace(PrintError=lambda _m: None,
-                                    PrintLog=lambda _m: None)
-App.ParamGet = lambda _g: types.SimpleNamespace(
-    GetBool=lambda k, d: STORE.get(k, d), GetInt=lambda _k, d: d,
-    GetFloat=lambda _k, d: d, GetString=lambda _k, d: d)
-Gui = types.ModuleType("FreeCADGui")
-sys.modules.setdefault("FreeCAD", App)
-sys.modules.setdefault("FreeCADGui", Gui)
-App = sys.modules["FreeCAD"]
-Gui = sys.modules["FreeCADGui"]
+import fakes  # noqa: E402
+
+App, Gui = fakes.install(ParamGet=fakes.params(STORE))
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
 from freecad.nxt.core import view3d  # noqa: E402
-from freecad.nxt.tree import face_edit  # noqa: E402
+from freecad.nxt.tools import face_edit  # noqa: E402
 
 
 class View3D(QtWidgets.QWidget):

@@ -13,15 +13,18 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .. import expressions, fc, qtquick, resources
-from ..i18n import QT_TRANSLATE_NOOP, translate
-from ..qt import QtCompat, QtCore, QtGui, QtWidgets
+from .. import resources
+from ..app.i18n import QT_TRANSLATE_NOOP, translate
+from ..core import fc, qtquick
+from ..core import settings as settings_mod
+from ..core.qt import QtCompat, QtCore, QtGui, QtWidgets
+from ..tools import expressions
+from ..ui import prefs as prefs_mod
+from ..ui import quick_host
+from ..ui import theme as theme_mod
 from . import bridge as bridge_mod
 from . import icons as icons_mod
 from . import observers as observers_mod
-from . import prefs as prefs_mod
-from . import settings as settings_mod
-from . import theme as theme_mod
 
 OBJECT_NAME = "NxtModelPanel"
 TITLE = QT_TRANSLATE_NOOP("Nxt", "Model (Nxt)")
@@ -209,10 +212,6 @@ class PanelTitleBar(QtWidgets.QWidget):
         self._label.setText(self._dock.windowTitle())
 
 
-def qml_dir() -> str:
-    return str(resources.QML)
-
-
 class ModelPanel(QtWidgets.QDockWidget):
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
@@ -298,41 +297,26 @@ class ModelPanel(QtWidgets.QDockWidget):
                           "QtQuick is not available in this FreeCAD's Qt "
                           "packaging.\nThe panel needs "
                           "PySide6.QtQuickWidgets."))
-        qtquick.use_shared_graphics_api()
         try:
-            QtQml, QtQuick, QtQuickWidgets = qtquick.modules()  # noqa: N806
+            view = quick_host.make_view(
+                self, "NxtTree.qml",
+                {"expressions": expressions.helper(), "nxt": self._bridge,
+                 "theme": self._theme, "host": self, "prefs": self._prefs,
+                 "isolation": self._isolation()},
+                prepare=self._prepare_view)
+        except quick_host.QmlLoadError as exc:
+            App.Console.PrintError("Nxt: %s\n" % exc)
+            return self._failure(str(exc))
         except Exception:
             return self._failure(traceback.format_exc())
 
-        view = QtQuickWidgets.QQuickWidget(self)
-        view.setResizeMode(
-            QtQuickWidgets.QQuickWidget.ResizeMode.SizeRootObjectToView)
-        self._apply_clear_colour(view)
-
-        engine = view.engine()
-        engine.addImportPath(qml_dir())
-        self._provider = icons_mod.IconProvider()
-        engine.addImageProvider(icons_mod.PROVIDER_ID, self._provider)
-
-        context = view.rootContext()
-        expressions.register(context)
-        context.setContextProperty("nxt", self._bridge)
-        context.setContextProperty("theme", self._theme)
-        context.setContextProperty("host", self)
-        context.setContextProperty("prefs", self._prefs)
-        context.setContextProperty("isolation", self._isolation())
-
-        source = str(resources.qml("NxtTree.qml"))
-        view.setSource(QtCore.QUrl.fromLocalFile(source))
-
-        if view.status() == QtQuickWidgets.QQuickWidget.Status.Error:
-            detail = "\n".join(str(e.toString()) for e in view.errors())
-            App.Console.PrintError("Nxt: QML failed to load\n%s\n" % detail)
-            view.deleteLater()
-            return self._failure(detail)
-
         self._view = view
         return view
+
+    def _prepare_view(self, view: Any) -> None:
+        self._apply_clear_colour(view)
+        self._provider = icons_mod.IconProvider()
+        view.engine().addImageProvider(icons_mod.PROVIDER_ID, self._provider)
 
     def _isolation(self) -> Any:
         """The isolate mode the rows dim for.
@@ -340,7 +324,8 @@ class ModelPanel(QtWidgets.QDockWidget):
         The services' own; with the services not running, an idle one, so
         the QML binds cleanly.
         """
-        from .. import isolate, services
+        from ..app import services
+        from ..tools import isolate
         live = services.isolation()
         return live if live is not None else isolate.Isolation(self)
 
@@ -613,7 +598,7 @@ class ModelPanel(QtWidgets.QDockWidget):
         App.Console.PrintMessage(
             "Nxt: the panel was overlaid last session, but %s did not land "
             "on it. Use the title bar button to overlay it again, and run "
-            "'from freecad.nxt.tree import probe; probe.overlay()' "
+            "'from freecad.nxt.diagnostics import probe; probe.overlay()' "
             "to show what "
             "this build offers for aiming it.\n" % HOST_OVERLAY_COMMAND)
 
@@ -685,11 +670,7 @@ class ModelPanel(QtWidgets.QDockWidget):
         Elsewhere the menu is placed from global coordinates, which already
         account for this, and the offset is zero.
         """
-        if (self._view is None or not QtGui.QGuiApplication.platformName()
-                .startswith("wayland")):
-            return QtCore.QPointF(0, 0)
-        corner = self._view.mapTo(self._view.window(), QtCore.QPoint(0, 0))
-        return QtCore.QPointF(corner)
+        return quick_host.window_offset(self._view)
 
     @QtCore.Slot()
     def takeKeyboard(self) -> None:  # noqa: N802 - QML API

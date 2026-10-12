@@ -19,21 +19,15 @@ sys.path.insert(0, str(ROOT))
 from PySide6 import QtCore, QtWidgets  # noqa: E402
 
 STORE: dict[str, Any] = {}
-App = types.ModuleType("FreeCAD")
-App.Console = types.SimpleNamespace(  # type: ignore[attr-defined]
-    PrintError=lambda _m: None, PrintMessage=lambda _m: None,
-    PrintLog=lambda _m: None)
-App.ParamGet = lambda _g: types.SimpleNamespace(  # type: ignore
-    GetBool=lambda k, d: STORE.get(k, d), GetInt=lambda _k, d: d,
-    GetFloat=lambda _k, d: d, GetString=lambda _k, d: d)
-Gui = types.ModuleType("FreeCADGui")
-sys.modules.update(FreeCAD=App, FreeCADGui=Gui)
+import fakes  # noqa: E402
+
+App, Gui = fakes.install(ParamGet=fakes.params(STORE))
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 MAIN = QtWidgets.QMainWindow()
 Gui.getMainWindow = lambda: MAIN  # type: ignore[attr-defined]
 
-from freecad.nxt import sketch_attach  # noqa: E402
+from freecad.nxt.tools import sketch_attach  # noqa: E402
 
 
 class Thing:

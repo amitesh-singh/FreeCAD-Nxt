@@ -7,20 +7,15 @@ from __future__ import annotations
 
 import sys
 import tomllib
-import types
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-# The package imports FreeCAD for its console; the definitions do not.
-App = types.ModuleType("FreeCAD")
-App.Console = types.SimpleNamespace(PrintError=lambda _m: None,
-                                    PrintWarning=lambda _m: None,
-                                    PrintMessage=lambda _m: None)
-sys.modules.setdefault("FreeCAD", App)
-sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
+import fakes  # noqa: E402
+
+fakes.install()
 
 from freecad.nxt.menus import definitions as d  # noqa: E402
 

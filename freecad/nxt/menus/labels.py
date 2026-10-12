@@ -10,7 +10,7 @@ An addon's own labels are translated by that addon, or shown as written.
 
 from __future__ import annotations
 
-from ..i18n import QT_TRANSLATE_NOOP
+from ..app.i18n import QT_TRANSLATE_NOOP
 
 #: What each Nxt action is called in the menu.
 ACTIONS: dict[str, str] = {

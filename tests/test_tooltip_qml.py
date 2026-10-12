@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 import sys
-import types
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -15,22 +14,21 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
+import fakes  # noqa: E402
 import shiboken6  # noqa: E402
-import test_inspector  # noqa: E402,F401  (installs the FreeCAD stub)
 from PySide6 import QtCore, QtGui, QtQuick  # noqa: E402
 
 STORE: dict[str, object] = {}
-App = sys.modules["FreeCAD"]
-App.ParamGet = lambda _group: types.SimpleNamespace(
-    GetBool=lambda k, d: STORE.get(k, d), GetInt=lambda _k, d: d,
-    GetFloat=lambda _k, d: d, GetString=lambda _k, d: d)
+App, Gui = fakes.install(ParamGet=fakes.params(STORE))
 
-from freecad.nxt.tree.theme import Theme  # noqa: E402
+from freecad.nxt.ui.theme import Theme  # noqa: E402
 
 QML = ROOT / "freecad" / "nxt" / "resources" / "qml"
 HOST = """
 import QtQuick
-import Nxt
+import Nxt.Controls
+import Nxt.Tree
+import Nxt.Inspector
 Rectangle {
     width: 120; height: 40
     property alias shown: tip.shown

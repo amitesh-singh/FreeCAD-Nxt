@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import os
 import sys
-import types
 import unittest
 from pathlib import Path
 from typing import Any
@@ -25,18 +24,15 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import fakes  # noqa: E402
 from PySide6 import QtCore, QtGui, QtWidgets  # noqa: E402
 
-App = types.ModuleType("FreeCAD")
-App.Console = types.SimpleNamespace(PrintLog=lambda _m: None,
-                                    PrintError=lambda _m: None)
-sys.modules.setdefault("FreeCAD", App)
-sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
-App = sys.modules["FreeCAD"]
+App, Gui = fakes.install()
 
 APP = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
-from freecad.nxt.tree import theme, view_overlay  # noqa: E402
+from freecad.nxt.tree import view_overlay  # noqa: E402
+from freecad.nxt.ui import theme  # noqa: E402
 
 E = QtCore.QEvent.Type
 LEFT = QtCore.Qt.MouseButton.LeftButton

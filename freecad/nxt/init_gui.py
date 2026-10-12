@@ -14,8 +14,9 @@ from pathlib import Path
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from . import commands, resources
-from .qt import QtCore
+from . import resources
+from .app import commands
+from .core.qt import QtCore
 
 
 class Manipulator:
@@ -33,7 +34,7 @@ def _restore_panel() -> None:
     panel connects to them as it opens.
     """
     try:
-        from . import services
+        from .app import services
         services.start()
     except Exception:
         App.Console.PrintError("Nxt: services failed to start\n")
@@ -58,14 +59,14 @@ ROOT = Path(__file__).resolve().parents[2]
 def _leaving() -> None:
     """At quit, put FreeCAD's drag settings back if Nxt is going away."""
     try:
-        from .tree import gizmos
+        from .tools import gizmos
         gizmos.restore_if_leaving(ROOT)
     except Exception:
         App.Console.PrintError("Nxt: could not restore the drag settings\n")
 
 
 try:
-    from .tree import gizmos as _gizmos
+    from .tools import gizmos as _gizmos
     _gizmos.apply_defaults_once()
 except Exception:
     App.Console.PrintError("Nxt: could not set the drag defaults\n")
@@ -73,8 +74,8 @@ _app = QtCore.QCoreApplication.instance()
 if _app is not None:
     _app.aboutToQuit.connect(_leaving)
 try:
-    from .tree import prefs as _prefs
-    Gui.addPreferencePage(_prefs.PreferencesPage, _prefs.GROUP)
+    from .ui import prefs as _prefs
+    Gui.addPreferencePage(_prefs.NxtPreferencesPage, _prefs.GROUP)
 except Exception:
     App.Console.PrintError("Nxt: could not add the Preferences page\n")
     App.Console.PrintError(traceback.format_exc())

@@ -1,0 +1,16 @@
+module Nxt.Controls
+Chip 1.0 Chip.qml
+TextField 1.0 TextField.qml
+ChoiceList 1.0 ChoiceList.qml
+ValueEditor 1.0 ValueEditor.qml
+ContextMenu 1.0 ContextMenu.qml
+NxtSwitch 1.0 NxtSwitch.qml
+Segmented 1.0 Segmented.qml
+NxtToolTip 1.0 NxtToolTip.qml
+ExpressionAssist 1.0 ExpressionAssist.qml
+Disclosure 1.0 Disclosure.qml
+NxtScrollBar 1.0 NxtScrollBar.qml
+SearchBox 1.0 SearchBox.qml
+UndoToast 1.0 UndoToast.qml
+IsolationNotice 1.0 IsolationNotice.qml
+IconButton 1.0 IconButton.qml

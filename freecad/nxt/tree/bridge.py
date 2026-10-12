@@ -20,23 +20,14 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from .. import fc, services, visibility
-from ..core import log
+from ..app import services
+from ..app.i18n import translate
+from ..core import fc, log, settings
+from ..core.qt import QtCore
 from ..core.transaction import transaction
-from ..i18n import translate
-from ..qt import QtCore
-from . import (
-    editing,
-    icons,
-    links,
-    models,
-    picking,
-    properties,
-    reorder,
-    saved_expansion,
-    scene,
-    settings,
-)
+from ..inspector import properties
+from ..tools import editing, visibility
+from . import icons, links, models, picking, reorder, saved_expansion, scene
 
 #: Kept importable from here: tests and older callers use this name.
 open_edit_transaction = editing.open_edit_transaction
@@ -1128,7 +1119,7 @@ class TreeBridge(QtCore.QObject):
         up with the dock instead. The object is selected first: the borrowed
         editor always shows the selection.
         """
-        from .. import property_inspector
+        from ..inspector import host as property_inspector
         if name:
             self._push_selection([name], False)
         property_inspector.open_inspector(

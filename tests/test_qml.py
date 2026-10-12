@@ -57,7 +57,7 @@ QtCore.qInstallMessageHandler(_handler)
 # --- theme stub, generated from theme.py's own property list -------------- #
 
 def theme_properties():
-    tree = ast.parse((SRC / "theme.py").read_text())
+    tree = ast.parse((SRC.parent / "ui" / "theme.py").read_text())
     out = {}
     for node in ast.walk(tree):
         if not isinstance(node, ast.FunctionDef):

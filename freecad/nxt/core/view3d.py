@@ -6,7 +6,7 @@ from typing import Any
 
 import FreeCADGui as Gui
 
-from ..qt import QtWidgets
+from .qt import QtWidgets
 
 VIEW3D_CLASS = "Gui::View3DInventor"
 

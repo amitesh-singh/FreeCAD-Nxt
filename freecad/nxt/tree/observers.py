@@ -152,7 +152,7 @@ class Observers(object):
         # The services (services.py) do the 3D double-click edit whether
         # or not the panel is open; the panel only adds the row reveal.
         try:
-            from .. import services
+            from ..app import services
             live = services.start()
             if live is not None:
                 live.featurePicked.connect(self._bridge.edit_feature)

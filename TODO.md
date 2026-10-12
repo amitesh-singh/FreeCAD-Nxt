@@ -19,16 +19,16 @@ Tick items off as they land; add notes under an item as decisions are made.
 
 ## 3D drag handles (FreeCAD 26.3 gizmos)
 
-- [x] Step settings on the Nxt Preferences page (tree/gizmos.py): plain drag fine or coarse, the switch key, fine step, coarse multipliers; Nxt default on first run: fine on a plain drag, Ctrl for coarse
-- [x] FreeCAD's own values for the two preferences the first-run default changes are kept, and put back on uninstall (`uninstall.py`, run by the Addon Manager) or at the quit after Nxt is disabled or removed; a value the user changed since is left (`restore_freecads` in tree/gizmos.py)
-- [x] Floating value field beside the visible arrow, typing into the task's own field (tree/float_input.py; Pad/Pocket `lengthEdit`)
-- [x] Floating fields for a second arrow (two-length pads) and the taper/rotation handles: a box per handle, paired with its task field by the order FreeCAD makes them in (`HANDLES`, `pair` in tree/float_input.py)
+- [x] Step settings on the Nxt Preferences page (tools/gizmos.py): plain drag fine or coarse, the switch key, fine step, coarse multipliers; Nxt default on first run: fine on a plain drag, Ctrl for coarse
+- [x] FreeCAD's own values for the two preferences the first-run default changes are kept, and put back on uninstall (`uninstall.py`, run by the Addon Manager) or at the quit after Nxt is disabled or removed; a value the user changed since is left (`restore_freecads` in tools/gizmos.py)
+- [x] Floating value field beside the visible arrow, typing into the task's own field (tools/float_input.py; Pad/Pocket `lengthEdit`)
+- [x] Floating fields for a second arrow (two-length pads) and the taper/rotation handles: a box per handle, paired with its task field by the order FreeCAD makes them in (`HANDLES`, `pair` in tools/float_input.py)
 - [x] Confirm that pairing in FreeCAD (`probe.draggers()` with a two-length, tapered Pad open): the rotation handle's node type and the order of the handles are taken from FreeCAD's source, not seen
 - [x] Snap the dragged length to a parallel face (Pad and Pocket): faces gathered once per edit, the length held on a face within 10 px and the face highlighted; Alt lets it go; "Snap a dragged length to parallel faces" (face_snap.py, separate from the tree)
 
 ## Overlay (tree over the 3D view)
 
-- [x] Tip bar and expand arrows take their colour from the theme and, in overlay, from the 3D view background (`branchInk` in tree/theme.py)
+- [x] Tip bar and expand arrows take their colour from the theme and, in overlay, from the 3D view background (`branchInk` in ui/theme.py)
 - [x] Follow a change of the view background at once (`theme.ViewBackgroundWatch`)
 - [x] Tests for view_overlay.py (tests/test_view_overlay.py)
 - [x] Write the overlay up in DESIGN.md ("Nxt's own overlay")
@@ -45,7 +45,7 @@ Tick items off as they land; add notes under an item as decisions are made.
 - [ ] Drop zones above and below a row, to insert before or after an object in another container (needs a positioned insert in the bridge; today a drop across containers goes into the row it is on)
 
 - [x] 3D-view picks, as SolidWorks does: a face is traced through the element map to the feature that made it (tree/picking.py), which stays outlined until the selection changes; its path opens, the tree scrolls to it and it flashes (setting "Show objects picked in the 3D view")
-- [x] Double-click a face in the 3D view to edit the feature that made it (tree/face_edit.py; setting "Double-click a face to edit its feature")
+- [x] Double-click a face in the 3D view to edit the feature that made it (tools/face_edit.py; setting "Double-click a face to edit its feature")
 - [x] Home and End select the first and last row, Shift extends to it; claimed from FreeCAD's "home view" shortcut while the panel has the keyboard (`jumpSelection` in tree/bridge.py)
 - [x] Breadcrumb pinned over the top of the list once the containers of the top row have scrolled away ("Bracket › Body › Pocket001"); a name scrolls back to its row (Breadcrumb.qml, `breadcrumb` in tree/bridge.py)
 
@@ -66,10 +66,10 @@ Not planned (decided 2026-10-09): stepping the tip from the keyboard, dragging a
 ## Property Inspector
 
 - [ ] **M** Part Design and Sketch templates
-  - [x] Template mechanism and Pad/Pocket: cards named for the task (Extent, Start, Profile); Extent has Sides as a segmented control and one column per side (type, length or bound, taper), the second beside the first for two sides; dropdowns for types, switches for yes/no, Direction (Sketch normal | Custom) and Reversed under the columns; deprecated Midplane hidden where SideType exists; edits to a feature in edit go through its task panel (tree/task_sync.py); everything not placed stays below under "Everything else", closed (tree/inspector_templates.py, resources/inspector/partdesign.toml). **Untested inside FreeCAD**; enumeration values for FreeCAD 27's SideType/Type2 are guesses
+  - [x] Template mechanism and Pad/Pocket: cards named for the task (Extent, Start, Profile); Extent has Sides as a segmented control and one column per side (type, length or bound, taper), the second beside the first for two sides; dropdowns for types, switches for yes/no, Direction (Sketch normal | Custom) and Reversed under the columns; deprecated Midplane hidden where SideType exists; edits to a feature in edit go through its task panel (tools/task_sync.py); everything not placed stays below under "Everything else", closed (inspector/templates.py, resources/inspector/partdesign.toml). **Untested inside FreeCAD**; enumeration values for FreeCAD 27's SideType/Type2 are guesses
   - [ ] Revolution/Groove, Fillet/Chamfer, Hole, patterns, Sketch, Body
 - [ ] **S** Drag to change numbers: horizontal drag on a field's label, Shift fine / Ctrl coarse
-- [x] Expression editing with autocomplete: `=` in a value field lists the document's objects, the properties after a dot, the owner's own properties and FreeCAD's functions, with the live result under them; in the inspector, the detail strip and the floating fields (freecad/nxt/expressions.py, Nxt/ExpressionAssist.qml; independent of the tree)
+- [x] Expression editing with autocomplete: `=` in a value field lists the document's objects, the properties after a dot, the owner's own properties and FreeCAD's functions, with the live result under them; in the inspector, the detail strip and the floating fields (freecad/nxt/tools/expressions.py, Nxt/ExpressionAssist.qml; independent of the tree)
 - [ ] **M** Compare mode for multi-select: "— mixed" lists each object's value; pick one to apply to all
 
 ## Possible future: structured Report view
@@ -83,7 +83,7 @@ Not planned (decided 2026-10-09): stepping the tip from the keyboard, dragging a
 - [x] Preferences for every feature that has landed: the Preferences page now also has "Attach a new sketch to three picked points without asking". Still waiting on their features, which are not built: context-menu Recent, and replacing the native tree rather than sitting beside it
 - [x] On quit the QML view is destroyed first, so its bindings do not fire against null (`_on_quit` in tree/panel.py)
 - [x] GitHub workflow (`.github/workflows/checks.yml`): ruff, pycodestyle, mypy and the offscreen tests on every push
-- [x] Type-check against `freecad-stubs`: clean with and without them (CI installs them). Unchecked `None` from `ActiveDocument` is now guarded; the calls the stubs do not cover go through `freecad/nxt/fc.py`
+- [x] Type-check against `freecad-stubs`: clean with and without them (CI installs them). Unchecked `None` from `ActiveDocument` is now guarded; the calls the stubs do not cover go through `freecad/nxt/core/fc.py`
 
 ## Suggested first picks
 

@@ -14,10 +14,11 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-sys.modules.setdefault("FreeCAD", types.ModuleType("FreeCAD"))
-sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
+import fakes  # noqa: E402
 
-from freecad.nxt import expressions as ex  # noqa: E402
+fakes.install()
+
+from freecad.nxt.tools import expressions as ex  # noqa: E402
 
 
 class TokenTests(unittest.TestCase):

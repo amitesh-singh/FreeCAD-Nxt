@@ -1,10 +1,10 @@
 import QtQuick
-import Nxt
+import Nxt.Controls
 
 // A value field floating in the 3D view beside a feature's drag arrow.
 //
 // What it shows and what it sets belong to the task panel's own field -
-// the Pad's Length, say - through `field` (tree/float_input.py): typing
+// the Pad's Length, say - through `field` (tools/float_input.py): typing
 // here types there, so units, expressions and FreeCAD's validation all
 // work as they do in the panel. A click takes the keyboard; a double
 // click selects the whole value to type over. Enter keeps the value and

@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from freecad.nxt.tree.placement import (  # noqa: E402
+from freecad.nxt.tools.placement import (  # noqa: E402
     GAP,
     Rect,
     beside,

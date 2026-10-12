@@ -17,12 +17,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
-import test_inspector  # noqa: E402,F401  (installs the FreeCAD stub)
+import fakes  # noqa: E402
 
-App = sys.modules["FreeCAD"]
-Gui = sys.modules.setdefault("FreeCADGui", types.ModuleType("FreeCADGui"))
+App, Gui = fakes.install()
 
-from freecad.nxt import isolate  # noqa: E402
+from freecad.nxt.tools import isolate  # noqa: E402
 
 
 class Obj:
@@ -102,6 +101,13 @@ class ModeTests(unittest.TestCase):
         self.assertEqual(heard, [True, False])
         self.assertFalse(self.mode.exit())
 
+    def test_what_freecad_changed_meanwhile_is_put_back(self) -> None:
+        self.mode.isolate(["Pad"])
+        # Showing a Body's feature makes FreeCAD hide or show others.
+        self.doc.getObject("Sketch").ViewObject.Visibility = True
+        self.mode.exit()
+        self.assertEqual(shown(self.doc), self.before)
+
     def test_it_does_not_leave_the_document_modified(self) -> None:
         self.gui_doc.Modified = True        # as setting Visibility would
         self.mode._was_modified = None
@@ -149,7 +155,7 @@ class EscapeTests(unittest.TestCase):
     def setUp(self) -> None:
         from PySide6 import QtCore, QtGui, QtWidgets
 
-        from freecad.nxt import isolate_notice
+        from freecad.nxt.ui import isolate_notice
         self.QtCore, self.QtGui = QtCore, QtGui
         self.app = (QtWidgets.QApplication.instance()
                     or QtWidgets.QApplication([]))

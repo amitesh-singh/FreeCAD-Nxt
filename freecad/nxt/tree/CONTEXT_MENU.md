@@ -318,7 +318,7 @@ the source reading above:
   tree's snapshot and the object.
 - `menus/labels.py`: every label, marked for translation.
 - `menus.explain()`: why the selection's menu is what it is.
-- `tree/probe.py`, `context_menu()`: reads FreeCAD's own menu for the
+- `diagnostics/probe.py`, `context_menu()`: reads FreeCAD's own menu for the
   selection and lists what Nxt's definitions would leave to More.
 
 ## Drawing and running it

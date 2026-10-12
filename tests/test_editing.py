@@ -14,15 +14,11 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-App = types.ModuleType("FreeCAD")
-App.Console = types.SimpleNamespace(PrintError=lambda _m: None,
-                                    PrintLog=lambda _m: None)
-Gui = types.ModuleType("FreeCADGui")
-sys.modules.setdefault("FreeCAD", App)
-sys.modules.setdefault("FreeCADGui", Gui)
-Gui = sys.modules["FreeCADGui"]
+import fakes  # noqa: E402
 
-from freecad.nxt.tree import editing  # noqa: E402
+App, Gui = fakes.install()
+
+from freecad.nxt.tools import editing  # noqa: E402
 
 
 class Obj:

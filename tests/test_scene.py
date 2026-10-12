@@ -11,22 +11,15 @@ enough: scene.py imports App only for the console and ActiveDocument.
 from __future__ import annotations
 
 import sys
-import types
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-# --- stub FreeCAD before importing the module under test ------------------- #
+import fakes  # noqa: E402
 
-_stub = types.ModuleType("FreeCAD")
-_stub.ActiveDocument = None
-_stub.Console = types.SimpleNamespace(
-    PrintError=lambda *a, **k: None,
-    PrintMessage=lambda *a, **k: None,
-)
-sys.modules.setdefault("FreeCAD", _stub)
+fakes.install(ActiveDocument=None)
 
 from freecad.nxt.tree import health, scene  # noqa: E402
 

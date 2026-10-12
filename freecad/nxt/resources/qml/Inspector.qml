@@ -2,12 +2,8 @@ import QtQuick
 import Nxt.Controls
 import Nxt.Inspector
 
-// The Property Inspector's contents: every property of the selection, laid out
-// from what the objects say about themselves (see inspector.py).
-//
-// Groups are FreeCAD's own and sit on tinted cards. Inside one, compact
-// editors take half a row and wide ones a full row, so a group reads as a
-// short form rather than a long list.
+// The Property Inspector: every property of the selection (inspector.py),
+// in FreeCAD's groups on tinted cards; compact editors take half a row.
 Rectangle {
     id: root
     color: theme.background
@@ -17,7 +13,6 @@ Rectangle {
     readonly property int pad: 8
     readonly property int gap: 8
 
-    // --- filter and Data / View ----------------------------------------- #
 
     Row {
         id: top
@@ -43,7 +38,6 @@ Rectangle {
             spacing: 2
 
             Repeater {
-                // Keys to the bridge; labels to the user.
                 model: [{key: "Data", label: qsTr("Data")},
                         {key: "View", label: qsTr("View")}]
 
@@ -57,7 +51,6 @@ Rectangle {
         }
     }
 
-    // --- the groups ------------------------------------------------------- #
 
     ListView {
         id: groups
@@ -144,7 +137,6 @@ Rectangle {
                     }
                 }
 
-                // Half-width items pair up; a wide one takes the row.
                 Flow {
                     visible: group.opened
                     width: parent.width
@@ -162,8 +154,7 @@ Rectangle {
                     }
                 }
 
-                // A template's columns: one per side of an extrusion, the
-                // second beside the first when there is a second.
+                // A template's columns, one per side of an extrusion.
                 Row {
                     visible: group.opened && !!group.modelData.columns
                              && group.modelData.columns.length > 0
@@ -219,7 +210,6 @@ Rectangle {
                 }
 
                 Text {
-                    // A template's note on the card.
                     visible: group.opened && !!group.modelData.hint
                     width: parent.width
                     text: group.modelData.hint || ""

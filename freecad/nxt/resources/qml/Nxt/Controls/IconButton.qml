@@ -1,15 +1,13 @@
 import QtQuick
 
-// A small square button with a drawn icon, a hover backdrop and a tooltip.
-// The icon is painted by `paint(ctx, width, height, ink)`, so it takes the
-// theme's colour in light and dark.
+// A small square button with a Canvas-drawn icon and a tooltip.
 Item {
     id: button
 
     property var paint: null
     property string tip: ""
     property string name: tip
-    //: Drawn as hovered while true, e.g. while what it opens is open.
+    //: Drawn hovered, e.g. while its menu is open.
     property bool highlighted: false
     property real iconScale: 0.62
     property real iconAspect: 1.0

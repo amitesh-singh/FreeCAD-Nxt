@@ -1,22 +1,7 @@
-"""The Property Inspector's contents, laid out from what objects say.
+"""The Property Inspector's contents, laid out from FreeCAD's groups.
 
-No per-type layouts here: templates (inspector_templates.py) only
-rearrange what this lays out. FreeCAD already files every property in a
-named group and gives it a kind, and addons use the same kinds, so the
-inspector is built from those alone:
-
-* groups are FreeCAD's own, in FreeCAD's order;
-* each property gets the editor for its kind, not for its object's type;
-* compact editors (numbers, quantities, toggles, choices, colours) take
-  half a row and pair up; wide ones (text, links, vectors, placements)
-  take a full row;
-* a kind with no editor shows its value as text, with "Edit..." to hand
-  that property to FreeCAD's own editor.
-
-Several objects at once show the properties they share, by name and kind;
-a value that differs between them is "mixed", and an edit applies to all.
-
-Pure Python over duck-typed FreeCAD objects, so it runs in the tests.
+Several objects show the properties they share; differing values are
+"mixed". Pure Python over duck-typed objects, so it runs in the tests.
 """
 
 from __future__ import annotations
@@ -39,8 +24,7 @@ DATA, VIEW = "Data", "View"
 #: Kinds that fit half a row. Everything else takes a whole one.
 COMPACT = frozenset({"quantity", "number", "bool", "enum", "color"})
 
-#: Groups that open collapsed unless something in them is bound to an
-#: expression: present on nearly everything, rarely what you came for.
+#: Groups collapsed unless something in them has an expression.
 QUIET_GROUPS = frozenset({"Base", "Attachment", "Object Style",
                           "Display Options", "Selection"})
 
@@ -166,12 +150,7 @@ def _type_name(obj: DocObject) -> str:
 
 def describe(objects: list[DocObject], tab: str = DATA,
              text_filter: str = "") -> list[dict[str, Any]]:
-    """The inspector's groups for `objects`: [{name, open, items}].
-
-    With several objects, only properties all of them have, of the same
-    kind, are shown. A filter keeps matching properties and opens every
-    group that still has any.
-    """
+    """The inspector's groups for `objects`: [{name, open, items}]."""
     if not objects:
         return []
     containers = [_container(obj, tab) for obj in objects]
@@ -213,22 +192,19 @@ def describe(objects: list[DocObject], tab: str = DATA,
     own = _type_name(objects[0]) if len(objects) == 1 else ""
     out = []
     for index, (name, items) in enumerate(groups.items()):
-        # Behind a template, what it leaves is the rarely wanted rest:
-        # closed unless an expression or a filter calls for it.
         opened = (bool(needle)
                   or any(item["expression"] for item in items)
                   or (not cards and (name == own
                                      or name not in QUIET_GROUPS)))
         out.append({"name": name, "open": opened, "items": items,
                     "first": name == own and not cards})
-    # The object's own group leads, whatever order FreeCAD keeps it in.
     out.sort(key=lambda group: not group["first"])
     if cards and out:
-        out[0]["rest"] = True       # "Everything else" goes above it
+        out[0]["rest"] = True
     return cards + out
 
 
-# ---------------------------------------------------------------- editing
+# -- editing --
 
 def _assign(container: Any, obj: DocObject, prop: str, value: Any,
             unit: str) -> None:
@@ -290,11 +266,7 @@ def apply(objects: list[DocObject], prop: str, value: Any,
 def apply_many(objects: list[DocObject],
                edits: list[tuple[str, Any, str]], tab: str = DATA,
                part: str = "") -> bool:
-    """Make several (property, value, unit) edits as one undo step.
-
-    For a template's coupled properties: a start offset and the start
-    type it implies are one change to the user.
-    """
+    """Make several (property, value, unit) edits as one undo step."""
     if not objects or not edits:
         return False
     doc = getattr(objects[0], "Document", None)

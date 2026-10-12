@@ -1,7 +1,6 @@
 """Pure-Python snapshot of a FreeCAD document, for the timeline panel.
 
-No Qt imports, so it runs headlessly under `freecadcmd` and in the
-tests. See DESIGN.md for what the timeline is and why.
+No Qt imports, so it runs headlessly under `freecadcmd` and in tests.
 """
 
 from __future__ import annotations
@@ -22,52 +21,39 @@ DocObject = Any
 #: {target name: [(property name, [sub-elements])]}, per holder.
 LinkTable = dict[str, list[tuple[str, list[str]]]]
 
-# --------------------------------------------------------------------------- #
-# what counts as a profile
-# --------------------------------------------------------------------------- #
+# -- what counts as a profile --
 
 #: Always lifted out of its consumer and placed in the timeline.
 PROFILE_BASES = ("Sketcher::SketchObject",)
 
-#: Lifted only when `widen` is on. Catches Draft wires/circles/b-splines,
-#: which are Part::Part2DObject subclasses and are reused the same way.
+#: Lifted only when `widen` is on (Draft wires, circles, b-splines).
 PROFILE_BASES_WIDE = ("Part::Part2DObject",)
 
-#: The solid feature stack inside a PartDesign Body. Membership also
-#: requires a BaseFeature property, which is what separates real stack
-#: entries from datums and shape binders that merely live in the Body.
+#: Body stack members; a BaseFeature property separates them from datums
+#: and binders that merely live in the Body.
 FEATURE_BASES = ("PartDesign::Feature",)
 
 BODY_BASES = ("PartDesign::Body",)
 
-#: Part workbench operations own their operands outright: a Cut's Base and
-#: Tool exist to be cut, so they stay nested under it (exclusive nesting)
-#: rather than being lifted into the timeline. Profiles are still lifted,
-#: and the operation carries a chip naming the profile it reads.
+#: Part operations own their operands (a Cut's Base and Tool), so those
+#: stay nested; profiles are still lifted.
 NESTING_PREFIX = "Part::"
 
-#: How the tree is structured. NESTED is the classic tree: each Part
-#: operation keeps its operands under it, and a Part Design feature keeps
-#: what it claims - its sketch, most often - under it, as FreeCAD's own
-#: tree does. EXPRESSION puts sketches in the Body's timeline beside the
-#: features, and lists a Part model's steps flat, oldest first,
-#: under its latest operation, with chips carrying the references and a
-#: history bar to scrub through them.
+#: Tree layouts. NESTED mirrors FreeCAD's tree; EXPRESSION puts sketches
+#: beside Body features and lists a Part model's steps flat under its
+#: latest operation, with a history bar.
 NESTED, EXPRESSION = "nested", "expression"
 
-#: Free-standing datums (outside any Body) are filed like sketches. The
-#: Origin and its planes and axes derive from the same bases and stay put.
+#: Free datums are filed like sketches; Origins share the bases but stay.
 DATUM_BASES = ("Part::Datum", "App::DatumElement",
                "App::LocalCoordinateSystem")
 ORIGIN_BASES = ("App::Origin", "App::OriginFeature")
 
-#: Binders are PartDesign types, but outside a Body they are ordinary Part
-#: inputs and nest as steps of the model that first reads them.
+#: Outside a Body, binders are ordinary Part inputs (model steps).
 BINDER_BASES = ("PartDesign::ShapeBinder", "PartDesign::SubShapeBinder")
 
-#: Panel-only groups. The document is never restructured: moving a sketch
-#: out of an App::Part would change where it sits in space. The prefix
-#: cannot occur in a FreeCAD object name, so these never collide.
+#: Panel-only groups; the document is never restructured (moving a sketch
+#: out of an App::Part moves it in space). "~" is never in object names.
 VIRTUAL_PREFIX = "~"
 COMPARTMENTS: tuple[tuple[str, str], ...] = (
     ("Sketches", "is_profile"), ("Datum Objects", "is_datum"))
@@ -83,10 +69,8 @@ def natural_key(text: str) -> list[int | str]:
             for part in re.split(r"(\d+)", text)]
 
 
-#: Container types we resolve a profile's "home" against.
-#: Whose claims can be inputs to lift: the modelling workbenches. What
-#: anything else claims - a CAM Job its folders, stock and setup sheet -
-#: stays as FreeCAD's tree has it, linked or not.
+#: Only modelling workbenches' claims are lifted; others (e.g. a CAM Job's)
+#: stay as FreeCAD's tree has them.
 LIFTING_PREFIXES = ("PartDesign::", "Part::", "Sketcher::")
 
 CONTAINER_BASES = (
@@ -95,8 +79,7 @@ CONTAINER_BASES = (
     "App::DocumentObjectGroup",
 )
 
-#: Link properties that express containment rather than consumption. A Body
-#: links its sketches through Group; that is not a "use".
+#: Link properties that express containment rather than consumption.
 CONTAINMENT_PROPS = frozenset({
     "Group", "Origin", "OriginFeatures", "_GroupTouched", "Tip", "BaseFeature",
 })
@@ -112,17 +95,14 @@ def _derived(obj: DocObject, bases: Iterable[str]) -> bool:
     return False
 
 
-#: What holds an origin's or a local coordinate system's own point, axes
-#: and planes.
 COORDINATE_SYSTEM_BASES = ("App::LocalCoordinateSystem", "App::Origin")
 
 
 def _in_coordinate_system(obj: DocObject) -> bool:
     """One of an Origin's or LCS's own point, axes or planes.
 
-    These stay with their Origin. FreeCAD 26 and later make them datum
-    elements and drop App::OriginFeature, so the type alone no longer
-    tells them from a datum plane the user made: what lists them does.
+    From FreeCAD 26 these are plain datum elements; only the holder's
+    OriginFeatures tells them from user datums.
     """
     for holder in getattr(obj, "InList", None) or ():
         if not _derived(holder, COORDINATE_SYSTEM_BASES):
@@ -152,18 +132,10 @@ def nests_operands(obj: DocObject) -> bool:
     return str(getattr(obj, "TypeId", "")).startswith(NESTING_PREFIX)
 
 
-# --------------------------------------------------------------------------- #
-# hierarchy discovery
-# --------------------------------------------------------------------------- #
+# -- hierarchy discovery --
 
 def claim_children(obj: DocObject) -> list[DocObject]:
-    """Best-effort equivalent of the C++ tree's child query.
-
-    FreeCAD builds the tree from ViewProvider::claimChildren(). Depending on
-    build and object flavour that is reachable in three different places, so
-    try them in order of fidelity and fall back to App-level containment.
-    Returns a list of DocumentObjects, never None.
-    """
+    """Best-effort ViewProvider::claimChildren(), falling back to Group."""
     vo = getattr(obj, "ViewObject", None)
 
     if vo is not None:
@@ -181,8 +153,6 @@ def claim_children(obj: DocObject) -> list[DocObject]:
             except Exception:
                 pass
 
-    # App-level fallback: group containment only. Loses PartDesign's
-    # feature->sketch nesting, which for our purposes is no loss at all.
     group = getattr(obj, "Group", None)
     if group:
         return [c for c in group if c is not None]
@@ -194,7 +164,7 @@ def _is_object(value: object) -> bool:
 
 
 def _subnames(value: object) -> list[str]:
-    """The sub-element half of a LinkSub value, as a list of strings."""
+    """The sub-element half of a LinkSub value."""
     if isinstance(value, str):
         return [value] if value else []
     if isinstance(value, (list, tuple)):
@@ -203,30 +173,13 @@ def _subnames(value: object) -> list[str]:
 
 
 def link_entries(value: Any) -> list[tuple[DocObject, list[str]]]:
-    """Flatten any App::PropertyLink* value into (object, [sub-elements]).
-
-    The five shapes FreeCAD uses:
-
-        Link            obj
-        LinkList        [obj, obj]
-        LinkSub         (obj, "Face3")  or  (obj, ["Face3", "Face5"])
-        LinkSubList     [(obj, [...]), (obj, [...])]
-        empty           None
-
-    The sub-elements used to be dropped on the floor - a pair flattened to
-    its object and the strings were discarded as not-an-object. That lost
-    the difference between "this pocket is built on that pad" and "this
-    pocket is built on one face of that pad", which is most of what the
-    reference was saying.
-    """
+    """Flatten any App::PropertyLink* value into (object, [sub-elements])."""
     if value is None:
         return []
     if _is_object(value):
         return [(value, [])]
     if isinstance(value, (list, tuple)):
-        # A LinkSub arrives as a 2-tuple whose head is the object and whose
-        # tail is the sub-element name(s). A LinkList is a plain sequence of
-        # objects, so the shape has to be checked rather than the length.
+        # A LinkSub is (obj, subs); a 2-item LinkList is (obj, obj).
         if (len(value) == 2 and _is_object(value[0]) and
                 not _is_object(value[1])):
             return [(value[0], _subnames(value[1]))]
@@ -237,23 +190,11 @@ def link_entries(value: Any) -> list[tuple[DocObject, list[str]]]:
     return []
 
 
-def _link_targets(value: Any) -> list[DocObject]:
-    """Just the objects, for callers that do not care which part."""
-    return [obj for obj, _subs in link_entries(value)]
-
-
 def feature_stack(body: DocObject) -> list[DocObject]:
     """The Body's solid features in history order.
 
-    Defined as *the chain through the Tip*, not as the contents of `Group`.
-    Every PartDesign feature points at its predecessor through BaseFeature,
-    so walking back from the tip and forward from it recovers the linear
-    history exactly. Anything in the Body that is not on that chain - a
-    MultiTransform's sub-transformations, a stray left by a failed edit - is
-    excluded rather than guessed at, because the tip can only ever be moved
-    along the chain and offering any other row as a target is a lie.
-
-    With no tip to anchor on (a Body mid-creation), the longest chain wins.
+    The BaseFeature chain through the Tip, not `Group`: the tip can only
+    move along that chain. Without a tip, the longest chain wins.
     """
     group = getattr(body, "Group", None) or []
     features: list[DocObject] = []
@@ -321,17 +262,7 @@ def feature_stack(body: DocObject) -> list[DocObject]:
 
 
 def _link_table(holder: DocObject) -> LinkTable:
-    """Everything `holder` points at, as {target name: [property names]}.
-
-    One pass over the property table instead of one pass per target. Typing
-    a property is a call into C++ and objects have dozens of them, so the
-    difference between asking once per holder and once per (holder, target)
-    pair is the difference between a few hundred calls per rebuild and tens
-    of thousands.
-
-    Containment links are dropped here rather than by the caller: a Body
-    lists its sketches through `Group`, and that is not a use.
-    """
+    """Non-containment links of `holder`, keyed by target name."""
     table: LinkTable = {}
     try:
         properties = holder.PropertiesList
@@ -354,15 +285,7 @@ def _link_table(holder: DocObject) -> LinkTable:
 
 
 class _LinkCache(object):
-    """`_link_table` results, kept per holder for one snapshot build.
-
-    The expensive part of working out what points at what is typing every
-    property a holder has - one call into C++ each. Asked per (holder,
-    target) pair, one container answers it once per member it holds: a Body
-    in the InList of thirty sketches retyped its whole property table thirty
-    times, and every answer was then discarded because Group is containment
-    rather than use.
-    """
+    """`_link_table` results, kept per holder for one snapshot build."""
 
     __slots__ = ("_tables",)
 
@@ -377,32 +300,20 @@ class _LinkCache(object):
 
 
 def linking_properties(holder: DocObject, target: DocObject) -> list[str]:
-    """Names of properties on `holder` whose link value contains `target`.
-
-    Kept for `probe.py` and the tests, which ask about one pair at a time.
-    The snapshot walk uses `_link_table` instead, because it asks about
-    every pair.
-    """
+    """Names of properties on `holder` whose link value contains `target`."""
     return [prop for prop, _subs
             in _link_table(holder).get(target.Name, ())]
 
 
-# --------------------------------------------------------------------------- #
-# snapshot
-# --------------------------------------------------------------------------- #
+# -- snapshot --
 
-#: Rows a document's saved expansion may open before it is set aside and
-#: the tree opens collapsed: an assembly saved fully open buries the rest.
+#: Most rows a saved expansion may open before the tree opens collapsed.
 OPENING_ROWS = 300
 
 
 @dataclass(slots=True, eq=False)
 class Node:
-    """One document object, resolved for display.
-
-    Identity, not value, is what matters: nodes are looked up by name and
-    compared by `is`, so dataclass equality is switched off.
-    """
+    """One document object, resolved for display; compared by identity."""
 
     name: str
     label: str = ""                 # defaults to the name
@@ -452,12 +363,7 @@ class Node:
 
 @dataclass(eq=False)
 class Snapshot:
-    """Immutable-ish view of one document at one moment.
-
-    Rebuild rather than mutate: building is cheap (one pass over objects plus
-    one link scan per profile) and correctness beats incrementalism here.
-    Built from `doc` when one is given; `Snapshot()` is the empty snapshot.
-    """
+    """View of one document at one moment; rebuilt, not mutated."""
 
     doc: InitVar[DocObject] = None
     widen: bool = False
@@ -469,9 +375,7 @@ class Snapshot:
     lifted: list[str] = field(default_factory=list)     # lifted from users
     #: (child, [parents]) for objects claimed twice.
     orphan_claims: list[tuple[str, list[str]]] = field(default_factory=list)
-    #: Does this build expose solver findings at all? One fact about the
-    #: installation, recorded once rather than repeated on every card.
-    #: False means the gutter marks reflect document State only.
+    #: Whether this FreeCAD build exposes solver findings at all.
     solver_findings: bool = False
     _group_owner: dict[str | None, str] = field(default_factory=dict,
                                                 repr=False)
@@ -480,13 +384,12 @@ class Snapshot:
         if doc is not None:
             self._build(doc)
 
-    # -- construction ------------------------------------------------------ #
+    # -- construction --
 
     def _build(self, doc: DocObject) -> None:
         self.doc_name = doc.Name
         objects = list(doc.Objects)
-        # Every attribute read here crosses into C++, and this walk runs on
-        # every document signal. Read each one once and pass it down.
+        # Attribute reads cross into C++; read once and pass down.
         names = [obj.Name for obj in objects]
         by_name = dict(zip(names, objects))
         links = _LinkCache()
@@ -517,8 +420,6 @@ class Snapshot:
             node.label = getattr(obj, "Label", name)
             node.type_id = getattr(obj, "TypeId", "")
             node.is_profile = is_profile(obj, self.widen)
-            # A profile is lifted whether or not anything uses it yet;
-            # everything else earns it by being referenced.
             node.is_lifted = node.is_profile
             node.is_container = is_container(obj)
             node.nests_operands = nests_operands(obj)
@@ -552,12 +453,7 @@ class Snapshot:
 
     def _read_claims(self, names: list[str], objects: list[DocObject]
                      ) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
-        """Who claims whom. First claimer wins; the rest are conflicts.
-
-        The result is kept because claimChildren() allocates a fresh list of
-        wrappers through the view provider - the most expensive call in this
-        walk, and one that ordering children would otherwise repeat.
-        """
+        """Who claims whom. First claimer wins; the rest are conflicts."""
         claims: dict[str, list[str]] = {}
         claimed_by: dict[str, list[str]] = {}
         for name, obj in zip(names, objects):
@@ -576,12 +472,7 @@ class Snapshot:
     def _lift_consumed(self, claims: dict[str, list[str]],
                        by_name: dict[str, DocObject],
                        links: _LinkCache) -> None:
-        """Anything a modelling step claims *and* links to is a reference.
-
-        Not a folder, whoever holds it: a folder is somewhere to put
-        things, never an input, and lifting it out left its contents
-        with nowhere to go.
-        """
+        """Lift what a modelling step claims *and* links to (not folders)."""
         classic = self.part_layout == NESTED
         for child_name, parents in claims.items():
             node = self.nodes[child_name]
@@ -596,8 +487,6 @@ class Snapshot:
                 continue        # not a modelling step: FreeCAD's tree
             if classic and self.nodes[parents[0]].type_id.startswith(
                     "PartDesign::"):
-                # The classic tree: what a Part Design feature claims
-                # stays under it.
                 node.is_lifted = False
                 continue
             if node.is_lifted:
@@ -628,11 +517,7 @@ class Snapshot:
                                self._nearest_container(node))
 
     def _rehome_under_lifted(self) -> None:
-        """Move what a lifted row claimed up to an unlifted ancestor.
-
-        A lifted row is a leaf, so what it claimed moves up to its
-        nearest unlifted ancestor rather than disappearing with it.
-        """
+        """Move what a lifted row claimed up to an unlifted ancestor."""
         for node in self.nodes.values():
             if node.is_lifted or not node.parent:
                 continue
@@ -672,10 +557,8 @@ class Snapshot:
                       links: _LinkCache) -> None:
         """Gather each Part model's steps under its latest operation.
 
-        A model is a Part operation nothing else reads, plus everything it
-        was built from. The steps are listed flat beneath it rather than
-        nested, because the chips on each step already say what it reads.
-        A step two models share stays with the model created first.
+        A model is a Part operation nothing else reads, plus its inputs.
+        A shared step stays with the model created first.
         """
         free = {name for name in names if self._free(name)}
         inputs: dict[str, tuple[str, ...]] = {}
@@ -709,10 +592,8 @@ class Snapshot:
     def _order_models(self) -> None:
         """Steps oldest first, every input ahead of what reads it.
 
-        Creation order is the backbone, but a property can be repointed at
-        something newer, so the order is a topological sort with creation
-        order breaking ties. Scrubbing then never shows an operation whose
-        input has not been made yet.
+        Topological, with creation order breaking ties: a property can be
+        repointed at something newer.
         """
         for node in self.nodes.values():
             if not node.is_model:
@@ -749,15 +630,10 @@ class Snapshot:
 
     def model_state(self, model_name: str, tip_name: str | None
                     ) -> dict[str, tuple[bool, bool]]:
-        """Which steps are built and shown with the model rolled back.
+        """(built, shown) per step with the model rolled back to `tip_name`.
 
-        Which steps are built and which show, with the model rolled back
-        to `tip_name` (None for the finished model).
-
-        Part operations never alter their inputs, so every intermediate
-        result already exists. Rolling back is only a matter of showing
-        what was newest at that step: whatever in the prefix nothing else
-        in the prefix has consumed yet.
+        Part operations never alter their inputs, so rolling back only
+        shows whatever in the prefix is not yet consumed.
         """
         model = self.nodes[model_name]
         steps = list(model.sources) + [model_name]
@@ -769,11 +645,7 @@ class Snapshot:
                 for index, name in enumerate(steps)}
 
     def _fileable(self, name: str) -> bool:
-        """A free sketch or datum whose home is the document or an App::Part.
-
-        One the user put in a group of their own stays where they put
-        it.
-        """
+        """A free sketch or datum at document or App::Part level."""
         node = self.nodes[name]
         if not (node.is_profile or node.is_datum) or not self._free(name):
             return False
@@ -783,10 +655,7 @@ class Snapshot:
     def _file_compartments(self, names: list[str]) -> None:
         """Collect free sketches and datums into panel-only groups.
 
-        One pair per App::Part, at the bottom of it, and one pair at the
-        bottom of the document for everything outside any App::Part - a
-        sketch shown away from the part it belongs to would be misleading.
-        Sorted by label, number-aware. Empty groups are not created.
+        One pair per App::Part, plus one at document level for the rest.
         """
         filed: dict[tuple[str | None, str], list[str]] = {}
         for name in names:
@@ -880,19 +749,7 @@ class Snapshot:
     def _resolve_references(self, names: list[str],
                             by_name: dict[str, DocObject],
                             links: _LinkCache) -> None:
-        """Resolve what each object reads and what reads it.
-
-        Fill in what each object reads, what reads it, and where a
-        lifted object belongs.
-
-        Read forwards, from each object's own link table, rather than
-        backwards from a target's `InList`. Backwards only ever answered
-        the question for things the timeline had lifted, so a feature built
-        on a *face of an earlier feature* had nothing to show: the face's
-        owner is a solid in the Body, claimed by a container, and so never
-        lifted. Forwards, every reference is found the same way and the
-        consumer list falls out as the inverse for free.
-        """
+        """Resolve what each object reads and what reads it."""
         for name in names:
             obj = by_name.get(name)
             if obj is None:
@@ -902,20 +759,13 @@ class Snapshot:
             for target, entries in links.of(name, obj).items():
                 if target == name or target not in self.nodes:
                     continue
-                # A feature attached to a face of the Body it lives in is
-                # not telling you anything: you can see which Body it is
-                # in, because the row is inside it. Chipping the container
-                # you are already standing in put a reference on almost
-                # every row and said nothing on any of them.
+                # No chip for an enclosing container.
                 if self.is_ancestor(name, target):
                     continue
                 other = self.nodes[target]
                 props = [prop for prop, _subs in entries]
 
-                # Which part of it - except for a sketch, where the answer
-                # is noise. A feature reads a sketch, whole; the edge index
-                # that the attachment happens to name is an internal detail
-                # of how it is attached, not a thing the user chose.
+                # A sketch is read whole; its edge indices are noise.
                 subs: list[str] = []
                 if not other.is_profile:
                     for _prop, sub_names in entries:
@@ -923,11 +773,7 @@ class Snapshot:
                             if sub_name not in subs:
                                 subs.append(sub_name)
 
-                # The severity travels with the reference, so a feature
-                # that failed because its sketch is broken says so on the
-                # chip that names the sketch rather than by reddening its
-                # own label - which would blame it for something it did
-                # not do.
+                # Severity rides on the chip, blaming the broken input.
                 node.refs.append((target, other.label, other.severity,
                                   ", ".join(subs)))
                 other.consumers.append((name, node.label, props))
@@ -944,13 +790,7 @@ class Snapshot:
 
     def _resolve_bodies(self, by_name: dict[str, DocObject],
                         bodies: list[str]) -> None:
-        """Record each Body's feature stack and mark what the tip excludes.
-
-        `bodies` is collected during the first pass, where every object is
-        being typed anyway. Rediscovering them here meant a getObject and an
-        isDerivedFrom for every object in the document to find the two or
-        three that are Bodies.
-        """
+        """Record each Body's feature stack and mark what the tip excludes."""
         for name in bodies:
             obj = by_name.get(name)
             if obj is None:
@@ -962,10 +802,7 @@ class Snapshot:
             tip = getattr(obj, "Tip", None)
             body.tip = tip.Name if tip is not None else None
 
-            # Everything strictly after the tip is still in the document but
-            # contributes nothing to what the Body currently shows. For solid
-            # features that is decided by the chain, which is authoritative
-            # about order even when Group disagrees with it.
+            # The chain, not Group, decides which features follow the tip.
             past = body.tip is None
             for feature in stack:
                 node = self.nodes.get(feature.Name)
@@ -977,22 +814,14 @@ class Snapshot:
                 if feature.Name == body.tip:
                     past = True
 
-            # Profiles are not on the chain, so their side of the bar is
-            # decided by where they sit in the timeline. A sketch drawn after
-            # the rollback point had not been drawn yet at that moment, and
-            # showing it as live would misrepresent the state the bar claims
-            # to be showing. Only profiles are judged this way: an Origin is
-            # never rolled back, whatever its position.
+            # Profiles are off the chain: timeline position decides.
             tip_node = self.nodes.get(body.tip) if body.tip else None
             tip_pos = tip_node.timeline if tip_node is not None else None
             for child_name in body.children:
                 child = self.nodes.get(child_name)
                 if child is None or child.is_feature:
                     continue
-                # Every child records its Body, not just the ones that can
-                # be rolled back: the panel draws a continuous line down a
-                # Body's timeline, and a row that does not know it is in a
-                # Body leaves a gap in it that reads as a rendering fault.
+                # All children need it, for the panel's continuous line.
                 child.body = name
                 if child.is_lifted:
                     child.after_tip = (tip_pos is None or
@@ -1003,18 +832,8 @@ class Snapshot:
                         claim_order: Iterable[str]) -> list[str]:
         """Children in creation order, and each one's position recorded.
 
-        `Group` is the record of when things were added to a container, and
-        it is the only one that survives a feature being renamed, re-tipped
-        or reordered - which is why the timeline reads from it rather than
-        from claimChildren(). Members it does not mention (a Body's Origin)
-        have no timeline position of their own, so they keep claim order and
-        lead; anything in Group follows, in Group order.
-
-        Verified against a real model with `probe.timeline()` rather than
-        assumed, after a Body's Group turned out to be exactly this. A build
-        where it is not falls back to document order, which is also creation
-        order - just coarser, since it cannot tell one container from
-        another.
+        `Group` is creation order; members it omits (a Body's Origin) lead
+        in claim order.
         """
         rank: dict[str, int] = {}
         try:
@@ -1048,15 +867,8 @@ class Snapshot:
                              claim_rank: dict[str, int]) -> list[str]:
         """Creation order with claim order as the backbone.
 
-        No `Group` to read, so claim order is what the container itself says
-        about its children, and throwing that away would reorder trees that
-        were fine before. A lifted profile has no place in it, so it slots
-        in just ahead of the first sibling created after it - which puts it
-        where it was drawn rather than at the end.
-
-        "The first sibling created after me" is resolved for every child in
-        one backwards pass. Asking it per child, by rescanning the siblings,
-        was quadratic in a container's child count for no gain.
+        An unclaimed child slots in just ahead of the first claimed sibling
+        created after it.
         """
         by_age = sorted(child_names, key=lambda n: doc_order.get(n, 0))
         next_claimed: dict[str, int | None] = {}
@@ -1077,44 +889,11 @@ class Snapshot:
 
         return sorted(child_names, key=key)
 
-    def tip_at_or_before(self, body_name: str,
-                         names_newest_first: Iterable[str]) -> str | None:
-        """Which feature the timeline bar sets where it was dropped.
-
-        Only a solid feature can be a tip, so a bar dropped just under a
-        sketch does not set the sketch - it sets the last feature above it,
-        and the bar stays where the user put it. Above the first feature
-        there is nothing to set, and `None` says so.
-
-        Takes the rows above the drop, nearest first, rather than a
-        position: the panel's rows are what the user is aiming at, and a
-        collapsed branch means the rows on screen and the timeline no
-        longer agree about what "before" means. The iterable is consumed
-        lazily, so this stops at the first feature it meets.
-        """
-        body = self.nodes.get(body_name)
-        if body is None or not body.stack:
-            return None
-        stack = set(body.stack)
-        for name in names_newest_first:
-            if name in stack:
-                return name
-        return None
-
     def retip(self, body_name: str,
               tip_name: str | None) -> Sequence[str]:
-        """Move a Body's tip within this snapshot only.
+        """Move a Body's tip in this snapshot only; return changed names.
 
-        Move a Body's tip within this snapshot, without touching the
-        document. Returns the names whose displayed state changed.
-
-        The document walk is far too expensive to repeat while the bar is
-        being dragged, and it is not needed: moving a tip changes which
-        features are built, which are visible, and which sketches had not
-        been drawn yet - all of it derivable from what the snapshot already
-        holds. This is that derivation, and it mirrors `_resolve_bodies`
-        exactly; the two must agree, or the panel would show one thing
-        during a drag and another the moment it ended.
+        Must mirror `_resolve_bodies` exactly.
         """
         body = self.nodes.get(body_name)
         if body is None:
@@ -1197,23 +976,14 @@ class Snapshot:
                 cursor = nxt
 
     def _drop_self_children(self) -> None:
-        """Defensive.
-
-        a node listed as its own child must not hang the flattener.
-        Named for what it does - it was called `_break_cycles`, which
-        is what the pass above it does, and having both names in the
-        same class read as one job done twice.
-        """
+        """Keep a node listed as its own child from hanging the flattener."""
         for node in self.nodes.values():
             node.children = [c for c in node.children if c != node.name]
 
-    # -- queries ----------------------------------------------------------- #
+    # -- queries --
 
     def flatten(self, expanded: Container[str]) -> list[tuple[str, int]]:
-        """Depth-first walk of the tree half, honouring an expansion set.
-
-        Returns a list of (name, depth) for the rows that should be visible.
-        """
+        """Visible (name, depth) rows, depth-first, given an expansion set."""
         rows: list[tuple[str, int]] = []
         stack = [(name, 0) for name in reversed(self.roots)]
         guard = set()
@@ -1233,11 +1003,7 @@ class Snapshot:
         return rows
 
     def path_of(self, name: str, limit: int = 2) -> list[str]:
-        """Ancestor labels, nearest last.
-
-        Search results need somewhere to say *which* Pad this is when a
-        document has four of them.
-        """
+        """Ancestor labels, nearest last."""
         labels: list[str] = []
         guard = set()
         node = self.nodes.get(name)
@@ -1250,16 +1016,9 @@ class Snapshot:
         return labels[-limit:] if limit else labels
 
     def search(self, text: str | None, limit: int = 25) -> list[Node]:
-        """Ranked flat matches for the search box.
+        """Ranked flat matches for the search box; not a filter.
 
-        Deliberately not a filter. Hiding rows to show a match costs the
-        context that makes the match meaningful, and leaves the user to
-        undo the search before they can carry on working. Searching returns
-        somewhere to *go* and leaves the tree alone.
-
-        Labels rank ahead of internal names, and a prefix hit ahead of a hit
-        in the middle, because typing "pad" should reach Pad before
-        HolePadded and before an object merely named Pad001 internally.
+        Label prefix, then label substring, then internal name.
         """
         text = (text or "").strip().lower()
         if not text:
@@ -1305,11 +1064,8 @@ class Snapshot:
                           cap: int = OPENING_ROWS) -> set[str]:
         """What is open when a document is first shown.
 
-        What FreeCAD saved as expanded (`saved`), with the panel's own
-        folders inside them open as before - as long as that gives no
-        more than `cap` rows. Otherwise, or with nothing saved, everything
-        is closed: the top-level rows, and the collapse-all control to
-        get back there.
+        `saved` plus the panel's own folders, if that gives at most `cap`
+        rows; otherwise everything closed.
         """
         if not saved:
             return set()

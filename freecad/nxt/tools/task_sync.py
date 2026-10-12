@@ -1,17 +1,7 @@
 """Edits to a feature whose task panel is open go through the panel.
 
-While a Pad's task panel is open, the panel owns the feature: its fields
-drive the preview and the 3D handles, and OK writes every field back to the
-feature. A property set behind its back - by the Property Inspector, say -
-moves neither the handles nor the panel, and OK then puts the panel's old
-value back.
-
-So an edit to a property the panel has a field for is made in that field,
-as if typed there: the panel's own handler sets the property, updates the
-preview and places the handles, and its OK keeps the value. Edits it has
-no field for, and expressions, go to the property as before.
-
-Field names are FreeCAD's (TaskExtrudeParameters.ui, FreeCAD 27).
+The open panel owns the feature: OK writes its fields back, overwriting
+a property set directly. Field names: TaskExtrudeParameters.ui.
 """
 
 from __future__ import annotations
@@ -23,8 +13,7 @@ import FreeCADGui as Gui
 from ..core import units
 from ..core.qt import QtWidgets
 
-#: How a field is set: a quantity spin box, a check box, a combo box by
-#: the enumeration's index, or Type's combo box (see _mode_index).
+#: How a field is set.
 QUANTITY, CHECK, INDEX, MODE = "quantity", "check", "index", "mode"
 
 _EXTRUDE: dict[str, tuple[str, str]] = {
@@ -49,8 +38,7 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
     "PartDesign::Pocket": _EXTRUDE,
 }
 
-#: The enumeration value FreeCAD keeps for compatibility only: Type's
-#: combo box has no entry for it (SideType "Two sides" replaced it).
+#: Kept in the enumeration for compatibility; absent from the combo box.
 DEPRECATED_MODE = "TwoLengths"
 
 
@@ -80,8 +68,7 @@ def set_in_task(objects: list[Any], prop: str, value: Any,
                 unit: str = "") -> bool:
     """Make the edit in the open task panel's field; False if it has none.
 
-    Only for a single object being edited; an expression ("=...") is
-    never typed into a field, as the panel would take it literally.
+    Expressions are never typed in; the panel would take them literally.
     """
     if len(objects) != 1:
         return False
@@ -117,17 +104,14 @@ def set_in_task(objects: list[Any], prop: str, value: Any,
     return True
 
 
-#: The start a new edit of an extrusion is given in place of FreeCAD's
-#: "Profile plane": the same solid at zero, and its offset handle shown in
-#: the 3D view, ready to drag.
+#: An offset start shows the offset handle; at zero, the same solid.
 START_PROFILE, START_OFFSET = "Profile plane", "Offset"
 
 
 def start_with_offset(obj: Any) -> bool:
-    """A Pad or Pocket opened for editing starts at an offset, not a plane.
+    """Switch an edited Pad or Pocket to an offset start. True if changed.
 
-    Made in the task panel's own field, so the offset handle appears and
-    Cancel takes it back with the rest of the edit. True if it changed.
+    Set via the panel field so Cancel reverts it with the edit.
     """
     if not wants_offset_start(obj):
         return False

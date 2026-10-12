@@ -1,16 +1,6 @@
-"""Context menu definitions: read, checked, merged, and resolved.
+"""Context menu definitions (TOML): read, checked, merged and resolved.
 
-A definition file is TOML. It names FreeCAD commands, Nxt's own actions and
-view-provider edit modes, and says where each goes and when it applies; it
-holds no code. See `resources/menus/default.toml` for the full shape and
-`tree/CONTEXT_MENU.md` for why the menu is laid out as it is.
-
-This module knows nothing of FreeCAD. What the menu is resolved against is
-a list of `ObjectFacts`, one per selected object, which `facts.py` reads
-from the document; the tests build them by hand.
-
-A bad entry is reported and skipped, never fatal: one addon's typo must not
-take the menu away from everything else.
+FreeCAD-free; a bad entry is reported and skipped, never fatal.
 """
 
 from __future__ import annotations
@@ -21,26 +11,22 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
 
-#: The sections, in the order they are drawn. Sections an addon names that
-#: are not listed here follow Inspect, in the order they are first seen.
+#: Drawing order; unlisted sections follow, in order first seen.
 SECTIONS = ("Model", "Organize", "Relations", "Inspect")
 
-#: Every flag a condition may test. `facts.py` sets them; an unknown flag in
-#: a file is an error rather than a condition that silently never holds.
+#: Flags a condition may test; an unknown flag is an error.
 FLAGS = frozenset({
     "failed", "past_tip", "is_tip", "solver_issues", "has_expression",
     "has_dependents", "has_inputs", "out_of_date", "editable_placement",
     "suppressible", "has_shape", "shown_in_3d", "editing", "attachable",
 })
 
-#: The view provider edit modes an `edit:` item may name (FreeCAD's
-#: ViewProvider::EditMode).
+#: FreeCAD's ViewProvider::EditMode values for `edit:` items.
 EDIT_MODES = {"default": 0, "transform": 1, "cutting": 2, "color": 3}
 
 _CONDITION_KEYS = {"type", "count", "in_body", "proxy_module", "flags"}
 _ITEM_KEYS = {"command", "label", "before", "after", "submenu"}
 
-#: The command of an item that only holds a submenu.
 SUBMENU = "@submenu"
 _MENU_KEYS = {"id", "when", "lead", "state", "section", "more", "delete",
               "hide", "drop"}
@@ -59,18 +45,14 @@ class ObjectFacts:
 
 @dataclass(frozen=True)
 class Condition:
-    """When a menu or item applies; every stated test must hold.
-
-    `type`, `proxy_module`, `in_body` and `flags` must hold for every
-    selected object; `count` is tested against the selection's size.
-    """
+    """When a menu or item applies, for every selected object."""
 
     types: tuple[str, ...] = ()
     count: str = "any"
     in_body: bool | None = None
     proxy_modules: tuple[str, ...] = ()
     flags: frozenset[str] = frozenset()
-    #: Flags that must *not* hold, written `"!name"` in a file.
+    #: Written `"!name"` in a file.
     absent: frozenset[str] = frozenset()
 
     def holds(self, selection: list[ObjectFacts]) -> bool:
@@ -97,16 +79,7 @@ ALWAYS = Condition()
 
 @dataclass(frozen=True)
 class Item:
-    """One entry: what runs, and optionally its label and placement.
-
-    `command` is a FreeCAD command name (`Std_Delete`), an Nxt action
-    (`nxt:isolate`) or a view provider edit mode (`edit:default`). A label
-    left empty is taken at display time from the FreeCAD command, or for an
-    Nxt action from `labels.ACTIONS`.
-
-    An item with `items` is a submenu of them, labelled `label`; its
-    command is `SUBMENU`, and it is left out if none of its items apply.
-    """
+    """A FreeCAD command, `nxt:` action or `edit:` mode; or a submenu."""
 
     command: str
     label: str = ""
@@ -129,8 +102,7 @@ class Menu:
     more: dict[str, list[Item]] = field(default_factory=dict)
     delete: Item | None = None
     hide: frozenset[str] = frozenset()
-    #: FreeCAD commands this menu leaves out on purpose, or replaces with
-    #: an Nxt action; they are not carried over into More.
+    #: Left out on purpose; not carried over into More.
     drop: frozenset[str] = frozenset()
 
 
@@ -152,11 +124,7 @@ class Definitions:
 
 @dataclass
 class Resolved:
-    """The menu for one selection, ready to draw.
-
-    `trace` records why each command is where it is, or why it was left
-    out, for `explain()`.
-    """
+    """The menu for one selection; `trace` feeds `explain()`."""
 
     bar: list[Item] = field(default_factory=list)
     dimmed: set[str] = field(default_factory=set)
@@ -165,7 +133,6 @@ class Resolved:
     sections: list[tuple[str, list[Item]]] = field(default_factory=list)
     delete: Item | None = None
     more: list[tuple[str, list[Item]]] = field(default_factory=list)
-    #: FreeCAD commands the applying menus deliberately leave out.
     dropped: set[str] = field(default_factory=set)
     trace: list[str] = field(default_factory=list)
 
@@ -186,9 +153,7 @@ class Resolved:
         return out
 
 
-# -------------------------------------------------------------------------- #
-# reading
-# -------------------------------------------------------------------------- #
+# -- reading --
 
 def load(path: Path) -> Definitions:
     """Read one definition file. Errors are collected, not raised."""
@@ -221,7 +186,7 @@ def parse(data: dict[str, Any], source: str) -> Definitions:
 
 
 class _Reporter:
-    """Collects errors, each prefixed with where it was found."""
+    """Collects errors prefixed with their location."""
 
     def __init__(self, prefix: str, sink: list[str]) -> None:
         self.prefix, self.sink = prefix, sink
@@ -302,7 +267,7 @@ def _item(raw: Any, report: _Reporter) -> Item | None:
 
 
 def _submenu(raw: dict[str, Any], report: _Reporter) -> Item | None:
-    """`{ label = "...", submenu = [items] }`: a submenu within a section."""
+    """`{ label = "...", submenu = [items] }`."""
     label = raw.get("label")
     if not isinstance(label, str) or not label:
         report("a submenu needs a `label`")
@@ -374,19 +339,14 @@ def _count_holds(count: str, size: int) -> bool:
     return size == int(count)
 
 
-# -------------------------------------------------------------------------- #
-# resolving
-# -------------------------------------------------------------------------- #
+# -- resolving --
 
 def resolve(definitions: Definitions,
             selection: list[ObjectFacts]) -> Resolved:
     """The menu for `selection`, from every menu whose condition holds.
 
-    Menus apply in the order read (Nxt's own file first, then addons, each
-    in file order). A later menu's lead or delete replaces an earlier one;
-    sections and More groups accumulate. A command is placed once, at the
-    first place it reaches, bar first; `hide` in any applying menu removes
-    it everywhere.
+    Later lead/delete win; groups accumulate; each command is placed once,
+    bar first; `hide` removes it everywhere.
     """
     out = Resolved()
     if not selection:
@@ -424,7 +384,6 @@ def resolve(definitions: Definitions,
         return item
 
     def keep_submenu(item: Item, where: str) -> Item | None:
-        """A submenu keeps whichever of its items apply, or goes."""
         if not item.when.holds(selection):
             out.trace.append("%s ›: its condition does not hold" % item.label)
             return None
@@ -435,8 +394,7 @@ def resolve(definitions: Definitions,
             return None
         return replace(item, items=tuple(children))
 
-    # The bar never changes shape: an action that does not apply is dimmed
-    # where it stands, and `hide` does not reach it.
+    # The bar keeps its shape: dimmed, not hidden.
     for item in definitions.bar:
         placed.add(item.command)
         out.bar.append(item)

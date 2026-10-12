@@ -36,7 +36,7 @@ def register(path: Path | str) -> None:
 
 
 def invalidate() -> None:
-    """Read the files again on next use: after editing one, say."""
+    """Re-read the files on next use."""
     global _cache
     _cache = None
 
@@ -45,8 +45,7 @@ def loaded() -> Definitions:
     """Nxt's definitions and every registered file's, merged."""
     global _cache
     if _cache is None:
-        # Looked up afresh rather than through resources.MENUS: Reload Nxt
-        # keeps an older resources module until FreeCAD restarts.
+        # Not resources.MENUS: Reload Nxt keeps a stale resources module.
         default = Path(str(files("freecad.nxt.resources") / "menus"))
         merged = load(default / "default.toml")
         for path in _registered:

@@ -1,13 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 
-// An on/off toggle, in the panel's theme. Nxt's choice over a checkbox for
-// any single on/off setting: the state reads from across the room, and
-// clicking the label works as well as clicking the track.
-//
-// Qt's Switch underneath, so Space toggles it, Tab reaches it and a screen
-// reader hears a switch and its state; only the drawing is ours. `text` is
-// the label, on the left, and the track sits at the right edge.
+// An on/off toggle: Qt's Switch, drawn in the panel's theme.
 Switch {
     id: control
 

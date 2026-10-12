@@ -1,17 +1,6 @@
-"""What Nxt does outside the model panel, running whether or not it is open.
+"""Session-lifetime features that run whether or not the panel is open.
 
-The 3D double-click editor, the floating value field and the Property
-Inspector's colours used to live on the panel, so closing the panel
-switched them off. They belong to the application instead: this starts
-them once the main window exists and keeps them for the session.
-
-They still talk to the panel when it is there, through signals rather
-than references: a face double-clicked here emits `featurePicked`, and an
-open panel reveals the row - exactly as before. Nothing here imports the
-panel.
-
-    from freecad.nxt import services
-    services.instance()        # the live Services, or None
+They reach the panel only through signals; nothing here imports it.
 """
 
 from __future__ import annotations
@@ -33,8 +22,7 @@ _RESTYLE = (QtCore.QEvent.Type.StyleChange,
 class Services(QtCore.QObject):
     """The application-lifetime half of Nxt."""
 
-    #: A feature was opened for editing from outside the panel (a face
-    #: double-clicked): (document, feature). The panel reveals its row.
+    #: (document, feature) opened for editing from outside the panel.
     featurePicked = QtCore.Signal(str, str)  # noqa: N815 - Qt API
 
     def __init__(self, main_window: QtWidgets.QWidget) -> None:
@@ -64,7 +52,7 @@ class Services(QtCore.QObject):
         timer.timeout.connect(slot)
         return timer
 
-    # -- lifecycle ---------------------------------------------------------- #
+    # -- lifecycle -- #
 
     def install(self) -> None:
         try:
@@ -136,7 +124,7 @@ class Services(QtCore.QObject):
         except RuntimeError:
             pass
 
-    # -- isolate ------------------------------------------------------------ #
+    # -- isolate -- #
 
     def isolation(self) -> Any:
         """The isolate mode (isolate.py), with its 3D view notice."""
@@ -189,7 +177,7 @@ class Services(QtCore.QObject):
             pass
         self._isolation = self._isolation_observer = self._notice = None
 
-    # -- undo toast --------------------------------------------------------- #
+    # -- undo toast -- #
 
     def toasts(self) -> Any:
         """The undo toast (toast.py), under the isolate notice if any."""
@@ -200,14 +188,10 @@ class Services(QtCore.QObject):
             self._toasts.install()
         return self._toasts
 
-    # -- theme -------------------------------------------------------------- #
+    # -- theme -- #
 
     def theme(self) -> Any:
-        """The colours of anything Nxt shows outside the panel.
-
-        Made on first use and read from the application's stylesheet, like
-        the panel's own, so the two agree without either owning the other.
-        """
+        """Colours for what Nxt shows outside the panel."""
         if self._theme is None:
             from ..ui import theme as theme_mod
             self._theme = theme_mod.Theme(
@@ -229,15 +213,10 @@ class Services(QtCore.QObject):
         except Exception:
             log.error("could not refresh the colours")
 
-    # -- editing ------------------------------------------------------------ #
+    # -- editing -- #
 
     def edit_feature(self, doc_name: str, name: str) -> None:
-        """Open a feature for editing from outside the panel.
-
-        Announced first, so an open panel marks and reveals the row as a
-        pick does; then edited, deferred, because this is reached from
-        inside an input event.
-        """
+        """Announce, then edit a feature, deferred out of the input event."""
         self.featurePicked.emit(doc_name, name)
         self._pending_edit = (doc_name, name)
         self._edit_timer.start()
@@ -295,12 +274,9 @@ def theme() -> Any:
 def toast(doc: Any, message: str, after_undo: Any = None,
           undoable: bool = True, actions: Any = (),
           sticky: bool = False) -> None:
-    """Say what Nxt just did to `doc`, with Undo (toast.py).
+    """Say what Nxt just did to `doc`, with Undo, if the services run.
 
-    `after_undo(doc)` runs once that Undo has undone it. Not `undoable`:
-    a message with no Undo. `actions` are further buttons, as (label,
-    callable) pairs; `sticky` keeps the toast up until it is dismissed.
-    Says nothing while the services are not running.
+    `actions` are extra (label, callable) buttons.
     """
     if _services is not None:
         _services.toasts().show(doc, message, after_undo, undoable,

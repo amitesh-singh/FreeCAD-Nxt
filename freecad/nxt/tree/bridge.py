@@ -1,15 +1,4 @@
-"""The QML-facing object.
-
-Everything QML is allowed to do to the document goes through a slot here.
-QML never touches FreeCAD directly: it emits intent ("select this", "drop
-these onto that") and this layer decides whether the intent is legal, wraps
-it in a transaction, and lets the observers push the result back into the
-models.
-
-That one-way discipline is what keeps the panel consistent with the rest of
-the UI. A visibility change made in the stock tree, the Python console or a
-macro arrives here by exactly the same path as one made in our own delegate.
-"""
+"""TreeBridge: the only path from the QML tree panel to the document."""
 
 from __future__ import annotations
 
@@ -28,6 +17,7 @@ from ..core.transaction import transaction
 from ..inspector import properties
 from ..tools import editing, visibility
 from . import (
+    activation,
     drag_drop,
     icons,
     links,
@@ -38,12 +28,11 @@ from . import (
     scene,
 )
 
-#: Kept importable from here: tests and older callers use this name.
+#: Re-exported for callers that import it from here.
 open_edit_transaction = editing.open_edit_transaction
 
 
-#: How often to ask the Gui which container is active. There is no signal
-#: for it, so this is the one poll in the panel.
+#: Active-container poll interval; FreeCAD emits no signal for it.
 ACTIVE_POLL_MS = 500
 
 
@@ -54,22 +43,17 @@ AUTO_DETAIL_MS = 300
 class TreeBridge(QtCore.QObject):
 
     documentChanged = QtCore.Signal()
-    profileCountChanged = QtCore.Signal()
     problemCountChanged = QtCore.Signal()
     revealTreeRow = QtCore.Signal(int)
     tipBarsChanged = QtCore.Signal()
     searchResultsChanged = QtCore.Signal()
     propertyInspectorRequested = QtCore.Signal(int)
-    #: Open the context menu for the selection at this point in the
-    #: panel's scene: where the row was right-clicked.
+    #: Scene position for the context menu.
     contextMenuRequested = QtCore.Signal(float, float)
-    #: Start renaming this row, as F2 does; asked for by the menu.
     renameRowRequested = QtCore.Signal(int)
-    #: Briefly light up these rows: objects just picked outside the panel.
     flashRows = QtCore.Signal(list)
     pickOriginsChanged = QtCore.Signal()
-    #: Auto-show is about to open or close strips: note where this row
-    #: is, and put it back there once the rows have moved (rowReleased).
+    #: Hold this row in place on screen until rowReleased.
     rowHeld = QtCore.Signal(int)
     rowReleased = QtCore.Signal()
     detailAutoShowChanged = QtCore.Signal()
@@ -87,62 +71,37 @@ class TreeBridge(QtCore.QObject):
         self._icons_dirty = False
         self._pushing_selection = False
         self._related = False       # rows are lit up for the selection
-        # Tip bars are addressed by row index, so they are invalidated by any
-        # relayout - an expand/collapse moves them without the document
-        # changing at all.
+        # Tip bars are addressed by row, so any relayout invalidates them.
         self._tree.rowsRefreshed.connect(self._row_layout_changed)
         self._rollback = rollback.Rollback(self)
         self._drag_drop = drag_drop.DragDrop(self)
+        self._activation = activation.Activation(self)
         self._search: list[dict[str, Any]] = []
-        # Where Shift+click and Shift+arrow ranges start, and where the
-        # arrow keys last moved to. Names, not rows: rows shift whenever a
-        # branch opens or closes.
+        # Range anchor and keyboard cursor, by name since rows shift.
         self._anchor: str | None = None
         self._cursor: str | None = None
-        # What the open context menu is for: the selection when it opened,
-        # which an item that changes the selection must not change under it.
+        # Selection frozen when the context menu opened.
         self._menu_names: list[str] = []
 
-        # Deferrals go through timers parented to this object, never through
-        # the static QTimer.singleShot. A static single-shot holds a bound
-        # method and outlives the object it was scheduled for, so on reload
-        # it fires into a deleted C++ wrapper and raises RuntimeError from a
-        # callback with nothing to catch it - which is exactly what filled
-        # the report view with save-state errors on the panel. Restarting a
-        # timer also debounces for free.
+        # Timers parented to self, not static singleShot: those outlive the
+        # object and fire into deleted wrappers on reload.
         self._rebuild_timer = self._deferral(self._rebuild_if_dirty)
-        # The detail strip follows a click in the tree, after a moment:
-        # see _auto_show_detail.
         self._auto_timer = self._deferral(self._auto_show_detail)
-        self._activate_timer = self._deferral(self._activate_pending)
-        self._pending_active = ""
         self._auto_timer.setInterval(AUTO_DETAIL_MS)
         self._auto_name = ""        # the row the timer is running for
         self._auto_detail = ""      # the strip auto-show has open
         self._pinned: set[str] = set()
-        self._edit_timer = self._deferral(self._enter_pending_edit)
         self._recompute_timer = self._deferral(self._recompute_document)
-        # Objects picked outside the panel since the last reveal, collected
-        # so a box selection - one observer call per object - reveals once.
+        # Outside picks batched so a box selection reveals once.
         self._picked: list[str] = []
-        # The features that made what was last picked in the 3D view, when
-        # that is not the selected object itself: marked in the tree as
-        # SolidWorks marks the feature a picked face belongs to, until the
-        # selection next changes.
+        # Features that made the last 3D pick, when not themselves selected.
         self._origins: list[str] = []
-        # The dependency arrows now drawn (links.py), and a deferral so a
-        # burst of selection and layout changes recomputes them once.
+        # Dependency arrows now drawn (links.py).
         self._arrows: dict[str, Any] = {"source": -1, "links": []}
         self._arrows_timer = self._deferral(self._update_arrows)
         self._reveal_timer = self._deferral(self._reveal_picked)
-        self._pending_edit: tuple[str, str] | None = None
 
-        # Which container new operations land in. There is no observer for
-        # this - activating a Body is a Gui action and emits no document
-        # signal - so it is polled. One attribute read every half second is
-        # far below the noise floor of everything else the panel does, and
-        # the alternative is an indicator that silently goes stale, which
-        # is worse than no indicator at all.
+        # Polled: activating a Body emits no document signal.
         self._active = ""
         self._active_timer = QtCore.QTimer(self)
         self._active_timer.setInterval(ACTIVE_POLL_MS)
@@ -151,9 +110,7 @@ class TreeBridge(QtCore.QObject):
 
         self.rebuild()
 
-    #: Keys `ActiveView.getActiveObject` answers to, in the order the
-    #: panel prefers them: a Body inside a Part is the more specific
-    #: answer, and the one an operation would actually land in.
+    #: getActiveObject keys, most specific first.
     ACTIVE_KEYS: tuple[str, ...] = ("pdbody", "part")
 
     def active_container(self) -> str:
@@ -172,8 +129,7 @@ class TreeBridge(QtCore.QObject):
                 obj = view.getActiveObject(key)
             except Exception:
                 continue
-            # Some builds answer with (object, placement, ...) rather than
-            # a bare object. Unwrap rather than assume either shape.
+            # Some builds return a tuple (object, ...).
             if isinstance(obj, tuple):
                 obj = obj[0] if obj else None
             name = getattr(obj, "Name", "")
@@ -182,12 +138,9 @@ class TreeBridge(QtCore.QObject):
         return ""
 
     def _opening(self, snap: Any) -> set[str]:
-        """What a document opens with: as FreeCAD saved it, else closed.
+        """Initial expansion: as saved in the file, plus object State.
 
-        Read from the file (saved_expansion.py): FreeCAD restores the same
-        state into each object only later, through its own tree. What an
-        object's State says already is added, for a document whose file
-        is gone or not yet saved.
+        Read from the file because FreeCAD restores State only later.
         """
         saved: set[str] = set()
         try:
@@ -200,12 +153,9 @@ class TreeBridge(QtCore.QObject):
         return snap.opening_expansion(saved)
 
     def save_expansion(self, doc: Any) -> None:
-        """Hand what is open in the panel to FreeCAD, as a save begins.
+        """Mirror the panel's expansion into the stock tree before a save.
 
-        FreeCAD writes into the file what its own tree has open, which is
-        where `_opening` reads it back - here or in stock FreeCAD. Its tree
-        is told container by container, parents first, since a stock tree
-        item does not exist until its parent has been opened.
+        Parents first: a stock tree item exists only once its parent opens.
         """
         snap = self._snapshot
         if snap is None or doc is None or snap.doc_name != doc.Name:
@@ -247,7 +197,6 @@ class TreeBridge(QtCore.QObject):
         self._active = name
         self._tree.set_active(name)
         if name:
-            # The Body you are working in, and the way down to it, open.
             self._tree.reveal(name)
             self._tree.set_expanded(name, True)
         self._rollback.publish()        # the bar goes with the active Body
@@ -259,9 +208,7 @@ class TreeBridge(QtCore.QObject):
         timer.timeout.connect(slot)
         return timer
 
-    # ------------------------------------------------------------------ #
-    # properties for QML
-    # ------------------------------------------------------------------ #
+    # -- properties for QML --
 
     @QtCore.Property(QtCore.QObject, constant=True)
     def treeModel(self) -> models.TreeRowModel:
@@ -278,19 +225,13 @@ class TreeBridge(QtCore.QObject):
     def hasDocument(self) -> bool:
         return App.ActiveDocument is not None
 
-    @QtCore.Property(int, notify=profileCountChanged)
-    def profileCount(self) -> int:
-        return len(self._snapshot.profiles)
-
     @QtCore.Property(int, notify=problemCountChanged)
     def problemCount(self) -> int:
         return len(self._snapshot.problem_profiles())
 
     def _row_layout_changed(self) -> None:
-        # Repeater rebuilds every delegate when its model changes, which
-        # mid-drag would destroy the bar under the cursor and drop the mouse
-        # grab. The live preview relays out constantly, so hold the signal
-        # until the drag finishes.
+        # Mid-drag, a Repeater rebuild would destroy the bar under the
+        # cursor and drop the grab, so hold until the drag ends.
         if self._rollback.drag is None:
             self._rollback.publish()
         self._arrows_timer.start()
@@ -299,25 +240,13 @@ class TreeBridge(QtCore.QObject):
     def tipBars(self) -> list[dict[str, Any]]:
         return self._rollback.bars()
 
-    # ------------------------------------------------------------------ #
-    # rebuild plumbing
-    # ------------------------------------------------------------------ #
+    # -- rebuild --
 
     def invalidate(self, icons: bool = False) -> None:
-        """Mark the snapshot stale.
+        """Mark the snapshot stale; coalesces bursts into one rebuild.
 
-        Coalesces a burst of document signals into a single rebuild on
-        the next event-loop turn, which matters a lot during recompute
-        of a large document.
-
-        A tip drag is the one case where even that is too often. Moving the
-        tip writes Tip, writes visibilities and recomputes, and every one of
-        those reaches an observer - so each feature the bar crosses would
-        re-walk the whole document, re-read every sketch's solver state and
-        rebuild every row, to learn a handful of facts the bridge itself
-        just wrote. The snapshot is patched in place instead (see
-        `Rollback._apply_tip`), and the staleness is remembered until the
-        drag ends.
+        During a tip drag the rebuild waits for the drag to end
+        (see `Rollback._apply_tip`).
         """
         self._icons_dirty = self._icons_dirty or icons
         self._dirty = True
@@ -339,28 +268,16 @@ class TreeBridge(QtCore.QObject):
         self._rollback.restore_model_tips()
         self._tree.set_snapshot(self._snapshot, bump_icons=bump)
         self.sync_selection()
-        # The snapshot may have replaced the node the mark was on, so the
-        # model is told again rather than left holding a name from the
-        # document that was open a moment ago.
         self._active = self._read_active()
         self._tree.set_active(self._active)
         if self._snapshot.doc_name != previous:
             self.documentChanged.emit()
-        self.profileCountChanged.emit()
         self.problemCountChanged.emit()
 
-    # ------------------------------------------------------------------ #
-    # selection
-    # ------------------------------------------------------------------ #
+    # -- selection --
 
     def sync_selection(self, picked: bool = False) -> None:
-        """Pull Gui.Selection into the model. Called by the observer.
-
-        `picked` says the selection grew from outside the panel - a click
-        in the 3D view, most often - and the rows it added should be
-        brought into view; see _reveal_picked. The panel's own selections
-        go through _push_selection, which this ignores while it runs.
-        """
+        """Pull Gui.Selection into the model; reveal new rows if `picked`."""
         if self._pushing_selection:
             return
         if self._origins:
@@ -369,8 +286,6 @@ class TreeBridge(QtCore.QObject):
             self._arrows_timer.start()
         names: list[str] = []
         try:
-            # Resolved (the default): a face picked on a Body's solid
-            # gives the feature that made it, not the Body.
             for obj in Gui.Selection.getSelection(self._snapshot.doc_name):
                 if obj.Name not in names:
                     names.append(obj.Name)
@@ -388,12 +303,7 @@ class TreeBridge(QtCore.QObject):
                 self._reveal_timer.start()
 
     def picked(self, doc_name: str, top: str, subname: str) -> None:
-        """Something was picked outside the panel: reveal what made it.
-
-        Called by the selection observer with what it was given. A face on
-        a Body's solid is reported against the tip; picking.target goes
-        back to the feature that made the face (see picking.py).
-        """
+        """Reveal the feature that made a pick outside the panel."""
         if self._pushing_selection:
             return
         full = subname
@@ -404,7 +314,6 @@ class TreeBridge(QtCore.QObject):
         except Exception:
             log.error("could not trace the pick %s.%s" % (top, subname))
             name = None
-        # Log level: shown in the Report view only with log messages on.
         App.Console.PrintLog("Nxt pick: %s -> %s.%s -> %s\n"
                              % (subname, top, full, name))
         if name and name in self._snapshot.nodes:
@@ -422,11 +331,7 @@ class TreeBridge(QtCore.QObject):
         return dict(self._arrows)
 
     def _arrow_subject(self) -> str | None:
-        """Whose links to draw, if anyone's.
-
-        The feature a 3D pick traced to, else the one selected object;
-        nothing when several are selected.
-        """
+        """The pick origin or sole selected object, else None."""
         if len(self._origins) == 1:
             return self._origins[0]
         selected = list(self._tree.selection())
@@ -446,17 +351,9 @@ class TreeBridge(QtCore.QObject):
             self.linkArrowsChanged.emit()
 
     def _reveal_picked(self) -> None:
-        """Mark what made the pick; open its path, scroll to it, flash it.
+        """Mark picked origins; if FollowSelection, scroll and flash.
 
-        The mark is always made. Scrolling, and the flash that says where
-        the list moved to, follow the "Show objects picked in the 3D view"
-        setting - SolidWorks' "Scroll selected item into view". Scrolls to
-        the first picked row in tree order, so a box selection lands at
-        the top of what it caught; every picked row flashes.
-
-        None of it for an origin plane, axis or point a task is being
-        given: opening the Origin under a pick made for the task moves
-        the tree for nothing.
+        Reference picks made for a task are skipped.
         """
         picked, self._picked = self._picked, []
         doc = App.ActiveDocument
@@ -528,18 +425,12 @@ class TreeBridge(QtCore.QObject):
             log.error("clear selection failed")
         self.sync_selection()
 
-    # ------------------------------------------------------------------ #
-    # visibility
-    # ------------------------------------------------------------------ #
+    # -- visibility --
 
     def _show_alone(self, doc: Any, shown: Iterable[str]) -> None:
-        """Hide the rest of a Body's features when one of them is shown.
+        """Hide a Body's other stack features when one is shown.
 
-        A Body shows through one feature at a time, so showing one is
-        choosing it: whichever was showing before - the tip, or one picked
-        earlier - gives way. Of several shown at once in the same Body,
-        the latest in its history stays. Sketches and datums are not
-        features of the stack and keep their own visibility.
+        Of several in the same Body, the latest in history wins.
         """
         nodes = getattr(self._snapshot, "nodes", None) or {}
         keep: dict[str, str] = {}           # Body -> the feature to show
@@ -579,9 +470,7 @@ class TreeBridge(QtCore.QObject):
             log.error("visibility toggle failed for %s" % name)
         self.invalidate()
 
-    # ------------------------------------------------------------------ #
-    # tip
-    # ------------------------------------------------------------------ #
+    # -- tip --
 
     @QtCore.Slot(str)
     def beginTipDrag(self, body_name: str) -> None:
@@ -599,41 +488,19 @@ class TreeBridge(QtCore.QObject):
     def cancelTipDrag(self, body_name: str) -> None:
         self._rollback.cancel_drag(body_name)
 
-    @QtCore.Slot(str, int)
-    def setTipToRow(self, body_name: str, row: int) -> None:
-        self._rollback.set_tip_to_row(body_name, row)
-
     @QtCore.Slot(str, str)
     def setTip(self, body_name: str, feature_name: str) -> None:
         self._rollback.set_tip(body_name, feature_name)
 
-    # ------------------------------------------------------------------ #
-    # expansion
-    # ------------------------------------------------------------------ #
-
-    @QtCore.Slot(str, bool)
-    def setExpanded(self, name: str, expanded: bool) -> None:
-        self._tree.set_expanded(name, expanded)
+    # -- expansion --
 
     @QtCore.Slot(str)
     def toggleExpanded(self, name: str) -> None:
         self._tree.set_expanded(name, not self._tree.is_expanded(name))
 
-    @QtCore.Slot()
-    def expandAll(self) -> None:
-        self._tree.expand_all()
-
-    @QtCore.Slot()
-    def collapseAll(self) -> None:
-        self._tree.collapse_all()
-
     @QtCore.Slot(bool)
     def collapseTree(self, expand: bool) -> None:  # noqa: N802
-        """The header's control: everything closed, or with Shift, open.
-
-        Closing keeps the way down to the active Body or Part open, so
-        where you are working is still a row in view.
-        """
+        """Collapse all (keeping the active container visible), or expand."""
         if expand:
             self._tree.expand_all()
             return
@@ -641,18 +508,11 @@ class TreeBridge(QtCore.QObject):
         if self._active:
             self._tree.reveal(self._active)
 
-    # ------------------------------------------------------------------ #
-    # cross-panel navigation
-    # ------------------------------------------------------------------ #
+    # -- navigation --
 
     @QtCore.Slot(str)
     def revealObjectRow(self, name: str) -> None:
-        """Select an object and scroll its row into view, opening the path.
-
-        One destination now. When profiles lived in a shelf this had to
-        choose a half first, and the choice was the only reason two of
-        these existed.
-        """
+        """Select an object and scroll its row into view."""
         self._push_selection([name], False)
         self._tree.reveal(name)
         row = self._tree.row_of(name)
@@ -660,13 +520,7 @@ class TreeBridge(QtCore.QObject):
             self.revealTreeRow.emit(row)
 
     def _mark_related(self, names: Iterable[str]) -> None:
-        """Light up the rows the selection is related to, if asked to.
-
-        Both directions at once: a selected profile marks every feature
-        that consumes it, a selected feature marks the profiles it reads.
-        Off unless the "HighlightRelated" preference is on; it used to
-        follow the pointer, which lit rows up on the way to somewhere else.
-        """
+        """Highlight consumers and references of the selection, if enabled."""
         related: list[str] = []
         if settings.get("HighlightRelated"):
             chosen = set(names)
@@ -682,12 +536,10 @@ class TreeBridge(QtCore.QObject):
             self._tree.set_highlight(related)
 
     def refresh_related(self) -> None:
-        """The preference changed: mark, or stop marking, at once."""
+        """Reapply related highlighting after the preference changes."""
         self._mark_related(self._tree.selection())
 
-    # ------------------------------------------------------------------ #
-    # per-row detail
-    # ------------------------------------------------------------------ #
+    # -- per-row detail --
 
     @QtCore.Slot(str, str, "QVariant")
     def setKeyProperty(self, name: str, prop: str, value: Any) -> None:
@@ -700,12 +552,9 @@ class TreeBridge(QtCore.QObject):
     @QtCore.Slot(str, float, float)
     def openPropertyInspector(self, name: str, left: float,
                               top: float) -> None:
-        """Open the Property Inspector for `name` at a global position.
+        """Select `name` and open the Property Inspector at a position.
 
-        `left` is the edge of the widest pill on screen when the panel is
-        in the 3D view, and negative when docked, where the inspector lines
-        up with the dock instead. The object is selected first: the borrowed
-        editor always shows the selection.
+        Negative coordinates mean no anchor (docked panel).
         """
         from ..inspector import host as property_inspector
         if name:
@@ -715,11 +564,7 @@ class TreeBridge(QtCore.QObject):
             top=int(top) if top >= 0 else None)
 
     def request_property_inspector(self) -> None:
-        """Open the inspector for the selection, from its row if it has one.
-
-        The row knows where its edge is, so QML is asked to open it; with
-        no row on screen the inspector opens with no anchor.
-        """
+        """Open the inspector for the selection, anchored to its row."""
         name = self._sole_selection()
         row = self._tree.row_of(name) if name else -1
         if row >= 0:
@@ -727,36 +572,23 @@ class TreeBridge(QtCore.QObject):
         else:
             self.openPropertyInspector(name or "", -1.0, -1.0)
 
-    # ------------------------------------------------------------------ #
-    # context menu
-    # ------------------------------------------------------------------ #
+    # -- context menu --
 
     @QtCore.Slot(str, float, float)
     def requestContextMenu(self, name: str, x: float, y: float) -> None:
-        """Right-click on a row: select it, then open the menu at (x, y).
+        """Select the row unless already selected; open the menu there.
 
-        The point is in the panel's scene, not on the screen: under
-        Wayland an application cannot read the pointer's position on the
-        screen, so a menu told to open "at the pointer" opened in a corner.
-
-        A row that is already part of the selection keeps the selection as
-        it is, as every file manager does, so a menu can act on several.
+        (x, y) is in scene coordinates: Wayland hides the global pointer.
         """
         if name and name not in self._selected_names():
             self.select(name, False)
-        # Opened on the next turn of the event loop, not inside the press
-        # that asked for it: the selection change above is still being
-        # delivered to FreeCAD's observers, and the menu is built from it.
+        # Deferred: observers are still receiving the selection change.
         QtCore.QTimer.singleShot(
             0, self, lambda: self.contextMenuRequested.emit(x, y))
 
     @QtCore.Slot(result=int)
     def contextMenuRow(self) -> int:
-        """The row the keyboard's menu opens beside.
-
-        The cursor's row if it is selected, else the first selected row;
-        -1 with nothing selected.
-        """
+        """Row for a keyboard-opened menu, or -1."""
         selected = self._selected_names()
         if self._cursor in selected:
             return self._tree.row_of(self._cursor or "")
@@ -790,15 +622,7 @@ class TreeBridge(QtCore.QObject):
         return opened
 
     def _auto_show_detail(self) -> None:
-        """Open the clicked row's detail strip, and close the last one.
-
-        The "DetailAutoShow" preference. Only for one row picked in the
-        tree, and only once the click has stood for a moment, so a strip
-        does not flicker open on every row passed through. The strip this
-        opened before is closed again unless it has been pinned; strips
-        opened by hand are never touched. The clicked row is held where
-        it is on screen while the rows around it change height.
-        """
+        """Open the clicked row's strip and close the last unpinned one."""
         name = self._auto_name
         if not settings.get("DetailAutoShow") or not name \
                 or self._selected_names() != [name]:
@@ -814,7 +638,7 @@ class TreeBridge(QtCore.QObject):
         self.rowReleased.emit()
 
     def refresh_auto_detail(self) -> None:
-        """The preference changed: nothing is pinned once it is off."""
+        """Apply a DetailAutoShow change; turning it off clears pins."""
         if not settings.get("DetailAutoShow"):
             self._auto_timer.stop()
             self._auto_detail = ""
@@ -833,7 +657,7 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot(str)
     def toggleDetailPin(self, name: str) -> None:  # noqa: N802
-        """Keep this strip open while auto-show moves on, or stop."""
+        """Toggle whether auto-show leaves this strip open."""
         self._pinned ^= {name}
         self.pinnedDetailsChanged.emit()
 
@@ -843,9 +667,7 @@ class TreeBridge(QtCore.QObject):
         return (self._tree.close_details(self._selected_names())
                 or self._tree.close_details())
 
-    # ------------------------------------------------------------------ #
-    # search
-    # ------------------------------------------------------------------ #
+    # -- search --
 
     @QtCore.Property(list, notify=searchResultsChanged)
     def searchResults(self) -> list[dict[str, Any]]:
@@ -870,7 +692,7 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot()
     def revealFirstProblem(self) -> None:
-        """Header count -> the first profile with something wrong with it."""
+        """Reveal the first problem profile and open its strip."""
         problems = self._snapshot.problem_profiles()
         if problems:
             self.revealObjectRow(problems[0])
@@ -878,21 +700,14 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot(str)
     def revealObject(self, name: str) -> None:
-        """Go to a search hit: select it, open the path to it, scroll it in."""
+        """Reveal a search hit."""
         if name in self._snapshot.nodes:
             self.revealObjectRow(name)
 
-    # ------------------------------------------------------------------ #
-    # rename
-    # ------------------------------------------------------------------ #
+    # -- keyboard and rename --
 
     def _sole_selection(self) -> str | None:
-        """The one selected object, or None.
-
-        Keyboard actions work on the selection rather than on a list's
-        current index, so the same key does the same thing wherever the
-        row happens to be.
-        """
+        """The one selected object, or None."""
         try:
             selected = Gui.Selection.getSelection(self._snapshot.doc_name)
         except Exception:
@@ -910,18 +725,11 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot()
     def toggleSelectedVisibility(self) -> None:
-        """Space: show or hide everything selected, as one undo step.
-
-        All the same way rather than each flipped: with a mix of shown and
-        hidden objects, flipping each would swap them, which is never what
-        is wanted. If any is shown they are all hidden, otherwise shown.
-        """
+        """Hide all selected if any is shown, else show all; one undo."""
         doc = App.ActiveDocument
         if doc is None:
             return
-        # FreeCAD files a feature picked in a Body under the Body, so the
-        # selection is read through visibility.targets: the feature, not
-        # its container.
+        # targets() maps a Body-filed selection back to the feature.
         visibility.toggle(doc, visibility.targets(doc), self._show_alone)
         self.invalidate()
 
@@ -936,11 +744,7 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot(str)
     def selectRange(self, name: str) -> None:
-        """Shift+click: every row from the anchor to `name`, inclusive.
-
-        The anchor is the last row clicked without Shift, or moved to with
-        an arrow key; without one, the range is just this row.
-        """
+        """Select every row from the anchor to `name`, inclusive."""
         start = self._tree.row_of(self._anchor) if self._anchor else -1
         end = self._tree.row_of(name)
         if end < 0:
@@ -954,12 +758,7 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot(int, bool, result=int)
     def stepSelection(self, step: int, extend: bool) -> int:
-        """Up/Down: select the row above or below; with Shift, extend.
-
-        Moves from the last row stepped to or clicked, so repeated presses
-        walk the list even while a range is selected. Returns the new row,
-        for the view to scroll to, or -1 when there is nowhere to go.
-        """
+        """Move the selection by `step` rows; return the row or -1."""
         count = self._tree.rowCount()
         if count == 0:
             return -1
@@ -974,15 +773,12 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot(bool, bool, result=int)
     def jumpSelection(self, to_end: bool, extend: bool) -> int:  # noqa: N802
-        """Home/End: select the first or last row; with Shift, extend.
-
-        Returns the row, for the view to scroll to, or -1 with no rows.
-        """
+        """Select the first or last row; return the row or -1."""
         return self._select_row(
             self._tree.rowCount() - 1 if to_end else 0, extend)
 
     def _select_row(self, target: int, extend: bool) -> int:
-        """Move the keyboard's place to a row. The row, or -1 if none."""
+        """Move the cursor to a row; return it, or -1 if none."""
         name = self._tree.name_at(target)
         if name is None:
             return -1
@@ -996,11 +792,7 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot(int, result="QVariantList")
     def breadcrumb(self, row: int) -> list[dict[str, Any]]:
-        """The containers a row is shown inside, outermost first.
-
-        For the strip pinned over the list once they have scrolled away
-        (Breadcrumb.qml): each with its own row, to scroll back to.
-        """
+        """Ancestor rows and labels of a row, outermost first."""
         crumbs = []
         for above in self._tree.ancestor_rows(row):
             name = self._tree.name_at(above)
@@ -1011,13 +803,7 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot(int, result=int)
     def stepBranch(self, step: int) -> int:
-        """Right/Left: open or close a branch, else move into or out of it.
-
-        Right opens a closed branch, and on an open one moves to its first
-        child. Left closes an open branch, and elsewhere moves to the
-        parent. Acts on the row last stepped to or clicked. Returns the row
-        now current, for the view to scroll to, or -1 when nothing moved.
-        """
+        """Right/Left tree navigation; return the current row or -1."""
         name = self._cursor
         if name is None or self._tree.row_of(name) < 0:
             selected = self._selected_names()
@@ -1054,12 +840,7 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot(str, str)
     def rename(self, name: str, label: str) -> None:
-        """Set an object's Label.
-
-        Label, not Name: Name is the immutable internal identifier every
-        link in the document is written against, and the panel addresses
-        rows by it. Renaming touches only what is displayed.
-        """
+        """Set an object's Label (Name is immutable)."""
         doc = App.ActiveDocument
         if doc is None:
             return
@@ -1077,9 +858,7 @@ class TreeBridge(QtCore.QObject):
             log.error("could not rename %s" % name)
         self.invalidate()
 
-    # ------------------------------------------------------------------ #
-    # the undo toast
-    # ------------------------------------------------------------------ #
+    # -- undo toast --
 
     @staticmethod
     def _named(doc: Any, names: Iterable[Any]) -> str:
@@ -1091,106 +870,25 @@ class TreeBridge(QtCore.QObject):
         return str(getattr(obj, "Label", names[0]))
 
     def _toast(self, doc: Any, message: str, body: str = "") -> None:
-        """Say what the panel just did, and offer to undo it (toast.py).
-
-        `body` is the Body whose tip moved, if one did.
-        """
+        """Show an undoable toast; `body` is a Body whose tip moved."""
         services.toast(
             doc, message,
             partial(self._rollback.show_through_tip, body) if body else None)
 
-    # ------------------------------------------------------------------ #
-    # activation
-    # ------------------------------------------------------------------ #
+    # -- activation --
 
     @QtCore.Slot(str)
     def activate(self, name: str) -> None:
-        """Double-click: open a container, edit anything else.
-
-        A Body, Part or assembly that is not the active one is made
-        active first; only the active one opens and closes. Nothing for
-        an origin plane, axis or point a task is being given.
-        """
-        doc = App.ActiveDocument
-        if doc is None or editing.is_reference_pick(doc.getObject(name)):
-            return
-        node = self._snapshot.nodes.get(name)
-        if node is not None and node.is_container and not node.is_lifted:
-            if name != self._active and self._active_key(
-                    doc.getObject(name)):
-                # Deferred, as an edit is below: activating can switch
-                # workbench or open a task.
-                self._pending_active = name
-                self._activate_timer.start()
-                return
-            self.toggleExpanded(name)
-            return
-        if doc.getObject(name) is None:
-            return
-        # Deferred: this is reached from a delegate's onDoubleClicked, and
-        # setEdit opens a task dialog, which nests an event loop and tears
-        # down docks. Anything that destroys the delegate while its handler
-        # is still on the stack aborts the process.
-        self._pending_edit = (doc.Name, name)
-        self._edit_timer.start()
-
-    @staticmethod
-    def _active_key(obj: Any) -> str:
-        """The key FreeCAD keeps this kind of active container under."""
-        type_id = str(getattr(obj, "TypeId", ""))
-        if type_id == "PartDesign::Body":
-            return "pdbody"
-        try:
-            if type_id.startswith("Assembly::Assembly") \
-                    or obj.isDerivedFrom("App::Part"):
-                return "part"
-        except Exception:
-            pass
-        return ""
-
-    def _activate_pending(self) -> None:
-        """Make the double-clicked container the active one.
-
-        As FreeCAD's own tree does it - the view provider's double click,
-        which also brings up the container's workbench - and, if that
-        did not take, by setting the active object directly.
-        """
-        name, self._pending_active = self._pending_active, ""
-        doc = App.ActiveDocument
-        obj = doc.getObject(name) if doc is not None and name else None
-        key = self._active_key(obj)
-        if obj is None or not key:
-            return
-        try:
-            obj.ViewObject.doubleClicked()
-        except Exception:
-            pass
-        try:
-            view = fc.active_view()
-            if self._read_active() != name and view is not None:
-                view.setActiveObject(key, obj)
-        except Exception:
-            log.error("could not make %s active" % name)
-        self._sync_active()
+        self._activation.activate(name)
 
     def edit_feature(self, doc_name: str, name: str) -> None:
-        """Mark and reveal a feature opened for editing outside the panel.
-
-        Connected to `services.featurePicked` (a face double-clicked in the
-        3D view). The edit itself is the services' job, so it happens with
-        the panel closed too; this is only what the panel adds when open.
-        """
+        """Reveal a feature opened for editing from the 3D view."""
         if doc_name != getattr(App.ActiveDocument, "Name", None):
             return
         if name in self._snapshot.nodes:
             if name not in self._picked:
                 self._picked.append(name)
             self._reveal_timer.start()
-
-    def _enter_pending_edit(self) -> None:
-        pending, self._pending_edit = self._pending_edit, None
-        if pending is not None:
-            self._enter_edit(*pending)
 
     def _recompute_document(self) -> None:
         doc = App.ActiveDocument
@@ -1201,23 +899,11 @@ class TreeBridge(QtCore.QObject):
         except Exception:
             log.error("could not recompute after a drop")
 
-    def _enter_edit(self, doc_name: str, name: str) -> None:
-        """Edit an object inside an undo step of its own (editing.py)."""
-        editing.open_for_edit(
-            doc_name, name,
-            handles=not settings.get("TreeEditHidesHandles"))
-
-    # ------------------------------------------------------------------ #
-    # drag and drop
-    # ------------------------------------------------------------------ #
+    # -- drag and drop --
 
     @QtCore.Slot(str, result="QVariantList")
     def dragNames(self, name: str) -> list[str]:  # noqa: N802
         return self._drag_drop.drag_names(name)
-
-    @QtCore.Slot("QVariantList", result=bool)
-    def inOneBody(self, names: list[Any]) -> bool:  # noqa: N802
-        return self._drag_drop.in_one_body(names)
 
     @QtCore.Slot("QVariantList", result=str)
     def slideContainer(self, names: list[Any]) -> str:  # noqa: N802
@@ -1239,10 +925,6 @@ class TreeBridge(QtCore.QObject):
     def dropInto(self, sources: list[Any], target_name: str) -> bool:  # noqa: N802
         return self._drag_drop.drop_into(sources, target_name)
 
-    @QtCore.Slot("QVariantList", str, result=bool)
-    def canDropOn(self, sources: list[Any], target_name: str) -> bool:
-        return self._drag_drop.can_drop_on(sources, target_name)
-
     @QtCore.Slot("QVariantList", str, result=str)
     def dropHint(self, sources: list[Any], target_name: str) -> str:  # noqa: N802
         return self._drag_drop.drop_hint(sources, target_name)
@@ -1251,7 +933,7 @@ class TreeBridge(QtCore.QObject):
     def dropOn(self, sources: list[Any], target_name: str) -> bool:
         return self._drag_drop.drop_on(sources, target_name)
 
-    # -- the document root: the header's name, empty space when docked ---- #
+    # -- document root as drop target --
 
     @QtCore.Slot("QVariantList", result=bool)
     def canDropOnRoot(self, sources: list[Any]) -> bool:  # noqa: N802
@@ -1260,8 +942,6 @@ class TreeBridge(QtCore.QObject):
     @QtCore.Slot("QVariantList", result=bool)
     def dropOnRoot(self, sources: list[Any]) -> bool:  # noqa: N802
         return self._drag_drop.drop_on_root(sources)
-
-    # ------------------------------------------------------------------ #
 
     @QtCore.Slot()
     def refresh(self) -> None:

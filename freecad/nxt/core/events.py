@@ -6,10 +6,9 @@ from .qt import QtCore, QtWidgets
 
 
 class ApplicationEventFilter(QtCore.QObject):
-    """Installed on the whole application; subclasses define eventFilter.
+    """Application-wide filter; subclasses define eventFilter.
 
-    Every event in FreeCAD passes through one of these, so eventFilter
-    must reject what it does not want with its cheapest test first.
+    Every event passes through it, so reject with the cheapest test first.
     """
 
     def install(self) -> None:

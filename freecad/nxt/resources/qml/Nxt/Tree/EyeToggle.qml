@@ -1,25 +1,14 @@
 import QtQuick
 
-// Visibility control.
-//
-// Drawn rather than glyphed or shipped as an asset: this sits at roughly
-// 14 logical pixels, where a font glyph is at the mercy of hinting and a
-// bitmap is at the mercy of the display's scale factor. A Canvas redraws at
-// whatever size and colour it is handed, which also means it follows the
-// host stylesheet through `ink` without a second asset for light and dark.
-//
-// Open reads as an outlined almond with a pupil; closed drops the pupil and
-// replaces the upper lid with lashes, so the two states differ in silhouette
-// rather than only in detail - the part that survives at this size.
+// Visibility toggle, drawn on a Canvas so it stays crisp at ~14px at any
+// scale and follows `ink`.
 Item {
     id: root
 
     property bool open: true
     property color ink: theme.textDim
 
-    // Canvas repaints itself on resize but not when a value its onPaint
-    // reads changes, so both are nudged by hand - from here, so that no
-    // child property shadows one of these.
+    // Canvas does not repaint on property changes, so nudge it by hand.
     onOpenChanged: canvas.requestPaint()
     onInkChanged: canvas.requestPaint()
 
@@ -40,9 +29,6 @@ Item {
 
             var cx = width / 2;
             var cy = height / 2;
-            // Proportions tuned by rendering the shape at its real 15px
-            // size. A shorter almond or a larger pupil fills the outline and
-            // the open state collapses into a blob.
             var ew = width * 0.90;          // lid span
             var eh = ew * 0.62;             // lid rise
             var stroke = Math.max(1.0, width * 0.075);
@@ -65,14 +51,11 @@ Item {
                 ctx.arc(cx, cy, eh * 0.30, 0, 2 * Math.PI);
                 ctx.fill();
             } else {
-                // the closed lid, sitting a little lower than the open one
                 ctx.beginPath();
                 ctx.moveTo(cx - ew / 2, cy - eh * 0.10);
                 ctx.quadraticCurveTo(cx, cy + eh * 0.85, cx + ew / 2, cy - eh * 0.10);
                 ctx.stroke();
 
-                // three short lashes. Individually illegible at this size,
-                // which is fine - collectively they read as "shut".
                 var lash = eh * 0.34;
                 ctx.beginPath();
                 ctx.moveTo(cx, cy + eh * 0.44);

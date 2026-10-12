@@ -1,18 +1,7 @@
 """Space shows or hides what is selected - the feature, not its Body.
 
-FreeCAD records a feature picked in a Body as the Body with the feature's
-path ("Body", "Pad."), even when it was picked from a tree by name, and a
-face clicked on a Body's solid as the Body with the face ("Body",
-"Face6"). Read naively, either one is the Body, and Space hid the Body -
-sketches, datums and all.
-
-Here each entry is read for what it means: the last object of its path,
-or, for a bare face of a Body, the feature showing the solid (the tip,
-or whichever is shown instead). A Body picked whole is still the Body.
-
-`targets()` is that rule; the tree's Space uses it, and `SpaceInView`
-applies it to Space pressed in a 3D view, ahead of FreeCAD's shortcut.
-Nothing here depends on the tree.
+FreeCAD files a pick inside a Body under the Body ("Body", "Pad." or
+"Face6"), so each entry is resolved to the feature it really means.
 """
 
 from __future__ import annotations
@@ -56,7 +45,7 @@ def shown_feature(body: Any) -> Any:
 
 
 def _picked(doc: Any, top: Any, sub: str) -> Any:
-    """The object one selection entry means (see the module)."""
+    """The object one selection entry means."""
     path, _dot, element = sub.rpartition(".")
     if path:
         found = doc.getObject(path.split(".")[-1])
@@ -89,11 +78,9 @@ def targets(doc: Any) -> list[Any]:
 def toggle(doc: Any, objects: list[Any],
            show_alone: Callable[[Any, list[str]], None] | None = None
            ) -> None:
-    """Show or hide `objects` all the same way, as one undo step.
+    """Show or hide `objects` together, as one undo step.
 
-    If any is shown they are all hidden, otherwise all shown: flipping
-    each would swap a mixed selection. `show_alone(doc, names)` runs after
-    showing, for whoever keeps one feature per Body on show.
+    If any is shown all are hidden; `show_alone` runs after showing.
     """
     views = [(o, o.ViewObject) for o in objects
              if getattr(o, "ViewObject", None) is not None]
@@ -125,11 +112,7 @@ def _editing() -> bool:
 
 
 class SpaceInView(ApplicationEventFilter):
-    """Space in a 3D view, taken from FreeCAD's shortcut (see the module).
-
-    Steps aside while something is being edited - a sketch, a task - so
-    Space there means whatever it meant before.
-    """
+    """Space in a 3D view, ahead of FreeCAD's shortcut; not during edits."""
 
     def __init__(self, parent: QtCore.QObject | None = None,
                  action: Callable[[], None] = toggle_selected) -> None:
@@ -137,7 +120,7 @@ class SpaceInView(ApplicationEventFilter):
         self._action = action
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
-        # Every event in the application comes through here: cheap first.
+        # Sees every application event: cheap test first.
         kind = event.type()
         if kind not in (QtCore.QEvent.Type.ShortcutOverride,
                         QtCore.QEvent.Type.KeyPress):

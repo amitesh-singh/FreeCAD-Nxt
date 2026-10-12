@@ -1,27 +1,22 @@
 import QtQuick
 
-// "Bracket › Body › Pocket001": the containers the top of the list is
-// inside, once their own rows have scrolled away. Pinned over the top of
-// the list; a name scrolls back to its row. Hidden with nothing to say.
+// "Bracket › Body › Pocket001": containers of the top visible row, pinned
+// over the list once their rows have scrolled away.
 Item {
     id: bar
 
-    //: Outermost first: [{row, label}].
+    //: [{row, label}], outermost first.
     property var crumbs: []
     signal crumbClicked(int row)
 
-    //: Space at each end, and either side of a separator.
     readonly property int pad: theme.rowPad + 4
     readonly property int gap: 6
     readonly property bool overflows: path.width > width - 2 * pad
-    //: How far the trail is scrolled back from its end, to show the outer
-    //: names a long trail has no room for. Back to the end on every new
-    //: trail: the innermost names are the ones that say where you are.
+    //: Scroll back from the end; reset on every new trail.
     property real scroll: 0
     readonly property real maxScroll:
         Math.max(0, path.width - (width - 2 * pad))
-    //: The pointer is over the strip: in Nxt's overlay the panel's wheel
-    //: asks this before scrolling the list (NxtTree.qml's scrollWheel).
+    //: Hovered; the overlay's wheel handler asks this (NxtTree.qml).
     readonly property bool hovered: hover.hovered
 
     function scrollBy(distance) {
@@ -35,8 +30,6 @@ Item {
     visible: crumbs.length > 0
     clip: true
 
-    // Docked, a strip of the panel with a divider under it; in Nxt's
-    // overlay a pill, as the header and the rows are there.
     Rectangle {
         anchors.fill: parent
         anchors.margins: theme.overlay ? 2 : 0
@@ -55,9 +48,6 @@ Item {
 
     HoverHandler { id: hover }
 
-    // Too long to fit, it keeps its end in view: the innermost names are
-    // the ones that say where the list is. The wheel, or a drag along the
-    // strip, scrolls back to the outer ones.
     WheelHandler {
         enabled: bar.overflows
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
@@ -128,9 +118,6 @@ Item {
         }
     }
 
-    // Where names run on past an edge, they fade out rather than being cut
-    // mid-letter: on the left while outer names are out of sight, on the
-    // right once the strip is scrolled back from the end.
     component Fade: Rectangle {
         property bool leading: true
         width: Math.min(40, bar.width / 4)

@@ -1,18 +1,13 @@
 """The menu's own words, marked for translation.
 
-lupdate cannot read TOML, so every label Nxt's definitions use is listed
-here, where it can: the names of Nxt's actions, and the few FreeCAD
-commands `default.toml` renames. A test checks the two stay in step.
-
-Labels are looked up at display time with `translate("NxtMenu", text)`.
-An addon's own labels are translated by that addon, or shown as written.
+lupdate cannot read TOML, so every label `default.toml` uses is listed
+here; a test checks the two stay in step.
 """
 
 from __future__ import annotations
 
 from ..app.i18n import QT_TRANSLATE_NOOP
 
-#: What each Nxt action is called in the menu.
 ACTIONS: dict[str, str] = {
     "nxt:isolate": QT_TRANSLATE_NOOP("NxtMenu", "Isolate"),
     "nxt:inspector": QT_TRANSLATE_NOOP("NxtMenu", "Property Inspector"),
@@ -49,8 +44,7 @@ ACTIONS: dict[str, str] = {
     "nxt:expressions_paste": QT_TRANSLATE_NOOP("NxtMenu", "Paste"),
 }
 
-#: The action bar's short labels, under each icon. The full label is the
-#: tooltip.
+#: Short labels under the bar's icons.
 BAR: dict[str, str] = {
     "hide": QT_TRANSLATE_NOOP("NxtMenu", "Hide"),
     "show": QT_TRANSLATE_NOOP("NxtMenu", "Show"),
@@ -61,9 +55,7 @@ BAR: dict[str, str] = {
     "nxt:inspector": QT_TRANSLATE_NOOP("NxtMenu", "Inspect"),
 }
 
-#: What acts on every selected object, and says how many when there are
-#: several: "Delete 3", and "Isolate 3" on the bar. Commands that act on
-#: one object, or on the selection as a whole (Fit), do not count.
+#: Labels that show a count for several objects: "Delete 3".
 COUNTED: frozenset[str] = frozenset({
     "Std_Delete", "Std_DuplicateSelection", "Std_Cut", "Std_Copy",
     "Std_ToggleVisibility", "Std_ToggleSuppress", "Std_ToggleFreeze",
@@ -75,8 +67,7 @@ COUNTED: frozenset[str] = frozenset({
 #: How a count is added to a label; %1 the label, %2 how many.
 COUNTED_LABEL = QT_TRANSLATE_NOOP("NxtMenu", "%1 %2")
 
-#: FreeCAD commands whose icons Nxt's actions borrow, so the bar matches
-#: the rest of FreeCAD. An action with no entry is drawn without one.
+#: FreeCAD command icons that Nxt's actions borrow.
 ICONS: dict[str, str] = {
     "nxt:isolate": "Std_ShowSelection",
     "nxt:inspector": "Std_Properties",
@@ -86,7 +77,7 @@ ICONS: dict[str, str] = {
     "nxt:roll_forward": "PartDesign_MoveTip",
 }
 
-#: Section and More group names used by Nxt's definitions.
+#: Group names, listed for translation extraction.
 GROUPS: tuple[str, ...] = (
     QT_TRANSLATE_NOOP("NxtMenu", "Model"),
     QT_TRANSLATE_NOOP("NxtMenu", "Organize"),
@@ -108,7 +99,7 @@ GROUPS: tuple[str, ...] = (
     QT_TRANSLATE_NOOP("NxtMenu", "%1 objects"),
 )
 
-#: Labels `default.toml` gives FreeCAD commands and edit modes.
+#: Labels `default.toml` gives FreeCAD commands, for translation.
 OVERRIDES: tuple[str, ...] = (
     QT_TRANSLATE_NOOP("NxtMenu", "Make link"),
     QT_TRANSLATE_NOOP("NxtMenu", "Move to another Body"),

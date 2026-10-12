@@ -1,34 +1,7 @@
 """Snap a dragged Pad or Pocket length to a parallel face of the model.
 
-While a Pad or Pocket's length arrow is dragged, a planar face of the
-model square to the arrow - the top of a boss, the floor of a pocket,
-another body's face - pulls the length onto it once the arrow comes
-within a few pixels of it, and holds it there until the arrow is dragged
-clear. The face is highlighted while it holds, and the length it set is
-exact, not the nearest drag step.
-
-Separate from the tree and from the floating value field: it watches the
-edit on its own, reads the task panel's own length fields, and sets them
-the way their own arrows do (the spin box's raw value), so the panel, the
-arrow and the model stay one thing.
-
-How it works:
-  * When a Pad or Pocket is opened for editing, the faces are gathered
-    once: every planar face of what the feature is built on (its base
-    feature) and of the other visible solids, whose normal lies along
-    the extrusion. Each is kept as its distance along that direction
-    from the sketch plane. On a big model this is the only real cost,
-    and it is bounded (MAX_FACES).
-  * Then, at the floating field's pace, the length fields are watched.
-    A change while the mouse button is down is a drag. The length is
-    compared with the distances - a sorted list, so a lookup - and when
-    one is within SNAP_PIXELS on screen the field is set to it.
-  * The drag's own steps keep Shift and Ctrl; Alt held turns snapping
-    off for as long as it is held.
-
-Lengths, as FreeCAD measures them: the first length runs from the sketch
-plane along the extrusion, the second (two lengths) the other way, and a
-symmetric length is the whole of it, half either side.
+Faces are gathered once per edit; the task panel's length fields are then
+polled and set through their rawValue, as their own arrows do.
 """
 
 from __future__ import annotations
@@ -45,16 +18,15 @@ import FreeCADGui as Gui
 from ..core import fc, settings
 from ..core.qt import QtCore, QtWidgets
 
-#: The features whose lengths snap, and the length types that are a length.
 FEATURES = ("PartDesign::Pad", "PartDesign::Pocket")
 LENGTH_TYPES = ("Length", "TwoLengths")
-#: The task panel's fields: the first length, and the second.
+#: Task panel field names for the first and second length.
 FORWARD, BACKWARD = "lengthEdit", "lengthEdit2"
-#: How near, on screen, the arrow has to come to a face to snap to it.
+#: Snap distance on screen.
 SNAP_PIXELS = 10.0
-#: Faces looked at, at most: a bound on the cost of opening a huge model.
+#: Bounds the gathering cost on huge models.
 MAX_FACES = 20000
-#: How parallel counts as parallel: the cosine between the normals.
+#: Minimum cosine between normals.
 PARALLEL = 1.0 - 1e-6
 #: Distances closer than this are one face.
 SAME = 1e-6
@@ -66,18 +38,13 @@ class Face:
     """A face the length can snap to: how far along, and which it is."""
 
     distance: float
-    obj: str            # the object it is a face of, by name
+    obj: str            # object name
     element: str        # "Face7"
 
 
 def facing(faces: Iterable[tuple[Any, Any, str, str]], origin: Any,
            direction: Any) -> list[Face]:
-    """The faces square to `direction`, by distance from `origin`.
-
-    `faces` gives (normal, a point on the face, object, element) for each
-    planar face; the vectors need only `dot` and subtraction. Sorted by
-    distance, one entry per distance.
-    """
+    """Faces square to `direction`, sorted and deduped by distance."""
     found: dict[float, Face] = {}
     for normal, point, obj, element in faces:
         if abs(normal.dot(direction)) < PARALLEL:
@@ -90,12 +57,7 @@ def facing(faces: Iterable[tuple[Any, Any, str, str]], origin: Any,
 
 def candidates(faces: Sequence[Face], field: str,
                symmetric: bool) -> list[tuple[float, Face]]:
-    """What each face would make this field's length, in order.
-
-    The first length reaches forward, the second backward; a symmetric
-    length is twice the distance to a face on either side. Lengths of
-    zero or less are no length at all.
-    """
+    """Positive lengths each face would give this field, ascending."""
     out: list[tuple[float, Face]] = []
     for face in faces:
         if symmetric:
@@ -126,9 +88,7 @@ def nearest(length: float, lengths: Sequence[tuple[float, Face]],
     return best[1] if best else None
 
 
-# --------------------------------------------------------------------------- #
-# reading the model
-# --------------------------------------------------------------------------- #
+# -- reading the model --
 
 def _direction(feature: Any, normal: Any) -> Any:
     """Which way the first length runs, as a unit vector."""
@@ -163,10 +123,7 @@ def _sketch_frame(feature: Any) -> tuple[Any, Any] | None:
 
 
 def _sources(feature: Any) -> list[Any]:
-    """What can be snapped to: the base it is built on, and other solids.
-
-    Not the feature itself, nor its own Body, whose shape is the result.
-    """
+    """The base feature and other visible Bodies (not the own Body)."""
     sources: list[Any] = []
     base = getattr(feature, "BaseFeature", None)
     if base is not None:
@@ -220,9 +177,7 @@ def gather(feature: Any) -> tuple[list[Face], Any, Any] | None:
     return faces, origin, direction
 
 
-# --------------------------------------------------------------------------- #
-# the watcher
-# --------------------------------------------------------------------------- #
+# -- the watcher --
 
 def _fields() -> dict[str, Any]:
     found: dict[str, Any] = {}
@@ -248,14 +203,13 @@ class FaceSnap(QtCore.QObject):
         super().__init__(parent)
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._tick)
-        #: The edit the faces were gathered for: (document, feature).
+        #: (document, feature) the faces were gathered for.
         self._session: tuple[str, str] | None = None
         self._faces: list[Face] = []
         self._origin: Any = None
         self._direction: Any = None
         self._last: dict[str, float] = {}
-        #: The face the length is held on, while it is: (field, face,
-        #: the length it gives).
+        #: (field, face, length) while held on a face.
         self._held: tuple[str, Face, float] | None = None
 
     def install(self) -> None:
@@ -264,8 +218,6 @@ class FaceSnap(QtCore.QObject):
     def remove(self) -> None:
         self._timer.stop()
         self._unhighlight()
-
-    # ------------------------------------------------------------------
 
     def _tick(self) -> None:
         try:
@@ -305,8 +257,7 @@ class FaceSnap(QtCore.QObject):
             moved = before is not None and abs(value - before) > SAME
             if not dragging:
                 if self._held and self._held[0] == name:
-                    # Let go on a face: the length is that face's, even
-                    # if the arrow wrote its own last position after.
+                    # The arrow may write its own position on release.
                     if abs(value - self._held[2]) > SAME:
                         spin.setProperty("rawValue", self._held[2])
                         self._last[name] = self._held[2]
@@ -370,7 +321,7 @@ class FaceSnap(QtCore.QObject):
             return None
         return feature
 
-    # -- the highlight: FreeCAD's own preselection --------------------------
+    # -- highlight via FreeCAD preselection --
 
     def _highlight(self, doc_name: str, face: Face) -> None:
         try:

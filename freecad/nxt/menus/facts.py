@@ -1,9 +1,6 @@
-"""What the menu's conditions are tested against, read from FreeCAD.
+"""Object facts for menu conditions, from the tree snapshot and FreeCAD.
 
-Most facts come from the tree's snapshot, which has already worked them
-out for drawing (failures, the tip, solver findings, what reads what); the
-rest are asked of the object. Every read is guarded: a fact that cannot be
-read is simply absent, which at worst leaves an item out of the menu.
+Every read is guarded: an unreadable fact is simply absent.
 """
 
 from __future__ import annotations
@@ -32,12 +29,7 @@ def type_chain(type_id: str) -> tuple[str, ...]:
 
 def of(obj: Any, node: Any = None, nodes: dict[str, Any] | None = None
        ) -> ObjectFacts:
-    """The facts for one object.
-
-    `node` is the object's entry in the tree's snapshot and `nodes` the
-    snapshot's table, for the owning Body; without them only what the
-    object itself reports is known.
-    """
+    """The facts for one object, using its snapshot node when given."""
     flags: set[str] = set()
     type_id = str(getattr(obj, "TypeId", ""))
 
@@ -58,8 +50,7 @@ def of(obj: Any, node: Any = None, nodes: dict[str, Any] | None = None
             flags.add("has_inputs")
         if node.touched:
             flags.add("out_of_date")
-    # Anything a Body holds - sketches and datums too, not only the solid
-    # feature stack the snapshot tracks.
+    # Sketches and datums too, not only the snapshot's feature stack.
     in_body = bool(node is not None and (node.body or node.is_feature)) \
         or _guard(lambda: obj.getParentGeoFeatureGroup().TypeId
                   == "PartDesign::Body")

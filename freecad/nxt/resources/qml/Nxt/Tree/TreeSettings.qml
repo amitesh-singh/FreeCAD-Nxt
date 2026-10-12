@@ -2,13 +2,8 @@ import QtQuick
 import QtQuick.Controls.Basic
 import Nxt.Controls
 
-// The tree's quick settings, opened from the gear in the header.
-//
-// A popup in a window of its own, as the context menu is (see
-// ContextMenu.qml), so it can be wider than a narrow dock and closes on
-// Escape or a click elsewhere. Every control applies as it is changed -
-// there is nothing to confirm. The same values are on the Preferences page,
-// which the link at the bottom opens.
+// The tree's quick settings popup, opened from the header gear. Applies live;
+// the same values are on the Preferences page.
 Popup {
     id: settingsPopup
 
@@ -92,8 +87,7 @@ Popup {
 
         Item { width: 1; height: 2 }
 
-        // An on/off setting. Written back, then shown from the store:
-        // `checked` stays bound to what is saved, not to the last click.
+        // `checked` stays bound to the stored value, not the last click.
         component Setting: NxtSwitch {
             required property string key
             width: parent.width
@@ -106,9 +100,6 @@ Popup {
             }
         }
 
-        // Under-constrained marks, row tooltips and following 3D picks
-        // are on unless turned off on the Preferences page (its Tree
-        // group): set once, they are not what this panel is opened for.
         Setting {
             key: "EditOnDoubleClick"
             text: qsTr("Double-click a face to edit its feature")

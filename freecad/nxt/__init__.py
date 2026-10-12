@@ -13,8 +13,7 @@ _FROZEN = ("freecad.nxt.core.qt",)
 
 # Reload order matters: leaves first, orchestrators last.
 _RELOAD_ORDER = (
-    # health before scene: scene imports it, so it has to be the new module
-    # object by the time scene re-executes its own import.
+    # tree.health before tree.scene, which imports it.
     "freecad.nxt.core.log",
     "freecad.nxt.core.widgets",
     "freecad.nxt.core.view3d",
@@ -73,17 +72,11 @@ _RELOAD_ORDER = (
 
 
 def reload_all() -> bool:
-    """Tear down, reload the mutable modules, and report what happened.
-
-    Run this from the Python console, or as Nxt_Reload, after editing
-    addon source.
-    """
+    """Tear down, reload the mutable modules, and report the outcome."""
     import FreeCAD as App
 
-    # The panel holds document observers and a live QML engine. Both must be
-    # torn down before their modules are swapped out, or the reload leaves
-    # observers pointing at dead code and QML bindings at deleted QObjects.
-    # The inspector holds FreeCAD's own Property editor; it goes home first.
+    # Observers and the QML engine must go before their modules are swapped,
+    # or they point at dead code. The inspector returns FreeCAD's editor first.
     inspector = sys.modules.get("freecad.nxt.inspector.host")
     if inspector is not None:
         try:
@@ -130,11 +123,7 @@ def reload_all() -> bool:
             App.Console.PrintError("Nxt: services did not come back\n")
             App.Console.PrintError(traceback.format_exc())
 
-    # Put the panel back either way. A failed reload used to return here, so
-    # the panel stayed closed with nothing on screen saying how to get it
-    # back - the same stranded state the rest of this addon works to avoid.
-    # If the panel cannot start on the half-reloaded modules it says so in
-    # its own body rather than throwing.
+    # Reopen even after a failed reload, so the panel is never stranded.
     if panel_was_open:
         try:
             sys.modules["freecad.nxt.tree.panel"].show()

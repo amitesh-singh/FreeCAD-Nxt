@@ -1,22 +1,7 @@
-"""Reordering a Part Design Body by drag and drop.
+"""Reordering a Body, Part or group by drag and drop.
 
-FreeCAD's tree drops a dragged object *into* the row it lands on, which
-inside a Body means asking a Pad to take a Pocket as a child: it refuses,
-and the drag fails. Part Design's own "Move Feature After" command
-(PartDesign_MoveFeatureInTree) reorders instead, by taking each feature out
-of the Body and inserting it after a target - which also rewires each solid
-feature's BaseFeature to the one now before it. This does the same thing
-directly, for a drag: dropping a Body's member on another member of the
-same Body puts it just after that one, and dropping it on the Body itself
-puts it first.
-
-The command asks for the target in a dialog and checks afterwards whether
-the new order is legal, undoing the move if not. A drag has to know before
-the drop - the row should refuse the drop while the pointer is over it - so
-the check here runs on the planned order, before anything moves, and the
-same plan is what gets applied.
-
-`plan` is plain data in and out, so it is tested without FreeCAD.
+Mirrors PartDesign_MoveFeatureInTree, but checks legality before the drop
+so the row can refuse it while hovered.
 """
 
 from __future__ import annotations
@@ -35,9 +20,9 @@ class Plan:
     """A reorder, worked out: the new order, or why there is none."""
 
     order: tuple[str, ...] = ()
-    #: What moves, in its new order: a run of consecutive names in `order`.
+    #: Consecutive names in `order`.
     moving: tuple[str, ...] = ()
-    #: Empty when the plan is legal; otherwise, in words, why not.
+    #: Why the plan is illegal; empty when legal.
     problem: str = ""
 
     @property
@@ -50,10 +35,7 @@ def plan(members: Sequence[str], moving: Sequence[str], after: str | None,
          ) -> Plan:
     """The order with `moving` placed after `after` (None: first).
 
-    `members` is the Body's Group in order; `depends_on` maps each member
-    to everything it reads, directly or not. The plan is refused if it
-    would put anything before something it depends on; which dependencies
-    count is `dependencies()`'s business.
+    Refused if anything would precede something it depends on.
     """
     moving = [m for m in members if m in set(moving)]   # keep Body order
     if not moving:
@@ -80,9 +62,7 @@ def plan(members: Sequence[str], moving: Sequence[str], after: str | None,
     return Plan(order=tuple(order), moving=tuple(moving))
 
 
-# ---------------------------------------------------------------------------
-# FreeCAD
-# ---------------------------------------------------------------------------
+# -- FreeCAD --
 
 def body_of(obj: Any) -> Any:
     """The Part Design Body holding `obj`, or None."""
@@ -96,14 +76,8 @@ def body_of(obj: Any) -> Any:
 
 
 def plan_drop(sources: Sequence[Any], target: Any) -> tuple[Any, Plan]:
-    """The Body and the plan, when this drop is a reorder within a Body.
-
-    It is one when every source is a member of the same Body and the target
-    is another member of it (place after it) or the Body itself (place
-    first). Otherwise the Body is None, and the drop is an ordinary one.
-    """
-    # Compared by name: FreeCAD may hand back a new Python wrapper for the
-    # same object, so `is` is not a test of sameness.
+    """The Body and plan if this drop reorders within a Body, else None."""
+    # By name: FreeCAD may return a new wrapper for the same object.
     body = body_of(sources[0]) if sources else None
     if body is None or any(_name(body_of(s)) != body.Name for s in sources):
         return None, Plan()
@@ -121,19 +95,10 @@ def plan_drop(sources: Sequence[Any], target: Any) -> tuple[Any, Plan]:
 
 
 def dependencies(body: Any) -> dict[str, set[str]]:
-    """What must stay before each feature: FreeCAD's own rule, exactly.
+    """Solid features each solid feature reads via non-solid inputs.
 
-    Part Design's command allows any order in which no solid feature
-    reads - through a sketch, a datum or a binder - a solid feature that
-    comes after it. Its direct links to other solid features are left out
-    on purpose: the chain of BaseFeature links is rewired by the Body on
-    every move, so it never constrains one. Sketches and datums have no
-    rule of their own; they are only constrained through the features that
-    read them.
-
-    The first version of this constrained every member by everything it
-    read, BaseFeature links included, and refused moves the command
-    allows.
+    Direct solid-to-solid links are skipped: the Body rewires BaseFeature
+    on every move, so they never constrain one.
     """
     solids = {m.Name for m in body.Group
               if _is(m, "PartDesign::Feature")}
@@ -160,10 +125,7 @@ def _name(obj: Any) -> str | None:
 
 
 def group_of(obj: Any) -> Any:
-    """The Part, group or other container whose Group lists `obj`, or None.
-
-    A Body is not one of these: its order is its history (plan_drop).
-    """
+    """The non-Body container whose Group lists `obj`, or None."""
     for parent in getattr(obj, "InList", None) or ():
         if getattr(parent, "TypeId", "") == "PartDesign::Body":
             continue
@@ -177,12 +139,9 @@ def group_of(obj: Any) -> Any:
 
 def plan_group_drop(sources: Sequence[Any], target: Any
                     ) -> tuple[Any, Plan]:
-    """The container and plan when this drop reorders a Part or group.
+    """The container and plan if this drop reorders a Part or group.
 
-    It is one when every source is listed by the same container and the
-    target is the container itself (place first) or another of its members
-    (place after it). Order in a Part or group means nothing to the model,
-    so no order is refused for what depends on what.
+    Order there has no model meaning, so dependencies are not checked.
     """
     container = group_of(sources[0]) if sources else None
     if container is None or any(_name(group_of(s)) != container.Name
@@ -215,12 +174,8 @@ def _is(obj: Any, type_name: str) -> bool:
 def apply(body: Any, the_plan: Plan) -> None:
     """Move the Body's members into the planned order, as one undo step.
 
-    The same calls Part Design's command makes - take each moved member
-    out, insert it after the one before it - so each solid feature's
-    BaseFeature is rewired by the Body, as it is there. The tip is kept
-    where it was, except that a feature dropped straight after the tip
-    becomes the tip: dropped at the end of the history, it is meant to be
-    part of it.
+    Uses remove/insert as Part Design does, so BaseFeature is rewired.
+    The tip stays, unless a feature is dropped straight after it.
     """
     doc = body.Document
     tip = body.Tip

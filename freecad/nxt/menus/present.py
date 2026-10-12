@@ -1,11 +1,4 @@
-"""A resolved menu, turned into what the QML draws.
-
-Everything here is plain data - dicts of strings and booleans - so QML can
-read it without knowing about FreeCAD, and so it can be tested without
-FreeCAD. What FreeCAD knows about a command (its label, shortcut, icon, and
-whether it can run now) arrives through a `CommandInfo` lookup that
-`runner.py` backs with FreeCADGui.Command; the tests pass their own.
-"""
+"""A resolved menu as plain data for QML; FreeCAD-free via `Lookup`."""
 
 from __future__ import annotations
 
@@ -17,7 +10,6 @@ from ..app.i18n import translate
 from . import labels
 from .definitions import Item, Resolved
 
-#: The context all of the menu's own text is filed under.
 CONTEXT = "NxtMenu"
 
 
@@ -28,11 +20,9 @@ class CommandInfo:
     label: str
     shortcut: str = ""
     active: bool = True
-    #: The command whose icon to draw; empty for none.
     icon: str = ""
 
 
-#: Look a FreeCAD command up; None when it is not registered.
 Lookup = Callable[[str], CommandInfo | None]
 
 
@@ -43,18 +33,12 @@ class Subject:
     title: str
     subtitle: str = ""
     count: int = 1
-    #: Whether any selected object is shown, for the bar's Hide or Show.
     any_shown: bool = True
 
 
 def present(menu: Resolved, subject: Subject,
             lookup: Lookup) -> dict[str, Any]:
-    """The menu as QML reads it.
-
-    Items whose FreeCAD command is not registered (a workbench that is not
-    installed) are left out. Commands FreeCAD says cannot run now stay, drawn
-    disabled, as FreeCAD's own menu draws them.
-    """
+    """The menu as QML reads it; unregistered commands are left out."""
     def entry(item: Item | None) -> dict[str, Any] | None:
         return None if item is None else _entry(item, subject, lookup)
 
@@ -123,7 +107,6 @@ def _entry(item: Item, subject: Subject,
 
 
 def _counted(label: str, command: str, subject: Subject) -> str:
-    """The label, with how many it acts on when that is several."""
     if subject.count < 2 or command not in labels.COUNTED or not label:
         return label
     return translate(CONTEXT, labels.COUNTED_LABEL).replace(

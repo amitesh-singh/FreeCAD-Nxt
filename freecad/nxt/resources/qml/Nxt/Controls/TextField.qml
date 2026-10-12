@@ -1,24 +1,14 @@
 import QtQuick
 
-// A single-line text field, drawn rather than styled.
-//
-// QtQuick.Controls would give us one, but it would arrive wearing whatever
-// Qt style the host has set, and the host here is FreeCAD with a stylesheet
-// we do not control. A TextInput plus a rectangle is less code than
-// convincing a styled control to match the rest of the panel.
-//
-// Keys are surfaced as signals rather than handled here, because the thing
-// that owns the field is the thing that knows what up, down and return mean
-// in context - stepping a result list, in the only case that currently
-// exists.
+// A single-line text field, drawn by hand so the host's QtQuick.Controls
+// style cannot reach it. Keys are surfaced as signals for the owner.
 Item {
     id: field
 
     property alias text: input.text
     property alias input: input
     property string placeholder: ""
-    //: The object whose property this edits, "Document#Name" or "Name":
-    //: given one, "=" opens expression help (ExpressionAssist).
+    //: Enables "=" expression help.
     property string owner: ""
 
     signal edited(string value)
@@ -29,12 +19,6 @@ Item {
 
     implicitHeight: theme.fieldHeight
 
-    // A field has to read as a field in both modes. The first overlay pass
-    // faded this rectangle out entirely, which took the border with it and
-    // left the placeholder floating in the header with nothing to say it
-    // was a target. In overlay the fill steps down to the chip colour
-    // instead - enough separation from the header pill behind it - and the
-    // border stays at full strength either way.
     Rectangle {
         anchors.fill: parent
         radius: 3
@@ -70,10 +54,8 @@ Item {
 
         onTextChanged: field.edited(text)
 
-        // The expression list, while one is being typed, has first say on
-        // the keys it uses (ExpressionAssist.handleKey); what it leaves is
-        // the field's. Asked in each key's own handler: Qt calls those
-        // before Keys.onPressed, which would never see them.
+        // Assist asked in each key handler too: Qt runs those before
+        // Keys.onPressed, which would never see these keys.
         Keys.onPressed: function (event) {
             if (assist.handleKey(event))
                 event.accepted = true;
@@ -101,7 +83,6 @@ Item {
         owner: field.owner
     }
 
-    // A way out that does not require knowing about Escape.
     Item {
         id: clearButton
         visible: input.text.length > 0

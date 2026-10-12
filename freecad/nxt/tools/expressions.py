@@ -1,21 +1,7 @@
-"""Expression editing for any value field: suggestions and a live result.
+"""Expression editing for value fields: suggestions and a live result.
 
-Typing "=" at the start of a value field binds an expression, as FreeCAD's
-own editors do. This is what helps write one: as you type, a list of what
-fits where the cursor is - the document's objects, the properties of the
-one named before a dot, the owner's own properties, FreeCAD's functions -
-and under it the value the expression gives now, or why it gives none.
-
-It belongs to no view. The tree's detail strip, the Property Inspector and
-the floating value fields in the 3D view each set `expressions` (an
-`Expressions` object) on their QML context, and their fields use the
-`ExpressionAssist` QML component; anything else can do the same. A field
-names its owner - the object whose property it edits - as "Document#Name",
-or just "Name" in the active document: names in an expression are
-resolved from there, as FreeCAD resolves them.
-
-The parsing here is plain string work, tested without FreeCAD
-(tests/test_expressions.py); only `Expressions` reads the document.
+Fields name their owner as "Document#Name" or "Name"; parsing is pure
+string work and only `Expressions` reads the document.
 """
 
 from __future__ import annotations
@@ -28,7 +14,6 @@ from typing import Any
 from ..core.qt import QtCore
 from ..ui import quick_host
 
-#: FreeCAD's expression functions, those worth offering by name.
 FUNCTIONS: tuple[str, ...] = (
     "abs", "acos", "asin", "atan", "atan2", "cath", "ceil", "cos", "cosh",
     "exp", "floor", "hypot", "log", "log10", "max", "min", "mod", "pow",
@@ -36,25 +21,17 @@ FUNCTIONS: tuple[str, ...] = (
     "average", "count", "stddev", "sum",
     "create", "list", "matrix", "placement", "rotation", "vector",
 )
-#: Constants FreeCAD's expressions know.
 CONSTANTS: tuple[str, ...] = ("pi", "e")
-#: Suggestions shown at most.
 LIMIT = 12
 
-#: What an expression's reference is made of: names, <<labels>>, dots and
-#: the document separator. Everything else ends one.
+#: Names, <<labels>>, dots and "#"; anything else ends a reference.
 _REFERENCE = re.compile(r"(?:<<[^>]*>>|<<[^>]*$|[\w#.])*$")
 _IDENTIFIER = re.compile(r"[A-Za-z_]\w*$")
 
 
 @dataclass(frozen=True)
 class Token:
-    """What is being typed at the cursor.
-
-    `start` is where it begins, so a suggestion replaces it; `owner` the
-    object written before a dot ("Pad" in "Pad.Len"), "" when there is
-    none; `prefix` what has been typed of the name itself.
-    """
+    """The reference at the cursor: "Pad.Le" -> owner "Pad", prefix "Le"."""
 
     start: int
     owner: str
@@ -63,7 +40,7 @@ class Token:
 
 @dataclass(frozen=True)
 class Suggestion:
-    """One entry in the list: what it shows, and what it puts in."""
+    """One completion entry."""
 
     label: str
     insert: str
@@ -105,7 +82,7 @@ def unreference(text: str) -> str:
 
 
 def _matches(prefix: str, *names: str) -> int:
-    """How well a candidate fits: 0 starts with it, 1 contains it, -1 no."""
+    """0 prefix match, 1 substring match, -1 none."""
     want = prefix.lower()
     best = -1
     for name in names:
@@ -125,13 +102,7 @@ def _ranked(found: Iterable[tuple[int, int, Suggestion]]
 def suggest(token: Token, objects: Sequence[tuple[str, str]],
             owner_properties: Sequence[str],
             properties_of: Any) -> list[Suggestion]:
-    """What fits the token, best first.
-
-    `objects` are the document's (name, label) pairs; `owner_properties`
-    the properties of the object the field belongs to, which an
-    expression can name bare; `properties_of(name_or_label)` the
-    properties of another object, or None when there is no such object.
-    """
+    """Suggestions for the token, best first."""
     found: list[tuple[int, int, Suggestion]] = []
     if token.owner:
         props = properties_of(unreference(token.owner))
@@ -171,7 +142,6 @@ def apply_suggestion(text: str, token: Token, cursor: int,
                      insert: str) -> tuple[str, int]:
     """The text with the token replaced by `insert`, and the new cursor."""
     end = cursor
-    # Swallow the rest of a name the cursor is in the middle of.
     while end < len(text) and re.match(r"[\w]", text[end]):
         end += 1
     new = text[:token.start] + insert + text[end:]
@@ -194,12 +164,10 @@ def describe_value(value: Any) -> str:
     return str(value)
 
 
-# --------------------------------------------------------------------------- #
-# the document side
-# --------------------------------------------------------------------------- #
+# -- document side --
 
 def _owner(path: str) -> Any:
-    """The object a field belongs to: "Document#Name" or "Name"."""
+    """Resolve "Document#Name" or "Name"."""
     import FreeCAD as App
     doc_name, _hash, name = path.rpartition("#")
     try:
@@ -222,7 +190,7 @@ def _visible_properties(obj: Any) -> list[str]:
 
 
 class Expressions(QtCore.QObject):
-    """What a QML field asks while an expression is being typed."""
+    """QML helper for expression fields."""
 
     @QtCore.Slot(str, str, int, result="QVariantList")
     def suggest(self, owner: str, text: str,  # noqa: N802
@@ -247,22 +215,19 @@ class Expressions(QtCore.QObject):
     @QtCore.Slot(str, int, str, result="QVariantMap")
     def complete(self, text: str, cursor: int,  # noqa: N802
                  insert: str) -> dict[str, Any]:
-        """The text with a suggestion put in: {text, cursor}."""
+        """Insert a suggestion: {text, cursor}."""
         new, at = apply_suggestion(text, token_at(text, cursor), cursor,
                                    insert)
         return {"text": new, "cursor": at}
 
     @QtCore.Slot(QtCore.QObject, result=QtCore.QPointF)
     def anchorOffset(self, item: Any) -> QtCore.QPointF:  # noqa: N802
-        """Where a popup from `item` really opens; see quick_host."""
+        """Popup offset; the Wayland workaround lives in quick_host."""
         return quick_host.popup_offset(item)
 
     @QtCore.Slot(str, str, result="QVariantMap")
     def evaluate(self, owner: str, text: str) -> dict[str, Any]:  # noqa: N802
-        """What the expression gives now: {ok, text}.
-
-        `text` is the value, or the first line of FreeCAD's complaint.
-        """
+        """{ok, text}: the value, or the first line of the error."""
         expression = strip_marker(text)
         obj = _owner(owner)
         if obj is None or not expression:
@@ -279,7 +244,7 @@ _helper: Expressions | None = None
 
 
 def helper() -> Expressions:
-    """The one Expressions every view shares."""
+    """The shared Expressions instance."""
     global _helper
     if _helper is None:
         _helper = Expressions()
@@ -287,5 +252,5 @@ def helper() -> Expressions:
 
 
 def register(context: Any) -> None:
-    """Make `expressions` available to a QML context."""
+    """Expose `expressions` to a QML context."""
     context.setContextProperty("expressions", helper())

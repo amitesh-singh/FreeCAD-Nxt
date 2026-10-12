@@ -1,34 +1,13 @@
 import QtQuick
 
-// The editor for one property, chosen by the property's kind rather than
-// by the object it belongs to - which is what lets the inspector show objects
-// nobody has written anything for.
-//
-//   quantity, number, text   a field. Return applies, Escape reverts, a
-//                            leading "=" binds an expression. Entering it
-//                            selects what you would retype.
-//   bool                     a box.
-//   enum                     a drop-down, its list above the whole panel;
-//                            joined buttons where a template asks
-//                            (spec.editor "segmented").
-//   bool, by a template      a switch (spec.editor "switch", labelled in
-//                            place), or two joined buttons naming the two
-//                            states ("segmented", spec.optionLabels).
-//   color                    a swatch; clicking it opens a colour picker.
-//   vector, placement        one small field per component.
-//   link                     chips naming what it points at.
-//   anything else            the value as text, with "Edit..." to hand it
-//                            to FreeCAD's own editor.
-//
-// Read-only values are dimmed and italic, as the native editor greys them.
-// A value that differs between several selected objects shows as mixed.
+// The editor for one property, chosen by the property's kind
+// (spec.kind), with spec.editor picking a template's variant.
 Item {
     id: editor
 
     property var spec: ({})
-    property bool editable: true        // false where "Edit..." is wanted
-    //: The object the property belongs to ("Document#Name" or "Name"),
-    //: for help writing an expression; empty where none can be bound.
+    property bool editable: true
+    //: "Document#Name" for expression help; empty for none.
     property string owner: ""
 
     signal edited(var value)
@@ -51,8 +30,6 @@ Item {
     implicitWidth: body.implicitWidth
     implicitHeight: body.implicitHeight
 
-    //: The leading number of a quantity, as the user's unit system writes
-    //: it: a sign, digits, a decimal point or comma, an exponent.
     readonly property var leadingNumber: /^\s*[-+]?[\d.,]+(?:[eE][-+]?\d+)?/
 
     function selectValue() {
@@ -72,7 +49,6 @@ Item {
         ChoiceList {}
     }
 
-    //: An enumeration value as a template names it.
     function labelOf(value) {
         var values = editor.spec.options || [];
         var labels = editor.spec.optionLabels || [];
@@ -106,7 +82,6 @@ Item {
         width: editor.width
         spacing: 3
 
-        // --- a field ----------------------------------------------------- #
         Row {
             visible: editor.isField && !editor.locked
             spacing: 4
@@ -131,7 +106,6 @@ Item {
                 }
                 Connections {
                     target: editor
-                    // A new value from the document, unless being typed.
                     function onShownChanged() {
                         if (!field.input.activeFocus)
                             field.text = editor.spec.mixed ? ""
@@ -140,8 +114,7 @@ Item {
                 }
                 Connections {
                     target: field.input
-                    // Deferred: the press that focused the field places
-                    // the cursor after this runs.
+                    // Deferred: the focusing press places the cursor later.
                     function onActiveFocusChanged() {
                         if (field.input.activeFocus)
                             Qt.callLater(editor.selectValue);
@@ -159,7 +132,6 @@ Item {
             }
         }
 
-        // --- a yes/no ---------------------------------------------------- #
         Row {
             visible: editor.kind === "bool" && !editor.spec.editor
             spacing: 5
@@ -206,9 +178,6 @@ Item {
             }
         }
 
-        // --- a choice ---------------------------------------------------- #
-        // A template's "segmented": every option in view, joined. For an
-        // enumeration its values; for a yes/no, no then yes.
         Segmented {
             id: joined
             visible: editor.spec.editor === "segmented"
@@ -236,7 +205,6 @@ Item {
             }
         }
 
-        // A template's "switch": a yes/no labelled in place.
         NxtSwitch {
             id: toggle
             visible: editor.kind === "bool" && editor.spec.editor === "switch"
@@ -247,7 +215,6 @@ Item {
             checked: !!editor.spec.checked && !editor.spec.mixed
             onToggled: {
                 editor.edited(toggle.checked);
-                // Shows what is stored, not what was clicked.
                 toggle.checked = Qt.binding(function () {
                     return !!editor.spec.checked && !editor.spec.mixed;
                 });
@@ -265,7 +232,6 @@ Item {
             onClicked: if (!editor.choosing) editor.openChoices(choice)
         }
 
-        // --- a colour ---------------------------------------------------- #
         Row {
             visible: editor.kind === "color"
             spacing: 6
@@ -296,9 +262,6 @@ Item {
             }
         }
 
-        // --- components -------------------------------------------------- #
-        // A placement is two lines: where (X Y Z) and how it is turned
-        // (axis X Y Z and an angle). A vector is one line.
         Repeater {
             model: editor.kind === "placement" ? [qsTr("Position"), qsTr("Rotation")]
                  : editor.kind === "vector" ? [""] : []
@@ -322,7 +285,6 @@ Item {
                     spacing: 4
 
                     Repeater {
-                        // Position: parts 0-2. Rotation: 3-6.
                         model: {
                             var parts = editor.spec.parts || [];
                             if (editor.kind !== "placement")
@@ -372,7 +334,6 @@ Item {
             }
         }
 
-        // --- links ------------------------------------------------------- #
         Flow {
             visible: editor.kind === "link"
             width: parent.width
@@ -397,7 +358,6 @@ Item {
             }
         }
 
-        // --- read-only, or no editor of our own --------------------------- #
         Row {
             visible: (editor.isField && editor.locked)
                      || editor.kind === "other"
@@ -419,9 +379,7 @@ Item {
                 Accessible.name: qsTr("%1, read only").arg(editor.spec.label || "")
             }
 
-            // Hands this one property to FreeCAD's own editor: kinds we
-            // have no editor for, and links, which want picking in the 3D
-            // view rather than typing.
+            // FreeCAD's own editor, for unknown kinds and links.
             Text {
                 id: edit
                 visible: !editor.locked && (editor.kind === "other"

@@ -1,29 +1,8 @@
 """Double-click a face in the 3D view to edit the feature that made it.
 
-FreeCAD's own double-click on a Part Design solid edits whatever it takes
-the picked object to be - the Body's tip, whichever feature made the
-face. This catches the double-click first and opens the feature the face
-is traced to instead (see picking.py): the Pad for a Pad's face, even
-with three Pockets after it. A datum plane, line or point double-clicked
-opens its attachment instead, as it does from the tree (editing.py).
-
-It steps aside, and FreeCAD's double-click happens as it always did,
-whenever:
-  * the setting "Double-click a face to edit the feature that made it" is
-    off;
-  * something is already being edited - a sketch, where double-clicks
-    edit constraints, or a feature's task;
-  * nothing is under the pointer (a navigation style may use the
-    double-click on empty space);
-  * no face is selected to trace;
-  * an origin plane, axis or point is double-clicked while a task panel
-    is open, where it is a reference being picked for the task.
-
-A face the tip made opens the tip: FreeCAD's own double-click on a
-Body's solid does not open anything, so this handles that case too.
-
-The first click of a double-click has already selected the face, so the
-trace works from the selection, exactly as the single-click reveal does.
+FreeCAD would edit the Body's tip. Steps aside during edits, on empty
+space, and for reference picks; the first click has already selected
+the face, so the trace works from the selection.
 """
 
 from __future__ import annotations
@@ -47,11 +26,7 @@ if TYPE_CHECKING:
 
 
 def picked_feature() -> tuple[str, str] | None:
-    """(document, feature) for the face selected last, traced to its maker.
-
-    The feature is the selected object itself when it made the face - the
-    tip, for its own faces. None when no element is selected.
-    """
+    """(document, feature) for the face selected last, traced to its maker."""
     doc = App.ActiveDocument
     if doc is None:
         return None
@@ -62,8 +37,7 @@ def picked_feature() -> tuple[str, str] | None:
     for entry in reversed(list(selection)):
         subs = list(entry.SubElementNames or [])
         if not subs:
-            # A datum can be picked whole, with no element named: it is
-            # still what was double-clicked, and opens its attachment.
+            # A datum may be picked whole, with no element.
             if editing.is_datum(entry.Object):
                 return (doc.Name, entry.Object.Name)
             continue
@@ -74,18 +48,15 @@ def picked_feature() -> tuple[str, str] | None:
 
 
 class DoubleClickEditor(ApplicationEventFilter):
-    """An application event filter that sees double-clicks in 3D views."""
+    """Takes double-clicks in 3D views ahead of FreeCAD."""
 
     def __init__(self, editor: Editor) -> None:
-        # Owned by the services (services.py), not the panel: this works
-        # with the panel closed. `editor` opens the feature.
         super().__init__(editor if isinstance(editor, QtCore.QObject)
                          else None)
         self._editor = editor
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
-        # Every event in the application comes through here: the first
-        # test has to be the cheap one.
+        # Sees every application event: cheap test first.
         if event.type() != QtCore.QEvent.Type.MouseButtonDblClick:
             return False
         try:

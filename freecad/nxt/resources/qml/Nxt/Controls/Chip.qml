@@ -1,7 +1,7 @@
 import QtQuick
 
 // A reference pill: "something is wrong with what this names".
-// Named when it fits, otherwise its icon. See DESIGN.md rules 4 and 5.
+// Named when it fits, otherwise its icon.
 Rectangle {
     id: chip
 
@@ -9,22 +9,17 @@ Rectangle {
     property bool interactive: true
     property bool active: false
 
-    //: Drawn instead of the label when several references share a row.
     property bool compact: false
-    //: The referenced object's own FreeCAD icon, served desaturated.
+    //: Served desaturated.
     property url iconUrl: ""
 
-    //: The part of the object this refers to - "Face3", or several - when
-    //: the reference is to a sub-element rather than the whole thing.
+    //: Sub-element ("Face3") when not the whole object.
     property string sub: ""
 
-    // Severity of whatever this chip names - 0 none, 1 warning, 2 error.
-    // A feature whose sketch is broken reddens the chip rather than its own
-    // label, so the blame lands on the thing that is actually wrong.
+    // 0 none, 1 warning, 2 error: the chip reddens, not the row.
     property int severity: 0
 
-    //: What hovering the chip says (NxtToolTip); names the object even
-    //: when the chip only shows its icon.
+    //: Names the object even in icon form.
     property string tip: ""
 
     readonly property color ink: chip.active ? theme.accentText
@@ -85,10 +80,7 @@ Rectangle {
         Behavior on opacity { NumberAnimation { duration: 90 } }
     }
 
-    // A reference to one face of an object is not the same fact as a
-    // reference to the object, and the compact form has no room to say so
-    // in words. A notch out of the corner does it: a partial reference
-    // reads as a partial shape.
+    // A notch marks a reference to part of the object.
     Rectangle {
         visible: chip.compact && chip.sub.length > 0
         width: Math.max(4, Math.round(chip.height * 0.30))
@@ -106,8 +98,6 @@ Rectangle {
 
     HoverHandler {
         id: hover
-        // A chip that does nothing on click still explains itself: the
-        // "+3" overflow lists what it stands for.
         enabled: chip.interactive || chip.tip.length > 0
         cursorShape: chip.interactive ? Qt.PointingHandCursor
                                       : Qt.ArrowCursor
@@ -122,9 +112,7 @@ Rectangle {
 
     TapHandler {
         enabled: chip.interactive
-        // singleTapped rather than tapped: `tapped` fires again as the
-        // second half of a double tap, which would re-run the single-click
-        // action on the way to the double-click one.
+        // singleTapped: `tapped` also fires as half of a double tap.
         onSingleTapped: chip.clicked()
         onDoubleTapped: chip.doubleClicked()
     }

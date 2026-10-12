@@ -1,23 +1,7 @@
 """The Property Inspector: every property of the selection, beside the panel.
 
-The inspector is a frame over the main window. Its contents are QML
-(`Inspector.qml`, laid out by `inspector/layout.py` from what the objects say
-about themselves), with FreeCAD's own `Gui::PropertyView` behind it: a
-property the QML has no editor for is handed to the real editor, which is
-borrowed from wherever FreeCAD keeps it and put back exactly there. If
-QtQuick is unavailable the inspector shows the borrowed editor alone.
-
-The inspector is a child of the main window, not a window of its own: Wayland
-does not let an application place its own top-level windows, and a child
-stays above the right window without any window-manager help.
-
-Unpinned, the inspector closes on a click anywhere else. Pinned, it stays, and
-since the Property editor always shows the selection, a pinned inspector is the
-Property view on demand.
-
-    from freecad.nxt import property_inspector
-    property_inspector.probe()     # where FreeCAD keeps its Property editor
-    property_inspector.toggle()    # open or close the inspector
+QML over a borrowed `Gui::PropertyView`, which is returned to its exact
+place. A child of the main window, since Wayland cannot place top-levels.
 """
 
 from __future__ import annotations
@@ -37,10 +21,7 @@ from ..tools import expressions
 
 def table_icon(size: int, colour: QtGui.QColor,
                ratio: float = 1.0) -> QtGui.QIcon:
-    """A small two-column table: FreeCAD's own Property editor.
-
-    Drawn, like the pin, so it stays sharp and takes the text colour.
-    """
+    """A small two-column table icon for FreeCAD's Property editor."""
     ratio = ratio or 1.0
     pixmap = QtGui.QPixmap(round(size * ratio), round(size * ratio))
     pixmap.setDevicePixelRatio(ratio)
@@ -55,7 +36,6 @@ def table_icon(size: int, colour: QtGui.QColor,
     painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
     painter.drawRoundedRect(QtCore.QRectF(0.08, 0.14, 0.84, 0.72),
                             0.06, 0.06)
-    # Header rule, a row rule, and the column divider.
     for y in (0.38, 0.62):
         painter.drawLine(QtCore.QPointF(0.08, y), QtCore.QPointF(0.92, y))
     painter.drawLine(QtCore.QPointF(0.42, 0.14), QtCore.QPointF(0.42, 0.86))
@@ -65,13 +45,7 @@ def table_icon(size: int, colour: QtGui.QColor,
 
 def pin_icon(size: int, pinned: bool, colour: QtGui.QColor,
              ratio: float = 1.0) -> QtGui.QIcon:
-    """A pushpin: upright and filled when pinned, tilted and hollow when not.
-
-    The tilt is the convention from other desktop software: a pin lying
-    on its side is not holding anything, one standing in the board is.
-    Drawn rather than shipped, like the panel's other small icons, so it
-    stays sharp at any scale factor and takes the theme's text colour.
-    """
+    """A pushpin: upright and filled when pinned, tilted and hollow if not."""
     ratio = ratio or 1.0
     pixmap = QtGui.QPixmap(round(size * ratio), round(size * ratio))
     pixmap.setDevicePixelRatio(ratio)
@@ -92,7 +66,6 @@ def pin_icon(size: int, pinned: bool, colour: QtGui.QColor,
     painter.setBrush(QtGui.QBrush(colour) if pinned
                      else QtCore.Qt.BrushStyle.NoBrush)
 
-    # Head, tapered body, collar - then the needle.
     head = QtGui.QPainterPath()
     head.addRoundedRect(QtCore.QRectF(0.30, 0.08, 0.40, 0.12), 0.04, 0.04)
     body = QtGui.QPolygonF([QtCore.QPointF(0.38, 0.20),
@@ -113,16 +86,16 @@ PROPERTY_VIEW_CLASS = "Gui::PropertyView"
 PROPERTY_DOCK_NAME = "Property view"
 
 INSPECTOR_SIZE = QtCore.QSize(330, 480)
-INSPECTOR_MARGIN = 8           # from the main window's edges
-INSPECTOR_GAP = 6              # from the panel it opens beside
+INSPECTOR_MARGIN = 8
+INSPECTOR_GAP = 6
 INSPECTOR_RADIUS = 4
 HEADER_SPACING = 4
-TITLE_POLL_MS = 250       # selection is polled, as the active Body is
-SAVE_DELAY_MS = 300       # a resize is saved once it settles
+TITLE_POLL_MS = 250
+SAVE_DELAY_MS = 300
 
 
 def _app() -> QtCore.QCoreApplication:
-    """The running application; the inspector only exists inside one."""
+    """The running application."""
     return cast(QtCore.QCoreApplication, QtWidgets.QApplication.instance())
 
 
@@ -145,8 +118,7 @@ class _Home:
         widget = self.widget
         container: Any = self.container
         if self.kind == "tab":
-            # The tab widget owns its pages' visibility; restore which page
-            # was showing instead.
+            # QTabWidget owns page visibility; restore the current tab.
             container.insertTab(self.index, widget, self.tab_label)
             container.setCurrentIndex(self.current_tab)
             return
@@ -161,11 +133,7 @@ class _Home:
 
 def _insert_into_layout(layout: QtWidgets.QLayout, widget: QtWidgets.QWidget,
                         home: _Home) -> None:
-    """Put `widget` back into whichever kind of layout it came from.
-
-    FreeCAD's Property view dock uses a grid, which has no insertWidget:
-    a grid is addressed by cell, not by position in a list.
-    """
+    """Put `widget` back into its layout; FreeCAD's dock uses a grid."""
     if isinstance(layout, QtWidgets.QGridLayout) and home.cell is not None:
         layout.addWidget(widget, *home.cell)
     elif isinstance(layout, QtWidgets.QBoxLayout):
@@ -187,11 +155,7 @@ def _property_views() -> list[QtWidgets.QWidget]:
 
 
 def _preferred_view() -> QtWidgets.QWidget | None:
-    """The Property view dock's editor if there is one, else any.
-
-    Some layouts keep a second editor inside the Combo View; the dock's is
-    the one users think of as "the Property view".
-    """
+    """The Property view dock's editor if there is one, else any."""
     views = _property_views()
     for view in views:
         dock = _enclosing_dock(view)
@@ -234,7 +198,6 @@ def _home_of(widget: QtWidgets.QWidget) -> _Home | None:
                 int(position[2]), int(position[3]))
     return _Home(widget, cast(QtWidgets.QWidget, parent), "layout", index,
                  visible, cell=cell)
-    return None
 
 
 def probe() -> None:
@@ -266,15 +229,9 @@ class PropertyInspector(QtWidgets.QFrame):
     def __init__(self, main_window: QtWidgets.QMainWindow) -> None:
         super().__init__(main_window)
         self.setObjectName("NxtPropertyInspector")
-        # A sub-window is what QSizeGrip resizes; without the flag the grip
-        # reaches past the inspector and resizes FreeCAD's main window instead.
+        # Without SubWindow, QSizeGrip resizes FreeCAD's main window.
         self.setWindowFlag(QtCore.Qt.WindowType.SubWindow)
-        # Deliberately NOT a native window. Giving the inspector its own native
-        # surface put it above the panel's QtQuick view and FreeCAD's
-        # overlay docks, but it fought the overlay manager: moving the
-        # inspector, resizing it and rearranging docks became nearly
-        # impossible. As a plain child it can be drawn under an overlaid
-        # panel, so it opens beside the dock rather than over it.
+        # Not a native window: that fights FreeCAD's overlay manager.
         self.setAutoFillBackground(True)
         self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
         self._home: _Home | None = None
@@ -296,8 +253,6 @@ class PropertyInspector(QtWidgets.QFrame):
         self._grab_origin = QtCore.QPoint()
         self._close = self._tool_button(translate("Nxt", "Close"), "✕")
         self._close.clicked.connect(self.close_inspector)
-        # FreeCAD's own Property editor, every property in its table; again
-        # for the inspector.
         self._table = self._tool_button(
             translate("Nxt", "Show FreeCAD's property table"), "",
             checkable=True)
@@ -322,7 +277,6 @@ class PropertyInspector(QtWidgets.QFrame):
                                       INSPECTOR_GAP, INSPECTOR_GAP)
         self._body.addLayout(header)
 
-        # Two pages: the QML inspector, and a holder for FreeCAD's editor.
         self._pages = QtWidgets.QStackedWidget(self)
         self._native = QtWidgets.QWidget(self._pages)
         native_layout = QtWidgets.QVBoxLayout(self._native)
@@ -358,14 +312,12 @@ class PropertyInspector(QtWidgets.QFrame):
         button.setAccessibleName(tip)
         button.setCheckable(checkable)
         button.setAutoRaise(True)
-        # One square size for every header button, whatever it shows - a
-        # glyph or a drawn icon - so their hover and checked backgrounds
-        # line up. Sized from the text, so it follows the font.
+        # One square size so hover backgrounds line up.
         side = button.fontMetrics().height() + 8
         button.setFixedSize(side, side)
         return button
 
-    # -- borrowing -------------------------------------------------------- #
+    # -- borrowing --
 
     def _borrow(self) -> bool:
         view = _preferred_view()
@@ -390,9 +342,7 @@ class PropertyInspector(QtWidgets.QFrame):
         try:
             home.restore()
         except Exception:
-            # Never leave it inside the inspector: the inspector is
-            # destroyed on reload, and it would take FreeCAD's editor with
-            # it. Detached, it survives until the next restart puts it back.
+            # Detach it: the inspector is destroyed on reload.
             home.widget.setParent(self.parentWidget())
             home.widget.hide()
             App.Console.PrintError("Nxt: could not return the Property "
@@ -400,19 +350,15 @@ class PropertyInspector(QtWidgets.QFrame):
                                    "to get it back\n")
             App.Console.PrintError(traceback.format_exc())
 
-    # -- showing ---------------------------------------------------------- #
+    # -- showing --
 
     def open_at(self, left: int | None = None,
                 top: int | None = None) -> None:
-        """Open with its top-left at global (`left`, `top`).
-
-        Either may be None: no `left` lines the inspector up with the Nxt
-        dock's edge, no `top` puts it level with the pointer.
-        """
+        """Open with its top-left at global (`left`, `top`)."""
         self._follow_theme()
         built = self._build_inspector()
         if built and settings.get("InspectorTable"):
-            self.show_native()          # as it was last left
+            self.show_native()
         elif built:
             self.show_inspector()
         elif self._home is None and not self._borrow():
@@ -427,7 +373,7 @@ class PropertyInspector(QtWidgets.QFrame):
         self.raise_()
 
     def close_inspector(self) -> None:
-        if self._save_timer.isActive():     # a resize still settling
+        if self._save_timer.isActive():
             self._save_timer.stop()
             self._save_geometry()
         _app().removeEventFilter(self)
@@ -437,7 +383,7 @@ class PropertyInspector(QtWidgets.QFrame):
         self.hide()
         self._give_back()
 
-    # -- the two pages ---------------------------------------------------- #
+    # -- the two pages --
 
     def _build_inspector(self) -> bool:
         """Create the QML page once. False if QtQuick cannot."""
@@ -459,14 +405,12 @@ class PropertyInspector(QtWidgets.QFrame):
         return True
 
     def _on_table_toggled(self, on: bool) -> None:
-        # Remembered: the inspector reopens on whichever page was chosen.
-        # Only this button records it - a property opened in the table
-        # because the inspector cannot edit it is not a choice of page.
+        # Only this button records the page choice.
         settings.put("InspectorTable", on)
         if on:
             self.show_native()
         elif self._inspector is None:
-            self._mark_table(True)      # no QML page: the table is all
+            self._mark_table(True)
         else:
             self.show_inspector()
 
@@ -501,11 +445,7 @@ class PropertyInspector(QtWidgets.QFrame):
         return self._pin.isChecked()
 
     def _place(self, left: int | None, top: int | None) -> None:
-        """Where the inspector opens.
-
-        A pinned inspector is a fixture, so it opens where it was last put.
-        Unpinned it is a quick look at one row, so it opens beside it.
-        """
+        """Pinned: where it was last put. Unpinned: beside the row."""
         saved = self._saved_geometry()
         if self.pinned and saved is not None:
             self.setGeometry(saved)
@@ -517,7 +457,7 @@ class PropertyInspector(QtWidgets.QFrame):
             left if left is not None else pointer.x(),
             top if top is not None else pointer.y()))
         if left is not None:
-            x = corner.x() + INSPECTOR_GAP       # clear of the pills
+            x = corner.x() + INSPECTOR_GAP
         else:
             x = self._dock_edge(cast(QtWidgets.QWidget, mw))
         self.move(x, corner.y())
@@ -543,11 +483,9 @@ class PropertyInspector(QtWidgets.QFrame):
         y = max(bounds.top(), min(self.y(), bounds.bottom() - size.height()))
         self.setGeometry(x, y, size.width(), size.height())
 
-    # -- moving and remembering -------------------------------------------- #
+    # -- moving and remembering --
 
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:  # noqa: N802
-        # Reaches the inspector only from its own margins and the title: the
-        # buttons and the editor keep their presses.
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
             self._grab = event.globalPosition().toPoint()
             self._grab_origin = self.pos()
@@ -555,10 +493,7 @@ class PropertyInspector(QtWidgets.QFrame):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:  # noqa: N802
-        # Global coordinates, not the inspector's own: those move with the
-        # inspector, and a native window reports them a frame late, so each
-        # step was measured from where the inspector had been - it lurched over
-        # busy parts of the window where repaints lag.
+        # Global coordinates: local ones move with the inspector.
         if self._grab is not None:
             self.move(self._grab_origin
                       + event.globalPosition().toPoint() - self._grab)
@@ -581,9 +516,7 @@ class PropertyInspector(QtWidgets.QFrame):
     def _draw_pin(self) -> None:
         """The header's drawn icons: the pin and, once made, the table."""
         colour = self._icon_colour()
-        # Sized to the neighbouring "✕", which is about as tall as a
-        # capital letter - not to the full line height, which made the pin
-        # half as big again as the X beside it.
+        # Cap height, to match the neighbouring "✕".
         metrics = self._pin.fontMetrics()
         side = max(10, round(metrics.capHeight() * 1.35))
         self._pin.setIcon(pin_icon(side, self._pin.isChecked(), colour,
@@ -605,12 +538,7 @@ class PropertyInspector(QtWidgets.QFrame):
         self._draw_pin()
 
     def _icon_colour(self) -> QtGui.QColor:
-        """The text colour of the theme the panel reads from the stylesheet.
-
-        Not the widget palette's: a stylesheet theme (FreeCAD Light) can
-        leave that saying white on a light background - the same reason the
-        panel stopped trusting the palette (theme.py, qss_colours.py).
-        """
+        """The theme's text colour; stylesheets can leave the palette wrong."""
         from ..app import services
         theme = services.theme()
         if theme is not None:
@@ -662,7 +590,7 @@ class PropertyInspector(QtWidgets.QFrame):
             text = "%s · %d selected" % (", ".join(names[:2]), len(names))
         self._title.setText(text)
 
-    # -- closing on a click elsewhere -------------------------------------- #
+    # -- closing on a click elsewhere --
 
     def eventFilter(self, obj: QtCore.QObject,  # noqa: N802 - Qt API
                     event: QtCore.QEvent) -> bool:
@@ -679,14 +607,9 @@ class PropertyInspector(QtWidgets.QFrame):
 
     def _clicked_away(self, obj: QtCore.QObject,
                       where: QtCore.QPoint) -> bool:
-        """Is this press outside the inspector and everything it opened?
+        """Is this press outside the inspector and its popups?
 
-        Judged by position, not by receiver: a press the label ignores is
-        delivered again to each parent in turn, the main window last, so
-        the receiver alone says nothing about where the click was. The
-        editor opens drop-downs, colour pickers and the expression editor
-        as popups or dialogs outside the inspector; a press in those is still
-        work in the inspector.
+        Judged by position: Qt re-delivers ignored presses to each parent.
         """
         if not isinstance(obj, QtWidgets.QWidget):
             return False
@@ -751,7 +674,7 @@ def close() -> None:
         try:
             _inspector.close_inspector()
         except RuntimeError:
-            pass            # already destroyed with the main window
+            pass
 
 
 def shutdown() -> None:
@@ -763,7 +686,7 @@ def shutdown() -> None:
         _inspector.close_inspector()
         _inspector.deleteLater()
     except RuntimeError:
-        pass                # the main window already took it down
+        pass
     _inspector = None
 
 

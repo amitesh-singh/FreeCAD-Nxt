@@ -1,8 +1,4 @@
-"""The list model over a scene snapshot.
-
-One flat QAbstractListModel with `depth` as a role, rather than a tree
-model: indentation here is presentation, not structure. See DESIGN.md.
-"""
+"""Flat list model over a scene snapshot; depth is a role, not structure."""
 
 from __future__ import annotations
 
@@ -29,18 +25,10 @@ NO_LINE, LINE_THROUGH, LINE_TEE, LINE_END = 0, 1, 2, 3
 
 def branch_lines(rows: Sequence[tuple[str, int]], active: str = "",
                  ) -> dict[str, tuple[tuple[int, ...], int]]:
-    """The connector lines each row draws, as a tree view has them.
+    """Per row: its connector-line columns, and the active-from column.
 
-    A row at depth d has d columns, one per ancestor. In its own (last)
-    column the line comes down from its parent and turns to the row:
-    LINE_TEE when a sibling follows, LINE_END when it is the last. In an
-    earlier column the line passes straight through (LINE_THROUGH) while
-    that ancestor still has children to come, and is absent after its
-    last one.
-
-    The second value is the column from which the lines are the active
-    container's own - the lines to its children, and everything inside -
-    or -1 when the row is not under the active container.
+    The second value is the column from which lines belong to the active
+    container, or -1 when the row is not under it.
     """
     lines: dict[str, tuple[tuple[int, ...], int]] = {}
     more: list[bool] = []       # by depth: is a sibling still to come?
@@ -110,11 +98,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
         RefsRole: "refs",
         IsContainerRole: "isContainer",
         ErrorRole: "inError",
-        # Nothing renders this at the moment - the per-row staleness dot was
-        # removed as noise, since on a freshly opened old document almost
-        # everything is touched and forty dots say one thing about the
-        # document rather than forty about its rows. Kept because it costs
-        # nothing and is the hook a document-level indicator would use.
+        # Unrendered; kept as the hook for a document-level indicator.
         TouchedRole: "touched",
         HighlightRole: "highlighted",
         IsFeatureRole: "isFeature",
@@ -127,61 +111,41 @@ class TreeRowModel(QtCore.QAbstractListModel):
         DetailRole: "detailOpen",
         TimelineRole: "timeline",
         BodyRole: "bodyName",
-        # Only read inside an open detail strip. This is the reuse
-        # information the shelf existed to show; it is not a row chip,
-        # because a sketch used by six features would grow a row six chips
-        # tall and the timeline would stop being scannable.
+        # Detail strip only; as row chips it would make rows too tall.
         ConsumersRole: "consumers",
-        # Lifted, but not necessarily a sketch: a Boolean's tool and a datum
-        # a feature is attached to are lifted for the same reason and carry
-        # the same "used by" list, while only a sketch has a solver to
-        # report on. The two questions are asked separately because the
-        # answers differ.
+        # Not IsProfile: Boolean tools and datums are lifted too.
         IsLiftedRole: "isLifted",
-        # The container new operations land in. Model state rather than
-        # node state, like selection: it comes from the Gui, not from the
-        # document, and two snapshots of the same document can disagree
-        # about it.
+        # Model state, like selection: it comes from the Gui, not the doc.
         ActiveRole: "isActive",
         KeyPropsRole: "keyProps",
         PropertyCountRole: "propertyCount",
-        # The connector lines to the left of a row (see branch_lines).
         BranchesRole: "branches",
         ActiveFromRole: "activeFrom",
     }
 
     countChanged = QtCore.Signal()
-    #: Emitted whenever the visible row sequence has been rebuilt. Anything
-    #: that addresses rows by index - the tip bars, most obviously - has to
-    #: recompute against the new layout.
+    #: Row sequence rebuilt; index-based consumers must recompute.
     rowsRefreshed = QtCore.Signal()
 
     def __init__(self, parent: QtCore.QObject | None = None) -> None:
         super().__init__(parent)
         self._snapshot: Any = None
-        self._rows: list[tuple[str, int]] = []            # [(name, depth)]
+        self._rows: list[tuple[str, int]] = []
         self._expanded: set[str] = set()
-        #: What was open in each document left for another, by name.
+        #: Expansion of each document left for another.
         self._kept: dict[str, set[str]] = {}
-        #: What is open when a document is first shown; the bridge sets
-        #: this to read the preference and the document's saved state.
+        #: Initial expansion for a newly shown document; set by the bridge.
         self.opening: Callable[[Any], Iterable[str]] = (
             lambda snap: snap.opening_expansion())
         self._selection: set[str] = set()
         self._highlight: set[str] = set()
         self._detail: set[str] = set()
         self._active = ""
-        #: Per row name: (its connector lines, the column they turn to
-        #: the accent colour from).
         self._lines: dict[str, tuple[tuple[int, ...], int]] = {}
         self._icon_rev = 0
         self._known: set[str] = set()
 
-    # -- population -------------------------------------------------------- #
-
-    #: The node fields a row draws. Two snapshots that agree on all of
-    #: them describe a row that does not need redrawing, whatever else
-    #: changed in the document.
+    #: Node fields a row draws; if unchanged, the row needs no redraw.
     _DISPLAYED = ("label", "visible", "in_error", "touched", "is_container",
                   "is_feature", "is_profile", "is_lifted", "after_tip",
                   "severity",
@@ -194,16 +158,11 @@ class TreeRowModel(QtCore.QAbstractListModel):
 
     def _changed_since(self, previous: Any,
                        snapshot: Any) -> list[str] | None:
-        """Which objects a row would now draw differently.
-
-        None means 'everything', which is the honest answer when there
-        is nothing to compare against.
-        """
+        """Rows that would now draw differently; None means all."""
         if previous is None or previous.doc_name != snapshot.doc_name:
             return None
         before = previous.nodes
-        # An open strip shows live property values the snapshot does not
-        # carry, so its row is re-read on every rebuild.
+        # Open strips show live values not in the snapshot.
         return [name for name, node in snapshot.nodes.items()
                 if name not in before or name in self._detail
                 or self._shown(before[name]) != self._shown(node)]
@@ -211,9 +170,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
     def set_snapshot(self, snapshot: Any, bump_icons: bool = False) -> None:
         previous = self._snapshot
         first = (previous is None or previous.doc_name != snapshot.doc_name)
-        # Worked out before the swap, and skipped entirely when the icon
-        # revision moved - a new revision changes every row's icon URL, so
-        # every row does have to be re-read.
+        # A new icon revision changes every row's icon URL.
         changed = None if bump_icons else self._changed_since(previous,
                                                               snapshot)
         self._snapshot = snapshot
@@ -221,8 +178,6 @@ class TreeRowModel(QtCore.QAbstractListModel):
             self._icon_rev += 1
 
         if first:
-            # Leaving a document keeps what was open in it; coming back
-            # restores that. Only a document never shown asks `opening`.
             if previous is not None and previous.doc_name:
                 self._kept[previous.doc_name] = set(self._expanded)
             self._known = set()
@@ -231,8 +186,6 @@ class TreeRowModel(QtCore.QAbstractListModel):
                               if kept is not None
                               else set(self.opening(snapshot)))
         else:
-            # keep what the user opened, drop what is gone, and open any
-            # container that appeared since the last snapshot
             self._expanded &= set(snapshot.nodes)
             fresh = set(snapshot.nodes) - self._known
             self._expanded |= (snapshot.default_expansion() & fresh)
@@ -273,13 +226,8 @@ class TreeRowModel(QtCore.QAbstractListModel):
         redrawn = self._reline()
         if changed is not None and redrawn:
             changed = set(changed) | redrawn
-        # `changed` is None the first time, or when there is nothing to
-        # compare against - then every row has to be re-read. Otherwise only
-        # the rows whose displayed state actually moved are announced: a
-        # blanket dataChanged makes the view re-read every role of every
-        # visible row, and on a document where one recompute fires several
-        # signals that is the same work several times over for rows that
-        # did not move.
+        # A blanket dataChanged re-reads every role of every visible row,
+        # several times per recompute; announce only rows that moved.
         if changed is None:
             self._touch_all()
         elif changed:
@@ -287,7 +235,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
         self.rowsRefreshed.emit()
 
     def _reline(self) -> set[str]:
-        """Work the connector lines out again; the rows they changed on."""
+        """Recompute connector lines; return rows whose lines changed."""
         lines = branch_lines(self._rows, self._active)
         changed = {name for name, drawn in lines.items()
                    if self._lines.get(name) != drawn}
@@ -300,12 +248,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
                                   self.index(len(self._rows) - 1, 0))
 
     def touch(self, names: Iterable[str]) -> None:
-        """Announce that these objects' displayed state has moved.
-
-        Public because the bridge patches the snapshot in place during a tip
-        drag and has to say what it changed; everything else here goes
-        through the snapshot.
-        """
+        """Announce changed rows, for when the snapshot is patched in place."""
         self._touch(names)
 
     def _touch(self, names: Iterable[str]) -> None:
@@ -314,8 +257,6 @@ class TreeRowModel(QtCore.QAbstractListModel):
             if name in wanted:
                 idx = self.index(row, 0)
                 self.dataChanged.emit(idx, idx)
-
-    # -- interaction state -------------------------------------------------- #
 
     def expanded(self) -> frozenset[str]:
         return frozenset(self._expanded)
@@ -335,12 +276,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
         self.refresh_rows()
 
     def expand_all(self) -> None:
-        """Open everything but Origins and coordinate systems.
-
-        Their point, axes and planes are the same seven rows in every
-        Body and Part, and rarely what opening everything is for. One
-        already open stays open.
-        """
+        """Expand everything except Origins and coordinate systems."""
         if self._snapshot is None:
             return
         nodes = self._snapshot.nodes
@@ -377,9 +313,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
         names = set(names)
         if names == self._selection:
             return
-        # Assign before notifying. dataChanged makes the view re-read data(),
-        # which reads _selection - emitting first hands every affected row its
-        # previous state, so rows light up one selection behind.
+        # Assign before notifying: the view re-reads data() synchronously.
         changed = self._selection ^ names
         self._selection = names
         self._touch(changed)
@@ -389,22 +323,14 @@ class TreeRowModel(QtCore.QAbstractListModel):
         name = name or ""
         if name == self._active:
             return
-        # Assign before notifying, for the same reason selection does: the
-        # view re-reads data() synchronously, so emitting first hands both
-        # rows their previous answer.
+        # Assign before notifying (see set_selection).
         changed = {n for n in (self._active, name) if n}
         self._active = name
-        # And every row under either, whose lines change colour.
         self._touch(changed | self._reline())
 
     def toggle_detail(self, name: str,
                       open_it: bool | None = None) -> bool:
-        """Open or close a row's detail strip. Returns the new state.
-
-        Row-local and deliberately not persisted: it is a glance at why a
-        row is marked, not a setting. Assign before notifying, for the same
-        reason selection does.
-        """
+        """Open or close a row's detail strip (not persisted); new state."""
         want = (name not in self._detail) if open_it is None else bool(open_it)
         if want == (name in self._detail):
             return want
@@ -426,12 +352,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
         return True
 
     def set_highlight(self, names: Iterable[str]) -> None:
-        """Emphasise the rows related to a hovered reference chip.
-
-        Transient "related to what you are pointing at" emphasis, driven
-        by hovering a reference chip. Distinct from selection, which belongs
-        to FreeCAD.
-        """
+        """Emphasise rows related to a hovered reference chip."""
         names = set(names)
         if names == self._highlight:
             return
@@ -470,8 +391,6 @@ class TreeRowModel(QtCore.QAbstractListModel):
     def row_index_map(self) -> dict[str, int]:
         """Name -> row, for callers that need many lookups at once."""
         return {name: row for row, (name, _depth) in enumerate(self._rows)}
-
-    # -- QAbstractListModel ------------------------------------------------ #
 
     def roleNames(self) -> dict[int, QtCore.QByteArray]:
         return {role: _q(name) for role, name in self._ROLE_NAMES.items()}
@@ -557,10 +476,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
         if role == self.DofRole:
             return -1 if node.dof is None else node.dof
         if role == self.ConstrainedRole:
-            # Tri-state flattened for QML, which has no None: -1 unknown,
-            # 0 not fully constrained, 1 fully constrained. "Unknown" is a
-            # real answer here - a build whose solver does not answer must
-            # not be drawn as if every sketch were fine.
+            # QML has no None: -1 unknown, 0 under-, 1 fully constrained.
             if node.constrained is None:
                 return -1
             return 1 if node.constrained else 0
@@ -571,8 +487,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
         if role == self.BodyRole:
             return node.body or ""
         if role in (self.KeyPropsRole, self.PropertyCountRole):
-            # Read from the document, and only for an open strip: the
-            # values are not in the snapshot, and nobody sees them shut.
+            # Live document values, read only for an open strip.
             obj = self._object(name) if name in self._detail else None
             if role == self.KeyPropsRole:
                 return properties.describe(obj) if obj is not None else []

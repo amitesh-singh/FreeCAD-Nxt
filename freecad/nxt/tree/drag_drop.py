@@ -33,12 +33,9 @@ class DragDrop:
         return self._bridge._named(doc, names)
 
     def drag_names(self, name: str) -> list[str]:
-        """What a drag begun on this row carries, in tree order.
+        """Names a drag begun on this row carries, in tree order.
 
-        The whole selection when the row is one of several selected - the
-        gesture every file manager has - and otherwise the row alone.
-        Selected objects with no row (inside a collapsed branch) stay
-        where they are: nothing moves that was not visibly picked up.
+        The visible selection if the row is part of it, else the row alone.
         """
         selected = self._bridge._selected_names()
         if name not in selected or len(selected) < 2:
@@ -47,29 +44,8 @@ class DragDrop:
         names = [n for row, n in rows if row >= 0]
         return names if name in names and len(names) > 1 else [name]
 
-    def in_one_body(self, names: list[Any]) -> bool:
-        """Are these all members of the same Part Design Body?
-
-        Then dragging them is a reorder, and they slide as a group.
-        """
-        doc = App.ActiveDocument
-        if doc is None or not names:
-            return False
-        try:
-            bodies = {getattr(reorder.body_of(doc.getObject(str(n))),
-                              "Name", None) for n in names}
-        except Exception:
-            return False
-        return len(bodies) == 1 and None not in bodies
-
     def slide_container(self, names: list[Any]) -> str:
-        """The container a drag of `names` slides within, or "".
-
-        A Body, or a Part or group that lists them all: there a drag is a
-        reorder, the row sliding up and down its column (NxtTree.qml's
-        ghost), with "into" a sibling container and out of the container
-        still to be had.
-        """
+        """The Body or group a drag of `names` reorders within, or ""."""
         doc = App.ActiveDocument
         if doc is None or not names:
             return ""
@@ -128,17 +104,8 @@ class DragDrop:
             return False
         return self._move_into(sources, target_name)
 
-    def can_drop_on(self, sources: list[Any], target_name: str) -> bool:
-        return bool(self.drop_hint(sources, target_name))
-
     def drop_hint(self, sources: list[Any], target_name: str) -> str:
-        """What dropping `sources` on this row does, in words; "" if not.
-
-        In a Body, a reorder (after the row, or to the Body's start). In a
-        Part or group, onto a sibling that would take it, into that
-        sibling; onto any other sibling, after it; onto the container, to
-        its start. Elsewhere, into the row.
-        """
+        """Describe what dropping `sources` on this row does; "" if not."""
         doc = App.ActiveDocument
         if doc is None or not sources:
             return ""
@@ -212,8 +179,6 @@ class DragDrop:
     def drop_on(self, sources: list[Any], target_name: str) -> bool:
         body, plan = self._body_reorder(sources, target_name)
         if body is not None:
-            # Within a Body a drop reorders: onto a member, just after it;
-            # onto the Body, first. See reorder.py.
             if not plan.ok:
                 reorder.report(plan.problem)
                 return False
@@ -280,9 +245,8 @@ class DragDrop:
         except Exception:
             log.error("drop onto %s failed" % target_name)
             moved = False
-        # Same reasoning as activate(): a recompute inside a drop handler can
-        # spin the event loop through FreeCAD's progress indicator, and the
-        # relayout that follows destroys the row the handler belongs to.
+        # Deferred: recomputing here can destroy this row's QML delegate
+        # inside its own handler.
         self._bridge._recompute_timer.start()
         self._bridge.invalidate(icons=True)
         return moved
@@ -291,9 +255,7 @@ class DragDrop:
     def _container_of(source: Any) -> Any:
         """The group-like object that really holds `source`, or None.
 
-        Asked of the document, not the snapshot: the panel lifts sketches
-        out of the features that claim them, so a row's parent in the tree
-        is not always the object that owns it.
+        Asks the document: a row's tree parent may not be its owner.
         """
         for parent in getattr(source, "InList", None) or ():
             group = getattr(parent, "Group", None) or ()
@@ -305,14 +267,8 @@ class DragDrop:
     def _can_leave_body(source: Any, body: Any) -> bool:
         """May `source` leave its Body, though Part Design refuses the drag?
 
-        Part Design refuses every drag out of a Body. That is right for its
-        solid features, which are the Body's history, and for a sketch
-        attached to the Body's planes or faces, which would lose them - but
-        it also holds back a VarSet or a free-standing sketch, which depend
-        on nothing in the Body and are often better kept outside it. So:
-        never a solid feature, nothing that still links to anything in the
-        Body, and nothing the Body's features are built on - except values
-        they read through expressions.
+        Only non-features that link to nothing in the Body and that no
+        member uses, except VarSets and spreadsheets read by expression.
         """
         if not getattr(body, "TypeId", "").startswith("PartDesign::Body"):
             return False
@@ -335,9 +291,6 @@ class DragDrop:
             return False
         if any(getattr(o, "Name", None) in inside for o in needs):
             return False
-        # Used from inside the Body: a sketch a Pad is built on cannot move
-        # out from under it. Values read through expressions - a VarSet, a
-        # spreadsheet - are fine to read from outside the Body.
         used = any(getattr(o, "Name", None) in inside - {body.Name}
                    for o in getattr(source, "InList", None) or ())
         if used:
@@ -385,8 +338,6 @@ class DragDrop:
                         drag(source)
                         moved = True
                     elif self._can_leave_body(source, parent):
-                        # Out of a Body its view provider will not release it
-                        # from - see _can_leave_body.
                         parent.removeObject(source)
                         moved = True
             if moved:
@@ -396,7 +347,7 @@ class DragDrop:
         except Exception:
             log.error("could not move to the top level")
             moved = False
-        # Deferred, as dropOn's: see there.
+        # Deferred for the same reason as in _move_into.
         self._bridge._recompute_timer.start()
         self._bridge.invalidate(icons=True)
         return moved

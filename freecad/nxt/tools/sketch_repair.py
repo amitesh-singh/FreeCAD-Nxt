@@ -1,27 +1,8 @@
-"""Mending a sketch profile that will not close, without being asked.
+"""Repair sketch profiles that fail with "Wire is not closed".
 
-"Wire is not closed" is most often one of two things. Two ends that look
-joined and are not: those are joined in the sketch, with a coincident
-constraint. Or edges the profile was never meant to have - a line drawn
-twice, a stray edge, one edge lying over another: those are left in the
-sketch, and the feature built on it is pointed at the sketch's closed
-regions instead of the whole sketch (the sketch's "MakeInternals"
-faces), as a user picking them by hand would. Holes stay holes: a region
-inside an odd number of others is left out, as the whole sketch would
-leave it.
-
-Only a sketch that is a feature's profile, and only for a feature that
-uses the whole sketch and has failed. What it does is said in the undo
-toast; what it could not mend is said once, in a toast that stays, with
-Edit to open the sketch on the trouble.
-
-It looks at a sketch when its editing ends, when a feature built on it
-fails to recompute, and when it is picked while a task is open - the
-profile chosen in a Pad's task, say. Outside a task a repair is an undo
-step of its own; inside one it is part of the task's, so the task's
-Cancel takes it back with everything else, and the toast offers no Undo
-of its own. It waits only while the sketch itself is open for editing.
-sketch_closure.py does the reasoning.
+Near-miss ends get coincident constraints; stray or overlapping edges are
+bypassed by pointing the feature at the sketch's closed regions. Inside a
+task the repair joins the task's undo step.
 """
 
 from __future__ import annotations
@@ -46,21 +27,16 @@ ARC = "Part::GeomArcOfCircle"
 
 #: (document, sketch), by name.
 Key = tuple[str, str]
-#: A sketch's findings, with the features failing on it: (name, whether
-#: it uses the whole sketch). The same again is neither retried nor
-#: reported twice; a feature newly failing on it - another one built on
-#: it, or one whose repair was cancelled - is something new.
+#: Findings plus failing features (name, uses whole sketch); an unchanged
+#: value is not retried or reported again.
 Settled = tuple[Findings, tuple[tuple[str, bool], ...]]
 
-#: The sub-element a closed region of a sketch is, once the sketch makes
-#: its internal faces.
+#: Closed-region sub-element, with MakeInternals on.
 REGION = "InternalFace%d"
-#: How coarse the mesh a region's inner point is taken from may be, as a
-#: fraction of the region's size: only its first triangle is used.
+#: Coarse mesh: only the first triangle is used for an inner point.
 MESH_FRACTION = 0.1
 
-#: What is left to do, in the order the toast lists it: (phrase, the
-#: finding it counts).
+#: (phrase, finding) in toast order.
 _LEFT = (
     (QT_TRANSLATE_NOOP("Nxt", "open ends: %d"), "open_ends"),
     (QT_TRANSLATE_NOOP("Nxt", "extra edges: %d"), "surplus"),
@@ -107,8 +83,7 @@ def _edges(sketch: Any) -> list[Edge]:
     for index, curve in enumerate(sketch.Geometry):
         if sketch.getConstruction(index) or not hasattr(curve, "StartPoint"):
             continue
-        # The Sketcher's own idea of which end is which: the constraint
-        # that joins two ends names them the same way.
+        # Sketcher end numbering, matching what Coincident expects.
         start, end = (sketch.getPoint(index, pos) for pos in (START, END))
         mid = curve.value((curve.FirstParameter + curve.LastParameter) / 2)
         kind = curve.TypeId
@@ -120,10 +95,7 @@ def _edges(sketch: Any) -> list[Edge]:
 
 
 def _close_gaps(sketch: Any, gaps: list[Any]) -> bool:
-    """Join near-miss ends with coincident constraints.
-
-    False, and taken back, if that leaves the sketch worse constrained.
-    """
+    """Join near-miss ends; revert and return False if health worsens."""
     import Sketcher
     before, _notes = health.inspect(sketch)
     count = len(sketch.Constraints)
@@ -147,12 +119,7 @@ def _close_gaps(sketch: Any, gaps: list[Any]) -> bool:
 
 
 def _regions(sketch: Any) -> list[str]:
-    """The sketch's closed regions, as profile sub-elements, less holes.
-
-    Its internal faces are every region its edges bound, whatever stray
-    or overlapping edges there are. One inside an odd number of others
-    is a hole, as it would be in the whole sketch's profile.
-    """
+    """Closed regions as profile sub-elements; odd nesting is a hole."""
     import Part
     faces = sketch.InternalShape.Faces
     outlines = [Part.Face(face.OuterWire) for face in faces]
@@ -172,11 +139,7 @@ def _regions(sketch: Any) -> list[str]:
 
 
 def _use_regions(sketch: Any, feature: Any) -> int:
-    """Point a feature at the sketch's closed regions, not the whole.
-
-    How many regions it now uses: 0, and nothing changed, if that does
-    not mend it.
-    """
+    """Point a feature at the closed regions; 0 (reverted) on failure."""
     was = (feature.Profile, sketch.MakeInternals,
            getattr(feature, "AllowMultiFace", None))
     try:
@@ -207,7 +170,6 @@ def _use_regions(sketch: Any, feature: Any) -> int:
 
 def _counts(phrases: tuple[tuple[str, str], ...],
             found: Findings) -> list[str]:
-    """Each phrase whose finding is there, with how many."""
     counted = []
     for phrase, what in phrases:
         value = getattr(found, what)
@@ -303,8 +265,6 @@ class SketchRepair(QtCore.QObject):
             for key in [key for key in store if key[0] == doc_name]:
                 del store[key]
 
-    # ------------------------------------------------------------------ #
-
     def _run(self) -> None:
         pending, self._pending = self._pending, {}
         for key in pending:
@@ -381,10 +341,7 @@ class SketchRepair(QtCore.QObject):
 
     def _tell(self, key: Key, doc: Any, sketch: Any, found: Findings,
               done: list[str], undoable: bool, failing: bool) -> None:
-        """The toast: what was mended, and what still stops a feature.
-
-        Not `undoable`: the repair was part of a task's undo step.
-        """
+        """Toast what was mended and what still blocks a feature."""
         repaired = translate("Nxt", "Repaired %s (%s)") % (
             sketch.Label, ", ".join(done))
         left = _counts(_LEFT, found) if failing else []
@@ -403,7 +360,7 @@ class SketchRepair(QtCore.QObject):
         services.toast(doc, message, undoable=bool(done) and undoable,
                        actions=actions, sticky=True)
 
-    # -- the toast's buttons ------------------------------------------------ #
+    # -- toast buttons --
 
     def _edit(self, key: Key, found: Findings) -> None:
         # Deferred: opening a sketch opens a task, from inside a click.

@@ -1,14 +1,4 @@
-"""The tree's preferences: the quick panel under the gear, and the page.
-
-Both read and write the same values in FreeCAD's parameter store (see
-settings.py), so a change in either shows in the other at once. A change
-takes effect as it is made: view settings restyle the panel, the Part
-layout rebuilds its snapshot.
-
-`Preferences` is what QML sees, as the context property `prefs`.
-`NxtPreferencesPage` is the page under Edit > Preferences > FreeCAD-Nxt,
-registered by init_gui.
-"""
+"""The tree's preferences: the quick panel under the gear, and the page."""
 
 from __future__ import annotations
 
@@ -88,8 +78,7 @@ class Preferences(QtCore.QObject):
         super().__init__(parent)
         _live.add(self)
 
-    # A type name as a string is how PySide spells QVariantMap; its stubs
-    # only allow a Python type here.
+    # PySide spells QVariantMap as a string; its stubs expect a type.
     @QtCore.Property("QVariantMap", notify=changed)  # type: ignore[arg-type]
     def values(self) -> dict[str, Any]:
         return {key: settings.get(key) for key in QUICK}
@@ -107,14 +96,11 @@ class Preferences(QtCore.QObject):
 
     @QtCore.Slot()
     def openPage(self) -> None:  # noqa: N802 - QML API
-        # Deferred: the quick panel is closing, and a modal dialog opened
-        # under its closing click would take the click with it.
+        # Deferred: a modal opened under the closing click would eat it.
         QtCore.QTimer.singleShot(0, open_page)
 
 
-# ---------------------------------------------------------------------------
-# The Preferences page
-# ---------------------------------------------------------------------------
+# -- the Preferences page --
 
 def _labels() -> dict[str, dict[str, str]]:
     return {
@@ -140,10 +126,6 @@ class NxtPreferencesPage:
 
     Named apart from other addons' pages: FreeCAD keys Python pages by
     class name, and Assembly's is also called PreferencesPage.
-
-    FreeCAD's Preferences dialog is a widgets dialog, so this page is made of
-    widgets, as every other page in it is; the quick panel is where Nxt's
-    own controls are.
     """
 
     def __init__(self) -> None:
@@ -224,8 +206,7 @@ class NxtPreferencesPage:
         layout.addRow(self._pinned)
         outer.addWidget(panel)
 
-        # FreeCAD's own preferences (gizmos.py), which no FreeCAD page
-        # shows. Nxt sets fine-first and Ctrl once, on its first run.
+        # FreeCAD's own gizmo preferences, which no FreeCAD page shows.
         drag = QtWidgets.QGroupBox(
             translate("Nxt", "3D drag handles"), self.form)
         layout = QtWidgets.QFormLayout(drag)

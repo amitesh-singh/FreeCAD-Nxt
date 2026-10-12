@@ -1,9 +1,6 @@
 """GUI entry point, loaded by FreeCAD once at startup.
 
-Registers the icon path and commands, lists the panel commands in the View
-menu, and brings the panel back if it was open last session. Nothing here
-changes process-wide state: the scenegraph backend is set by the first QML
-surface, when it is built.
+Sets no process-wide state: the first QML surface sets the scenegraph.
 """
 
 from __future__ import annotations
@@ -23,16 +20,11 @@ class Manipulator:
     """Adds the FreeCAD-Nxt submenu to the View menu of every workbench."""
 
     def modifyMenuBar(self) -> list[dict[str, str]]:  # noqa: N802 - FreeCAD manipulator API
-        # "append" adds to the end of the menu holding `menuItem`.
         return [{"append": commands.GROUP, "menuItem": "Std_DockViewMenu"}]
 
 
 def _restore_panel() -> None:
-    """Start the services, then reopen the panel, once the window exists.
-
-    The services first: they are what works with the panel closed, and the
-    panel connects to them as it opens.
-    """
+    """Start the services, then reopen the panel, which connects to them."""
     try:
         from .app import services
         services.start()

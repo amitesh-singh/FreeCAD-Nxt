@@ -1,25 +1,18 @@
 import QtQuick
 import Nxt.Controls
 
-// The tree's header: the document's name, sketch problems, search,
-// and the collapse, dock and settings buttons.
+// Tree header: document name, sketch problems, search, buttons.
 Item {
     id: header
 
-    //: The drag in progress, for the document name's drop target.
     property Item ghost
     property bool settingsOpen: false
     readonly property alias gear: gear
-    // What the search field is never squeezed below, including its margins.
-    // Below about this it stops being able to show a query and stops being
-    // worth the space it takes from the document name.
+    // Minimum search width, margins included.
     readonly property int searchFloor: 128
 
     signal settingsClicked()
 
-    // The header needs a backdrop of its own in overlay mode for the
-    // same reason the rows do. Full width rather than content width:
-    // it holds the search field, which is a target, not a label.
     Rectangle {
         anchors.fill: parent
         anchors.margins: 2
@@ -30,9 +23,7 @@ Item {
         border.color: theme.pillBorder
     }
 
-    // The document's name is the top level of its tree: drop a row on
-    // it to move the object out of its container, as onto the stock
-    // tree's document row.
+    // Drop on the document name: move out of its container.
     Rectangle {
         anchors.fill: docLabel
         anchors.margins: -3
@@ -53,11 +44,7 @@ Item {
         id: docLabel
         anchors.verticalCenter: parent.verticalCenter
         x: 9
-        // The name gets the room it asks for, and only gives way once
-        // the search field is down to something usable. A flat
-        // percentage truncated "PartDesignExample" while the field beside
-        // it sat half empty - the field is elastic and the name is not,
-        // so the name is what should be measured first.
+        // The name takes what it needs; the elastic search field gives way first.
         width: Math.min(implicitWidth,
                         Math.max(52, parent.width - x - header.searchFloor
                                  - (problems.visible ? problems.width + 8
@@ -69,10 +56,6 @@ Item {
         color: nxt.hasDocument ? theme.text : theme.textDim
     }
 
-    // How many sketches need attention, and a way to the first of them.
-    // The plain profile count that used to sit beside it was cut: it was
-    // large, stable and had nothing for the user to do about it. This
-    // one is none of those things.
     Row {
         id: problems
         anchors.left: docLabel.right
@@ -111,8 +94,6 @@ Item {
         onChosen: function (name) { nxt.revealObject(name); }
     }
 
-    // Collapse the whole tree, keeping the way to the active Body; with
-    // Shift, open everything. For long trees.
     IconButton {
         id: collapseButton
         objectName: "collapseButton"
@@ -121,7 +102,6 @@ Item {
         anchors.rightMargin: 2
         enabled: nxt.hasDocument
         tip: qsTr("Collapse all") + "\n" + qsTr("Shift-click: expand all")
-        // Two chevrons closing on a line: everything folded up.
         paint: function (ctx, w, h, ink) {
             ctx.strokeStyle = ink;
             ctx.lineWidth = Math.max(1.2, w / 9);
@@ -143,8 +123,7 @@ Item {
         }
     }
 
-    // Inside the 3D view (Nxt's overlay) the dock and its title bar are
-    // hidden, so the way back is here: put the panel back in its dock.
+    // The overlay hides the dock title bar, so the way back is here.
     IconButton {
         id: dockButton
         objectName: "dockButton"
@@ -155,7 +134,6 @@ Item {
         tip: qsTr("Back to the dock")
         iconScale: 0.66
         iconAspect: 0.8
-        // A window with its left side filled: the panel, docked.
         paint: function (ctx, w, h, ink) {
             var line = Math.max(1, Math.round(w / 12));
             ctx.strokeStyle = ink;
@@ -167,9 +145,7 @@ Item {
         onClicked: host.leaveViewOverlay()
     }
 
-    // The tree's quick settings. In the header rather than the title
-    // bar: FreeCAD's overlay mode replaces the title bar, and the
-    // header is the one part of the panel that is always there.
+    // In the header, not the title bar: FreeCAD's overlay mode replaces it.
     IconButton {
         id: gear
         objectName: "gear"
@@ -192,7 +168,6 @@ Item {
                 ctx.lineTo(c + r * Math.cos(a1), c + r * Math.sin(a1));
             }
             ctx.closePath();
-            // The hub, cut out.
             ctx.moveTo(c + outer * 0.32, c);
             ctx.arc(c, c, outer * 0.32, 0, 2 * Math.PI, true);
             ctx.fill("evenodd");

@@ -268,7 +268,6 @@ def make_bridge():
         "hasDocument": QtCore.Property(bool, lambda self: True),
         "documentLabel": QtCore.Property(
             str, lambda self: "PartDesignExample"),
-        "profileCount": QtCore.Property(int, lambda self: 2),
         "problemCount": QtCore.Property(int, lambda self: 1),
         "searchResults": QtCore.Property(list, lambda self: []),
         "tipBars": QtCore.Property(list, lambda self: BARS),

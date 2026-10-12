@@ -1,58 +1,8 @@
 """A value field in the 3D view, beside a feature's drag arrow.
 
-FreeCAD 26.3 draws arrows ("gizmos") for Pad, Pocket and the like, to
-drag a length in the 3D view; the value itself is only in the task panel.
-This floats a small Nxt field next to the arrow while it is showing, so
-the length can be read and typed where you are looking.
-
-It holds no value of its own. It mirrors the task panel's field (a
-Gui::QuantitySpinBox, `lengthEdit` for a Pad) and sets it, so the panel,
-the arrow and the model stay one thing.
-
-Setting it: putting text into the spin box's line edit only changes what
-it shows - the value, and the feature's property, stayed as they were
-even through OK. So the text is parsed as a FreeCAD quantity ("75",
-"2 in", "25 mm * 2") and given to the spin box as its raw value, which
-is what its own arrows and wheel do: the task panel hears valueChanged
-and sets the property. If the property still does not follow, it is set
-directly as well.
-
-Where the arrow is comes from the scene: the visible arrow's container
-node (SoLinearDraggerContainer, found with probe.draggers()). Its drawn
-geometry is measured - Coin's bounding box action, in world space - and
-the eight corners projected to the view, which gives the arrow's
-rectangle on screen as it is drawn, mid-drag included. Nothing is read
-from the dragger's own fields: its container does not move during a
-drag, and which way along its axis the arrow goes could not be read
-reliably, which put the box on the wrong side. placement.py decides
-where the box goes from that rectangle.
-
-Keyboard: clicking the box gives it the keyboard; double-clicking selects
-the whole value, ready to overwrite with a number or an expression. While
-it has the keyboard, FreeCAD's single-key shortcuts are held off, so
-typing "v" or Escape reaches the field, not a command. Enter or Escape
-hand the keyboard back to the 3D view. Tab moves to the next box and
-Shift+Tab to the one before, round and round, keeping what was typed and
-selecting the next value to type over. The mouse wheel over a box steps
-its value by the task panel field's own step, ten at a time with Ctrl
-held. Only the box changes while the wheel turns; the value is set, and
-the model recomputed, once the wheel has rested a moment. The drag's
-step keys (Shift, Ctrl) are read from the mouse as it drags, not from
-whichever widget has the keyboard, so they work either way.
-
-Several handles: a Pad with two lengths has two arrows, and a taper
-adds a rotation handle for each side. Each gets a box of its own, tied
-to its own task field. Which handle drags which field is not something
-the scene says, so it is taken from the order FreeCAD makes them in
-(HANDLES): the first arrow is the first length, the second the second.
-A handle is given a box only while both it and its task field are
-showing. When that pairing finds nothing - another feature type, or a
-scene laid out some other way - the one visible arrow gets the one
-box, as before.
-
-Polled rather than signalled: FreeCAD announces neither the start of an
-edit nor a gizmo appearing. Slow (4 Hz) while nothing is being edited,
-30 Hz while an arrow is up.
+Mirrors the task panel's QuantitySpinBox for each visible gizmo handle,
+so the panel, arrow and model stay in step. Polled (4 Hz idle, 30 Hz
+active): FreeCAD signals neither edit start nor gizmo appearance.
 """
 
 from __future__ import annotations
@@ -142,11 +92,9 @@ def _task_fields() -> dict[str, Any]:
 
 
 def _handle_boxes(view: Any, kind: str = LINEAR) -> list[Any]:
-    """Each handle of this kind in the scene, in the scene's order.
+    """Bounding box corners per handle of `kind`, None where hidden.
 
-    A handle that is showing gives its 3D bounding box corners; one that
-    is hidden gives None, and keeps its place in the list - the place is
-    what says which task field it drags.
+    Hidden handles keep their slot: the index says which field they drag.
     """
     from pivy import coin
     node_type = coin.SoType.fromName(kind)
@@ -188,13 +136,7 @@ def _arrow_box(view: Any) -> Any:
 
 def pair(type_id: str, showing: dict[str, list[bool]],
          fields: Any) -> list[tuple[str, int, str]]:
-    """Which handle gets a box for which task field.
-
-    `showing` says, per kind of handle, whether each one in the scene is
-    visible; `fields` holds the names of the task fields on screen. The
-    answer is (kind, place among its kind, field name) for every handle
-    that is showing and whose field is too.
-    """
+    """(kind, index, field name) for each visible handle with its field."""
     pairs: list[tuple[str, int, str]] = []
     for kind, names in HANDLES.get(type_id, ()):
         for place, shown in enumerate(showing.get(kind, ())):
@@ -218,17 +160,12 @@ def label_for(name: str) -> str:
 
 
 class FocusClaim:
-    """The keyboard, claimed for the box when an edit begins.
+    """Repeatedly claims the keyboard for the box when an edit begins.
 
-    Asking once was not enough: the edit's own start-up - the task panel
-    focusing its first field, the double-click's last release landing in
-    the 3D view - could take the keyboard straight back, and the box was
-    left without it now and then. So the claim is repeated until the box
-    has the keyboard, for a short while at most. Once it has had it, the
-    claim is over: a click elsewhere then takes the keyboard for good.
+    The task panel's start-up can steal focus back, so the claim repeats
+    for WINDOW seconds or until the box has held focus once.
     """
 
-    #: How long to keep asking, in seconds.
     WINDOW = 1.5
 
     def __init__(self) -> None:
@@ -312,12 +249,7 @@ class Field(QtCore.QObject):
         self.sync()
 
     def _live_spin(self) -> Any:
-        """The task field, or None once the task has closed and deleted it.
-
-        Enter presses OK, which closes the task and deletes its widgets;
-        the box losing the keyboard afterwards must find nothing to set,
-        not a deleted widget.
-        """
+        """The task field, or None once the task has deleted it."""
         spin = self._spin
         if spin is None:
             return None
@@ -354,9 +286,10 @@ class Field(QtCore.QObject):
         return self._owner
 
     def _type(self, text: str) -> bool:
-        """Set the task field, and through it the feature, from `text`.
+        """Set the task field (and feature) from `text`; False if invalid.
 
-        False when the text is not a quantity FreeCAD can read.
+        Setting the line edit text alone does not change the value, so the
+        parsed quantity goes in as rawValue, as the spin box's arrows do.
         """
         spin = self._live_spin()
         if spin is None or self._closing:
@@ -377,12 +310,7 @@ class Field(QtCore.QObject):
         return True
 
     def _bind_expression(self, spin: Any, text: str) -> bool:
-        """"=..." binds an expression to the property the field sets.
-
-        Bound on the feature itself (the task panel's field shows the
-        value it gives), and the field is given that value, so the panel
-        and the model agree when the task closes.
-        """
+        """Bind an "=..." expression on the feature and mirror its value."""
         from . import expressions
         prop = PROPERTIES.get(spin.objectName())
         obj = self._obj
@@ -431,11 +359,7 @@ class Field(QtCore.QObject):
 
     @QtCore.Slot(str)
     def finish(self, text: str) -> None:
-        """Enter: keep the value and close the edit, as OK does.
-
-        Nothing is set after this: the task is closing, and the box losing
-        the keyboard as it goes is not a new value.
-        """
+        """Enter: keep the value and close the edit, as OK does."""
         self._type(text)
         self.sync()
         self._closing = True
@@ -443,13 +367,10 @@ class Field(QtCore.QObject):
 
     @QtCore.Slot(int, result=str)
     def stepped(self, steps: int) -> str:
-        """The panel's value moved by this many of its steps, as text.
+        """The value moved by `steps` single steps, formatted as the panel.
 
-        For the mouse wheel. Nothing is set: every notch setting the
-        feature would recompute the model on every notch. The box shows
-        this while the wheel turns and commits it once the wheel rests.
-        Written as the panel writes it - the same decimals and unit -
-        and kept within the field's own limits.
+        Not set: the box commits once the wheel rests, to avoid a
+        recompute per notch.
         """
         spin = self._live_spin()
         if spin is None or self._closing:
@@ -488,11 +409,7 @@ class Field(QtCore.QObject):
 
 
 def next_box(order: list[str], name: str, backward: bool = False) -> str:
-    """The box Tab moves to from `name`: the next one shown, wrapping.
-
-    With one box, or a box no longer shown, that is the box itself or
-    the first: Tab never leaves the boxes for the 3D view.
-    """
+    """The box Tab moves to from `name`, wrapping; never leaves the boxes."""
     if not order:
         return name
     if name not in order:
@@ -514,17 +431,12 @@ class FloatingInput(QtCore.QObject):
 
     def __init__(self, parent: QtCore.QObject | None = None) -> None:
         super().__init__(parent)
-        #: A box per task field name, made as its handle first shows.
         self._boxes: dict[str, _Box] = {}
-        #: The boxes showing, in the order Tab goes through them.
         self._order: list[str] = []
         self._viewport: Any = None
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._tick)
-        # The edit the first box last took the keyboard for: it does so
-        # once per edit, when the edit begins.
         self._session: tuple[str, str] | None = None
-        #: The edit whose start was set to an offset (_update).
         self._started: tuple[str, str] | None = None
         self._claim = FocusClaim()
 
@@ -546,8 +458,7 @@ class FloatingInput(QtCore.QObject):
             field.committed.connect(self._recompute)
             field.tabbed.connect(
                 lambda backward: self._tab_from(name, backward))
-            # Queued: the OK button closes the task dialog, which must
-            # not happen from inside the key event that asked for it.
+            # Queued: OK must not close the task inside its own key event.
             field.finished.connect(
                 self._finish_edit,
                 QtCore.Qt.ConnectionType.QueuedConnection)
@@ -566,11 +477,7 @@ class FloatingInput(QtCore.QObject):
             box.widget = None
         self._viewport = None
 
-    # ------------------------------------------------------------------
-
     def _tick(self) -> None:
-        # Nothing here may raise out of the timer: an error each tick is
-        # an error four to thirty times a second in the Report view.
         try:
             for box in self._boxes.values():
                 if not widgets.alive(box.widget):
@@ -598,7 +505,6 @@ class FloatingInput(QtCore.QObject):
                    for kind, place, name in pair(type_id, showing, fields)]
         if targets:
             return targets
-        # Nothing paired: the one visible arrow and the one field.
         corners = _arrow_box(view)
         spin = _task_field(type_id) if corners is not None else None
         if spin is None:
@@ -610,15 +516,13 @@ class FloatingInput(QtCore.QObject):
         edit = gui_doc.getInEdit() if gui_doc is not None else None
         obj = getattr(edit, "Object", None)
         if obj is None:
-            self._session = None        # the edit is over
+            self._session = None
             self._started = None
             self._claim.stop()
             return False
         started = (gui_doc.Document.Name, obj.Name)
         if started != self._started:
-            # Once per edit: a Pad or Pocket starts at an offset, so its
-            # start handle shows (task_sync.start_with_offset). Tried
-            # again on the next tick while its panel is still being built.
+            # Retried each tick until the task panel is built.
             if task_sync.start_with_offset(obj) \
                     or not task_sync.wants_offset_start(obj):
                 self._started = started
@@ -668,8 +572,6 @@ class FloatingInput(QtCore.QObject):
         first, first_widget = placed[0][0], placed[0][1]
         session = (gui_doc.Document.Name, obj.Name)
         if session != self._session:
-            # A new edit: the first value is ready to type over, until a
-            # click elsewhere takes the keyboard away.
             self._session = session
             self._claim.start(time.monotonic())
         has_focus = any(w.hasFocus() for _b, w, _a in placed)
@@ -685,10 +587,7 @@ class FloatingInput(QtCore.QObject):
     @staticmethod
     def _to_widget(view: Any, viewport: Any,
                    point: Any) -> tuple[float, float]:
-        """A 3D point in the viewport widget's coordinates.
-
-        See placement.from_viewport: FreeCAD's answer is bottom-up.
-        """
+        """A 3D point in widget coordinates (FreeCAD's are bottom-up)."""
         x, y = view.getPointOnViewport(point)
         ratio = viewport.devicePixelRatioF() or 1.0
         return placement.from_viewport(x, y, viewport.height() * ratio,
@@ -724,12 +623,7 @@ class FloatingInput(QtCore.QObject):
 
     @staticmethod
     def _recompute() -> None:
-        """Recompute the feature being edited, so the model shows the value.
-
-        The task panel updates the feature's property as its field
-        changes, but leaves the recompute to its "Update view" setting and
-        to OK; a value typed in the 3D view is meant to be seen there.
-        """
+        """Recompute the edited feature; the panel defers it to OK."""
         gui_doc = Gui.ActiveDocument
         edit = gui_doc.getInEdit() if gui_doc is not None else None
         obj = getattr(edit, "Object", None)
@@ -765,12 +659,7 @@ class FloatingInput(QtCore.QObject):
             widget.setFocus(QtCore.Qt.FocusReason.MouseFocusReason)
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
-        """Hold FreeCAD's shortcuts off while a box has the keyboard.
-
-        A shortcut is offered to the focused widget first, as a
-        ShortcutOverride; accepting it keeps the key for the widget. Only
-        the boxes' own widgets are watched, and only while one has focus.
-        """
+        """Block FreeCAD shortcuts (via ShortcutOverride) while focused."""
         kind = event.type()
         if kind not in (QtCore.QEvent.Type.ShortcutOverride,
                         QtCore.QEvent.Type.KeyPress,
@@ -779,8 +668,7 @@ class FloatingInput(QtCore.QObject):
         if not any(watched is box.widget for box in self._boxes.values()):
             return False
         if kind == QtCore.QEvent.Type.Wheel:
-            # Kept from the 3D view under the box, which would zoom:
-            # the box steps its value and the event ends here.
+            # Swallowed so the 3D view underneath does not zoom.
             self._send_wheel(watched, event.angleDelta().y(), bool(
                 event.modifiers()
                 & QtCore.Qt.KeyboardModifier.ControlModifier))
@@ -790,10 +678,7 @@ class FloatingInput(QtCore.QObject):
             if watched.hasFocus():
                 event.accept()
             return False
-        # Tab: a widget hands it to Qt's focus chain before its content
-        # sees it, which took the keyboard out of the boxes altogether.
-        # Taken here instead and given to the box, which keeps what was
-        # typed and passes the keyboard to the next box.
+        # Qt's focus chain eats Tab before QML sees it; route it ourselves.
         key = event.key()
         if key not in (QtCore.Qt.Key.Key_Tab, QtCore.Qt.Key.Key_Backtab) \
                 or event.modifiers() & (

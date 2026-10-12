@@ -1,18 +1,12 @@
 import QtQuick
 
-// A drop-down's list of options.
-//
-// Created on the window's content item rather than inside the row that
-// opened it: a row's strip clips its content and later rows draw over
-// earlier ones, so a list opened in place would be cut off or covered.
-// Up here it sits above the whole panel, and a press anywhere outside the
-// list closes it. It opens below its anchor, or above it when there is no
-// room below.
+// A drop-down's list of options. Created on the window's content item,
+// since rows clip their content and later rows draw over earlier ones.
 Item {
     id: popup
 
     property var options: []
-    //: What to show for each option, where it differs from the value.
+    //: Display text per option, if not the value.
     property var labels: []
     property string current: ""
     property point below            // anchor's bottom-left, in our coords
@@ -25,18 +19,13 @@ Item {
     z: 10000
     focus: true
 
-    // Hidden at once, destroyed after the event that closed it has been
-    // delivered: destroying mid-event let the release fall through to
-    // whatever was underneath - the "All properties" link, which opened
-    // the inspector.
+    // Destroyed after the closing event, or its release hits what is below.
     function dismiss() {
         popup.visible = false;
         Qt.callLater(popup.destroy);
     }
 
-    // Wide enough for the longest option. A Column's implicit width is
-    // taken from its children's widths, which here come from the box -
-    // asking it for its width was circular and gave the minimum.
+    // Measured, since the Column's width derives from the box (circular).
     FontMetrics {
         id: metrics
         font.pixelSize: theme.fontSmall
@@ -80,8 +69,6 @@ Item {
         border.width: 1
         border.color: theme.border
 
-        // Swallows presses on the list's own padding, so they do not
-        // reach the close-on-press area underneath.
         MouseArea { anchors.fill: parent }
 
         Column {
@@ -113,8 +100,7 @@ Item {
                         color: theme.text
                     }
 
-                    // A MouseArea, not a TapHandler: it takes the press
-                    // outright, so nothing underneath sees any of the click.
+                    // MouseArea, not TapHandler: nothing below sees the click.
                     MouseArea {
                         id: hover
                         readonly property bool hovered: containsMouse
@@ -122,13 +108,8 @@ Item {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            // Closed first: choosing can rebuild the
-                            // field that opened the list (a choice that
-                            // changes which fields show), and with it the
-                            // context this handler runs in - after which
-                            // `popup` no longer resolves, the list never
-                            // closed, and its full-window catcher kept
-                            // every click from the panel.
+                            // Dismiss first: choosing can destroy the
+                            // field, and this context with it.
                             var value = option.modelData;
                             var list = popup;
                             list.dismiss();

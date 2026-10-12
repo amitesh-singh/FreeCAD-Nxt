@@ -1,8 +1,8 @@
 import QtQuick
 import Nxt.Controls
 
-// What the gutter mark could not say: the finding in words, the
-// constraint state, what this reads and what reads it.
+// Expanded row details: the finding in words, constraint state, references
+// and dependents.
 Column {
     id: strip
 
@@ -18,10 +18,6 @@ Column {
     property string owner: ""           // the row's object, for expressions
     property int propertyCount: 0
 
-    // Chips in here behave exactly as chips on a row do: click to go
-    // there, double-click to open it. They did not, for no reason anyone
-    // decided - a sketch reached through this strip simply could not be
-    // opened, while the same sketch reached from the row could.
     signal consumerClicked(string name)
     signal referenceClicked(string name)
     signal chipActivated(string name)
@@ -36,9 +32,6 @@ Column {
     readonly property real lineSize: theme.fontSmall
 
     readonly property bool hasFindings: strip.notes && strip.notes.length > 0
-    // Every reference, not just the crowded case. The row now chips only
-    // what is broken, so for most rows this strip is the only place the
-    // references are named at all.
     readonly property bool hasUses: strip.refs && strip.refs.length > 0
     readonly property bool hasUsers: strip.consumers
                                      && strip.consumers.length > 0
@@ -48,21 +41,13 @@ Column {
                                     || strip.isProfile || strip.isLifted
                                     || hasValues || strip.propertyCount > 0
 
-    // --- what it is made of ----------------------------------------------- #
 
-    // First, because it is what most people open a strip to change. The
-    // rest of the object's properties are one click away in the property
-    // inspector - FreeCAD's own editor, borrowed - rather than listed here,
-    // where a long list would push the whole tree down.
     Flow {
         visible: strip.hasValues || strip.propertyCount > 0
         width: parent.width
         spacing: 10
 
-        // Counted, not handed the list: every rebuild brings a fresh list,
-        // and a Repeater given a new list destroys and recreates its
-        // delegates - taking the field being typed in, and its focus, with
-        // it. By index, a delegate lives as long as the count holds.
+        // Counted, not the list: a new list would recreate delegates and drop focus.
         Repeater {
             model: strip.keyProps ? strip.keyProps.length : 0
 
@@ -76,8 +61,6 @@ Column {
             }
         }
 
-        // Words, not an icon: the count says how much is behind it and the
-        // ellipsis that it opens somewhere else.
         Text {
             height: theme.fieldHeight
             verticalAlignment: Text.AlignVCenter
@@ -97,7 +80,6 @@ Column {
         }
     }
 
-    // --- the finding, in words ------------------------------------------ #
 
     Repeater {
         model: strip.notes ? strip.notes : []
@@ -122,13 +104,8 @@ Column {
         }
     }
 
-    // --- how constrained it is ------------------------------------------ #
 
-    // Stated in words rather than as a bare number, and only for profiles:
-    // "14" beside a sketch is a quantity of nothing in particular. The
-    // unknown case is shown rather than hidden, because a build whose
-    // solver does not answer must not be drawn as though every sketch
-    // were fine.
+    // Unknown is shown, not hidden: a silent solver must not look like "fine".
     Text {
         visible: strip.isProfile
         text: strip.constrained === 1 ? qsTr("fully constrained")
@@ -140,11 +117,7 @@ Column {
         color: theme.textDim
     }
 
-    // --- what it reads --------------------------------------------------- #
 
-    // Where the names go when the row could not afford them. A row with
-    // several references shows them as icons, which says how many and what
-    // kind but not which - this says which, and which part of which.
     Flow {
         visible: strip.hasUses
         width: parent.width
@@ -176,20 +149,8 @@ Column {
         }
     }
 
-    // --- who depends on it ---------------------------------------------- #
 
-    // The reuse information the shelf existed to carry. It lives here
-    // rather than as row chips because a sketch used by six features would
-    // grow a row six chips wide, and the timeline would stop being
-    // scannable - which is the whole reason the sketches came back into it.
-    //
-    // Shown for anything lifted, not only sketches: a Boolean's tool and a
-    // datum a feature is attached to were lifted for the same reason and
-    // the same question is worth asking of them.
     Flow {
-        // Anything with dependents says so, lifted or not. A pocket that
-        // a fillet is built on is exactly as worth knowing about as a
-        // sketch that two pads share.
         visible: strip.hasUsers
         width: parent.width
         spacing: 3
@@ -217,9 +178,7 @@ Column {
     }
 
     Text {
-        // Only for something lifted: "nothing uses this yet" is a remark
-        // about a sketch or a tool that is waiting to be used. On a solid
-        // feature at the end of a history it is simply the normal state.
+        // Only for something lifted; on a plain feature it is the normal state.
         visible: strip.isLifted && !strip.hasUsers
         text: qsTr("nothing uses this yet")
         font.pixelSize: strip.lineSize

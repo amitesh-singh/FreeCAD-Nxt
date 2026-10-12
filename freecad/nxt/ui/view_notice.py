@@ -1,9 +1,4 @@
-"""A QML notice kept at the top centre of the active 3D view.
-
-What the isolate notice (isolate_notice.py) and the undo toast (toast.py)
-share: a small see-through QQuickWidget over the view, sized to its QML
-root and centred again whenever either changes size.
-"""
+"""A QML notice kept at the top centre of the active 3D view."""
 
 from __future__ import annotations
 
@@ -55,7 +50,7 @@ class TopNotice(QtCore.QObject):
             return 0
         return int(self._widget.geometry().bottom()) + 1
 
-    # -- for subclasses ----------------------------------------------------- #
+    # -- for subclasses --
 
     def _wanted_host(self) -> Any:
         """The 3D view widget to show over now, or None for nowhere."""
@@ -70,8 +65,6 @@ class TopNotice(QtCore.QObject):
 
     def _view_changed(self, *_args: Any) -> None:
         self._sync()
-
-    # ------------------------------------------------------------------ #
 
     def _sync(self, *_args: Any) -> None:
         try:
@@ -100,8 +93,7 @@ class TopNotice(QtCore.QObject):
             return None
         host.installEventFilter(self)
         self._widget, self._host = widget, host
-        # Sized to its text: a new text means a new width, and it has to
-        # be centred again once QML has worked it out.
+        # Recentre once QML has sized the new text.
         root = widget.rootObject()
         if root is not None:
             root.widthChanged.connect(self._place)

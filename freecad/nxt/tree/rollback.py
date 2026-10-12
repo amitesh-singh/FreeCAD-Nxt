@@ -15,13 +15,9 @@ class Rollback:
 
     def __init__(self, bridge: Any) -> None:
         self._bridge = bridge
-        #: The drag in progress, or None.
         self.drag: dict[str, Any] | None = None
-        # Where each Body's bar was last put down, as the *object* whose
-        # row it sits under rather than a row index - indices move whenever
-        # a branch is expanded. Only a resting place that still resolves to
-        # the current tip is honoured, so any other route to moving the tip
-        # falls back to the tip's own row without having to know about this.
+        # Body -> object whose row its bar rests under (row indices shift
+        # on expand); honoured only while it still resolves to the tip.
         self._bar_anchor: dict[str, str] = {}
         # model -> (tip, steps it was set against)
         self._model_tips: dict[str, tuple[str, tuple[str, ...]]] = {}
@@ -47,26 +43,15 @@ class Rollback:
     def publish(self) -> None:
         """Announce new marker positions on the next event-loop turn.
 
-        Never synchronously. `Repeater` destroys and rebuilds every delegate
-        when its model changes, and this is reached from slots QML calls out
-        of a marker's own `onReleased`. Destroying an object while one of
-        its signal handlers is still on the stack is not merely unsupported
-        in QML - `QQmlData::destroyed` calls qFatal, which aborts the
-        process. One turn of the event loop is enough for the handler to
-        have returned.
+        Deferred: QML aborts if a delegate is destroyed inside its own
+        handler, and this is reached from a marker's `onReleased`.
         """
         self._bars_timer.start()
 
     def bars(self) -> list[dict[str, Any]]:
         """The rollback bars: the active Body's, and each Part model's.
 
-        Only the active Body has one. A bar on every Body offered a
-        handle that changes the model on Bodies that are not being worked
-        on; the one being worked on is the active one. A Part model has
-        no active state, so its history bar is always there.
-
-        `pos` is the row the bar sits *below*. A collapsed Body contributes
-        nothing: there is no gap to put a bar in.
+        `pos` is the row the bar sits below.
         """
         index = self._tree.row_index_map()
         bars: list[dict[str, Any]] = []
@@ -109,13 +94,7 @@ class Rollback:
         return None
 
     def tip_for_row(self, body_name: str, row: int) -> str | None:
-        """The feature a bar dropped below `row` sets.
-
-        Only a solid feature can be a tip, so a bar parked under a sketch
-        sets the last feature above it and stays where it was put. Scanning
-        rows rather than timeline positions makes this agree with what is
-        on screen even when part of the Body is collapsed.
-        """
+        """The feature a bar dropped below `row` sets."""
         node = self._snapshot.nodes.get(body_name)
         if node is None or not node.stack:
             return None
@@ -135,8 +114,7 @@ class Rollback:
     def begin_drag(self, body_name: str) -> None:
         """Start an interactive tip move.
 
-        One transaction spans the whole drag, so a rollback that crossed six
-        features is still a single undo step rather than six.
+        One transaction spans the drag, so it is a single undo step.
         """
         if self.drag is not None:
             self.end_drag(self.drag["body"])
@@ -161,25 +139,16 @@ class Rollback:
         }
 
     def preview_row(self, body_name: str, row: int) -> None:
-        """Note where the marker now is; the apply happens off this stack.
+        """Note where the marker now is; the apply is queued.
 
-        Deliberately does not recompute here. This runs inside QML's delivery
-        of a mouse-move event, and Qt's contract is that an exception must
-        not propagate out of an event handler - it terminates the process
-        rather than unwinding. A recompute on an old or damaged model is
-        exactly where a feature throws, so the work is queued onto a
-        zero-timer and performed from the event loop instead, where an
-        exception has a Python frame to be caught in.
-
-        Queuing also collapses a burst of moves: crossing four features
-        while one recompute is still running applies only the last.
+        An exception escaping a Qt event handler kills the process, so the
+        apply runs from the event loop, not this mouse-move.
         """
         drag = self.drag
         if drag is None or drag["body"] != body_name:
             return
-        # Recorded before the early return, not after: a move between two
-        # consecutive sketches changes where the bar is without changing
-        # what it sets, and that is exactly the case this has to remember.
+        # Before the early return: a move between sketches changes where
+        # the bar rests without changing what it sets.
         drag["anchor"] = self._tree.name_at(row)
         name = self.tip_for_row(body_name, row)
         if name is None or name == drag["wanted"]:
@@ -193,12 +162,8 @@ class Rollback:
     def _drain_tip_drag(self) -> None:
         """Apply the marker's latest position until it stops moving.
 
-        Apply the marker's latest position, repeatedly, until it stops
-        moving. Re-entrant by design rather than by accident: a recompute
-        can spin the event loop - FreeCAD's progress indicator calls
-        processEvents - so another mouse move can arrive mid-apply. The
-        guard turns that into another lap of this loop instead of a nested
-        recompute on a document already inside one.
+        Recompute spins the event loop, so moves can arrive mid-apply; the
+        guard turns them into another lap instead of a nested recompute.
         """
         drag = self.drag
         if drag is None or drag["applying"]:
@@ -209,11 +174,7 @@ class Rollback:
             while (self.drag is drag and not drag["ending"] and
                    drag["wanted"] != drag["current"]):
                 target = drag["wanted"]
-                # Shown, not set: only which feature is visible changes
-                # while the bar moves. Tip is set, and the Body
-                # recomputed, once, when it is let go (_commit_tip_drag) -
-                # a recompute per row made the bar unusable on a slow
-                # model.
+                # Shown, not set: Tip is set once on release.
                 if not self._preview_tip(drag["body"], target):
                     break
                 drag["current"] = target
@@ -241,10 +202,8 @@ class Rollback:
         if drag is None:
             return
         if drag["applying"]:
-            # Closing the transaction from inside the apply would close it
-            # in the middle of the change it is meant to contain: a
-            # recompute spins the event loop, so the release can arrive
-            # there. Let the apply unwind first.
+            # Released mid-apply (recompute spins the event loop): let the
+            # apply unwind before closing the transaction.
             drag["ending"] = True
             self._defer_finish(body_name, commit)
             return
@@ -261,8 +220,7 @@ class Rollback:
                 self._commit_tip_drag(doc, drag, body_name)
             elif doc is not None:
                 doc.abortTransaction()
-                # Visibility is view state; undo does not restore it. The
-                # tip was never set, so there is nothing to recompute.
+                # Visibility is view state; abort does not restore it.
                 if drag["current"] != drag["original"]:
                     self._preview_tip(body_name, drag["original"])
         except Exception:
@@ -272,8 +230,6 @@ class Rollback:
 
     def _commit_tip_drag(self, doc: Any, drag: dict[str, Any],
                          body_name: str) -> None:
-        # The drag only showed features; the tip is set, and recomputed,
-        # once, here.
         wanted = drag["wanted"]
         if wanted == drag["original"]:
             if drag["current"] != wanted:
@@ -291,11 +247,7 @@ class Rollback:
             self._toast_tip(doc, body_name, wanted)
 
     def _preview_tip(self, body_name: str, feature_name: str) -> bool:
-        """Show the Body as it would be with this tip, without setting it.
-
-        Only visibility, and the panel's own picture: no Tip, no
-        recompute. A feature past the tip shows its shape as last built.
-        """
+        """Show the Body as it would be with this tip, without setting it."""
         node = self._snapshot.nodes.get(body_name)
         doc = App.ActiveDocument
         if node is None or doc is None:
@@ -319,11 +271,8 @@ class Rollback:
     def restore_model_tips(self) -> None:
         """Carry each model's history position across a rebuild.
 
-        A Part model has no Tip property, so where its bar was is the
-        panel's to remember. It is honoured only while the model has the
-        same steps: a new operation always lands at the end, so the bar
-        snaps back to the finished model rather than implying an insertion
-        point that does not exist.
+        Part models have no Tip; the position is kept only while the steps
+        are unchanged.
         """
         kept: dict[str, tuple[str, tuple[str, ...]]] = {}
         for name, (tip, stack) in self._model_tips.items():
@@ -363,11 +312,7 @@ class Rollback:
                 tip_name, tuple(self._snapshot.nodes[model_name].stack))
 
     def _apply_tip(self, body_name: str, feature_name: str) -> bool:
-        """Set Tip and the stack's visibility.
-
-        No transaction of its own - the caller owns that, whether it is
-        a drag or a one-shot move.
-        """
+        """Set Tip and stack visibility; the caller owns the transaction."""
         doc = App.ActiveDocument
         if doc is None:
             return False
@@ -386,11 +331,8 @@ class Rollback:
                 return False
         try:
             body.Tip = feature
-            # Only the visibilities that actually differ. A Body shows
-            # through exactly one feature, so a move changes two of them -
-            # writing all of them touched the document once per stack
-            # member and woke an observer for each, which on a long history
-            # was most of the cost of a drag step.
+            # Only write visibilities that differ; each write wakes
+            # observers.
             for other in body_node.stack:
                 obj = doc.getObject(other)
                 vo = getattr(obj, "ViewObject", None)
@@ -400,11 +342,7 @@ class Rollback:
                 if bool(getattr(vo, "Visibility", not wanted)) != wanted:
                     vo.Visibility = wanted
             self._recompute(doc, body)
-            # Patch the snapshot rather than waiting for a rebuild that a
-            # drag suppresses anyway. Everything a tip move changes is
-            # derivable from what the snapshot already holds, and
-            # `Snapshot.retip` is tested against a full rebuild so the two
-            # cannot drift.
+            # Patch the snapshot; a drag suppresses rebuilds.
             self._tree.touch(self._snapshot.retip(body_name, feature_name))
             return True
         except Exception:
@@ -416,30 +354,19 @@ class Rollback:
     def _recompute(doc: Any, body: Any) -> None:
         """Recompute the Body, not the document.
 
-        Moving the tip touches the Body and nothing else - the features
-        themselves are already up to date - so a whole-document recompute
-        is work nobody asked for. It is also the difference between a
-        recompute fast enough to pass unnoticed and one slow enough to
-        raise FreeCAD's progress indicator, which spins the event loop and
-        invites exactly the re-entrancy this drag path has to survive.
+        A slow recompute raises the progress indicator, which spins the
+        event loop and invites re-entrancy.
         """
         try:
             doc.recompute([body])
         except TypeError:
             doc.recompute()     # older signature, no object list
 
-    def set_tip_to_row(self, body_name: str, row: int) -> None:
-        name = self.tip_for_row(body_name, row)
-        if name is not None:
-            self.set_tip(body_name, name)
-
     def set_tip(self, body_name: str, feature_name: str) -> None:
         """Roll a Body's history to end at `feature_name`.
 
-        Setting Tip is only half of it: FreeCAD shows a Body through exactly
-        one visible feature, so the stock Move-tip command also hides every
-        other member of the stack. Skip that and the Body keeps drawing the
-        old state regardless of what Tip says.
+        A Body draws through its one visible feature, so the other stack
+        members are hidden too.
         """
         doc = App.ActiveDocument
         if doc is None:
@@ -458,8 +385,6 @@ class Rollback:
         if body_node.tip == feature_name:
             return
 
-        # Moved by something other than the bar, so any place the bar was
-        # resting is no longer a statement about this tip.
         self._bar_anchor.pop(body_name, None)
         try:
             doc.openTransaction("Move tip")
@@ -484,10 +409,9 @@ class Rollback:
             self._bridge._named(doc, [feature_name or body_name])), body_name)
 
     def show_through_tip(self, body_name: str, doc: Any) -> None:
-        """Show a Body through its tip again, after a tip move is undone.
+        """Show a Body through its tip again after an undo.
 
-        Undo puts Tip back but not what is shown: visibility is view
-        state.
+        Undo restores Tip but not visibility, which is view state.
         """
         body = doc.getObject(body_name)
         if body is None:

@@ -1,28 +1,19 @@
 import QtQuick
 
-// Dotted connector lines from a container to its children, as a classic
-// tree view draws them (the "TreeLines" preference): down from the parent,
-// across to the row, and straight through past the rows of deeper levels.
-//
-// What to draw in each column is worked out by the model (branch_lines in
-// tree/models.py); this only draws it. Lines that belong to the active
-// Body, Part or assembly - the ones to its children, and everything
-// inside it - are drawn in the accent colour.
+// Dotted tree connector lines (the "TreeLines" preference); the model
+// (branch_lines in tree/models.py) decides what each column draws.
 Item {
     id: lines
 
-    //: Per column: 0 nothing, 1 straight through, 2 a tee, 3 the last.
+    //: Per column: 0 nothing, 1 through, 2 tee, 3 last.
     property var branches: []
-    //: The column the accent colour starts at, or -1.
+    //: Column the accent starts at, or -1.
     property int activeFrom: -1
-    //: Where column 0 is, the distance between columns, and where the
-    //: row's own content begins (the arm stops short of it).
     property real firstX: 0
     property real step: 16
     property real armEnd: 0
-    //: The row's first line: the arm is drawn at its middle.
     property real headHeight: height
-    //: The row's y in the list, so dots line up from one row to the next.
+    //: Row y in the list, so dots line up across rows.
     property real offset: 0
     property color ink: theme.border
 
@@ -65,19 +56,15 @@ Item {
             x: Math.round(lines.firstX + index * lines.step)
             height: lines.height
 
-            // Down: the whole row, or only as far as the arm on the last
-            // child.
             Dots {
                 visible: column.modelData > 0
                 width: 1
-                // No height, no dots: nothing is made for a gap.
                 height: column.modelData === 0 ? 0
                       : column.modelData === 3 ? column.middle + 1
                       : lines.height
                 phase: lines.phase
                 ink: column.ink
             }
-            // Across, to the row.
             Dots {
                 visible: column.modelData >= 2
                 vertical: false

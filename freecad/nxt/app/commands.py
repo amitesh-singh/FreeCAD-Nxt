@@ -1,8 +1,6 @@
 """The addon's GUI commands.
 
-Plain duck-typed command classes, registered by `init_gui`. Imports of the
-modules that do the work are deferred to `Activated`, so registering the
-commands at startup costs nothing and pulls in no QtQuick.
+Work is imported in `Activated`, so registering pulls in no QtQuick.
 """
 
 from __future__ import annotations
@@ -15,7 +13,7 @@ ICON = "FreeCAD-Nxt.svg"
 
 
 class _Command:
-    """Shared plumbing: resources from class attributes."""
+    """Resources from class attributes."""
 
     menu_text: str = ""
     tool_tip: str = ""
@@ -115,10 +113,7 @@ class Reload(_Command):
 class MenuGroup:
     """The FreeCAD-Nxt submenu of the View menu.
 
-    A FreeCAD command group: a command whose `GetCommands` lists others.
-    With DropDownMenu set, FreeCAD draws a group placed in a menu as a
-    submenu holding those commands, which is how the addon's entries are
-    kept together rather than scattered along the View menu.
+    DropDownMenu makes FreeCAD draw this command group as a submenu.
     """
 
     def GetCommands(self) -> list[str]:  # noqa: N802 - FreeCAD command API
@@ -144,12 +139,10 @@ COMMANDS: dict[str, type[_Command]] = {
     "Nxt_Reload": Reload,
 }
 
-#: The FreeCAD-Nxt submenu of the View menu. Reload is listed for now,
-#: while the addon is being developed; it is not a feature.
+#: Reload is listed only during development.
 MENU = ("Nxt_ModelPanel", "Nxt_ModelPanelOverlay", "Nxt_PropertyInspector",
         "Nxt_Isolate", "Nxt_Reload")
 
-#: What goes in the View menu itself: the submenu.
 GROUP = "Nxt_Menu"
 
 

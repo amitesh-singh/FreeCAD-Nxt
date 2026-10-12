@@ -1071,43 +1071,6 @@ class TimelineTests(unittest.TestCase):
                           ("Sketch", "Pad", "Sketch001", "Pocket")],
                          [0, 1, 2, 3])
 
-    # The bar is dropped against the rows on screen, so these pass the
-    # rows above the drop, nearest first - which is what the panel has.
-    def test_bar_on_a_sketch_snaps_back_to_the_feature_before_it(self):
-        _b, doc = self._doc()
-        snap = scene.Snapshot(doc)
-        # dropped just under Sketch001, which cannot be a tip
-        self.assertEqual(
-            snap.tip_at_or_before("Body", ["Sketch001", "Pad", "Sketch"]),
-            "Pad")
-
-    def test_bar_above_the_first_feature_rolls_back_to_empty(self):
-        _b, doc = self._doc()
-        snap = scene.Snapshot(doc)
-        self.assertIsNone(snap.tip_at_or_before("Body", ["Sketch", "Body"]))
-
-    def test_bar_at_the_end_sets_the_last_feature(self):
-        _b, doc = self._doc()
-        snap = scene.Snapshot(doc)
-        self.assertEqual(
-            snap.tip_at_or_before(
-                "Body", ["Pocket", "Sketch001", "Pad", "Sketch"]),
-            "Pocket")
-
-    def test_the_scan_stops_at_the_first_feature_it_meets(self):
-        """Consumed lazily, so a long tree above the drop is not walked."""
-        _b, doc = self._doc()
-        snap = scene.Snapshot(doc)
-        seen = []
-
-        def rows():
-            for name in ["Sketch001", "Pad", "Sketch", "Body"]:
-                seen.append(name)
-                yield name
-
-        self.assertEqual(snap.tip_at_or_before("Body", rows()), "Pad")
-        self.assertEqual(seen, ["Sketch001", "Pad"])
-
     def test_a_sketch_past_the_tip_is_rolled_back_too(self):
         b, doc = self._doc()
         b.Tip = doc.getObject("Pad")
@@ -1132,11 +1095,6 @@ class TimelineTests(unittest.TestCase):
         snap = scene.Snapshot(doc)
         self.assertFalse(snap.nodes["Origin"].after_tip)
         self.assertTrue(snap.nodes["Sketch"].after_tip)
-
-    def test_tip_for_a_body_that_is_not_there(self):
-        _b, doc = self._doc()
-        snap = scene.Snapshot(doc)
-        self.assertIsNone(snap.tip_at_or_before("Nope", ["Pocket"]))
 
     # -- retip: the in-place update used while the bar is dragged -------- #
 

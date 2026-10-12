@@ -1,17 +1,7 @@
-"""Panel state that should survive a restart.
+"""Panel state that survives a restart, in FreeCAD's parameter store.
 
-Kept in FreeCAD's own parameter store rather than a file of our own, so it
-travels with the user's configuration, is visible in the parameter editor,
-and needs no migration or cleanup of ours.
-
-What this records is the handful of facts nothing else will restore for a
-dock that does not exist yet when the main window state is read back: it is
-created by an addon, long after Qt has replayed its saved layout.
-
-That applies to the overlay state too. It seemed reasonable that FreeCAD's
-overlay manager would restore its own docks - and it does, for docks that
-exist when it runs. Ours does not, so it has to be recorded here like
-everything else.
+The dock is created after Qt and FreeCAD's overlay manager restore layout,
+so its placement and overlay state must be recorded here.
 """
 
 from __future__ import annotations
@@ -23,18 +13,12 @@ import FreeCAD as App
 
 GROUP = "User parameter:BaseApp/Preferences/Mod/Nxt"
 
-#: Open at startup unless the user closed it last time. Defaulting to true
-#: is the point of persisting any of this - the panel is meant to be there.
 DEFAULTS: dict[str, bool | int | float | str] = {
-    # False only on the very first run, which is when the panel gets its
-    # one chance to tab itself beside the stock tree. After that the user's
-    # arrangement wins and is never second-guessed.
+    # First run only: the panel tabs itself beside the stock tree once.
     "Configured": False,
     "Visible": True,
     "Overlay": False,
-    # Whether the overlay presentation came from FreeCAD's overlay manager
-    # rather than from the panel's own toggle. Restoring the two is not the
-    # same operation, so which it was has to be recorded.
+    # Overlay came from FreeCAD's manager, not the panel's toggle.
     "HostOverlay": False,
     "Floating": False,
     "DockArea": 1,          # Qt.LeftDockWidgetArea
@@ -42,58 +26,35 @@ DEFAULTS: dict[str, bool | int | float | str] = {
     "FloatY": 0,
     "FloatWidth": 0,
     "FloatHeight": 0,
-    # How the tree is structured: "expression" (sketches in the timeline,
-    # Part models as flat steps) or "nested" (the classic tree).
+    # "expression" (timeline) or "nested" (the classic tree).
     "PartLayout": "expression",
     # The tree's quick settings; see prefs.py for the values each takes.
     "RowDensity": "normal",
     "ReferenceChips": "problems",
     "UnderConstrainedMarks": True,
-    # Hovering a row's controls explains them (NxtToolTip.qml).
     "RowToolTips": True,
-    # Whose overlay the panel uses: Nxt's own, drawn inside the 3D view
-    # with clicks passing through ("nxt"), or FreeCAD's ("freecad").
+    # "nxt" (drawn in the 3D view) or "freecad".
     "OverlayMode": "nxt",
-    # The panel was in the 3D view (Nxt's overlay) when FreeCAD closed.
     "ViewOverlay": False,
-    # Picking an object in the 3D view scrolls the tree to its row.
     "FollowSelection": True,
-    # Double-clicking a face in the 3D view edits the feature that made it.
     "EditOnDoubleClick": True,
-    # A new sketch made with three points, or an edge and a point,
-    # selected is attached to their plane unasked (sketch_attach.py).
     "AttachSketchByPoints": True,
-    # A dragged Pad or Pocket length snaps to a parallel face of the
-    # model (face_snap.py); Alt held while dragging lets it go.
     "SnapToFaces": True,
-    # A profile sketch that all but closes is closed (sketch_repair.py).
     "RepairProfiles": True,
-    # Set once Nxt has put its drag-handle defaults in place (gizmos.py).
     "GizmoDefaultsApplied": False,
-    # What those defaults replaced, to put back (gizmos.py): JSON.
+    # JSON of the drag settings the defaults replaced (gizmos.py).
     "GizmoOriginals": "",
-    # A value field floats beside a feature's drag arrow (float_input.py).
     "FloatingValues": True,
-    # A feature opened by double-clicking its row is edited without the
-    # 3D drag handles; a newly created one still gets them.
     "TreeEditHidesHandles": False,
-    # Dotted connector lines from each container to its children.
     "TreeLines": False,
-    # Clicking a row opens its detail strip, after a moment.
     "DetailAutoShow": False,
-    # Selecting an object lights up the rows it reads and the rows that
-    # read it.
     "HighlightRelated": False,
-    # Arrows in the tree's gutter for the selection's dependencies.
     "DependencyArrows": False,
-    # The header and detail strips are capped at this percentage
-    # of the screen's width, but never below HeaderMinWidth pixels.
+    # Strip width: percent of screen, floored at HeaderMinWidth pixels.
     "HeaderMaxPercent": 18,
     "HeaderMinWidth": 220,
-    # The Property Inspector: whether it stays open, and where it was left
-    # while pinned. A width or height of 0 means "never placed yet".
+    # Inspector geometry; a size of 0 means never placed.
     "InspectorPinned": False,
-    # The inspector opens on FreeCAD's property table, not Nxt's page.
     "InspectorTable": False,
     "InspectorX": 0,
     "InspectorY": 0,
@@ -123,11 +84,7 @@ def _accessor(default: object) -> tuple[type, str, str]:
 
 
 def get(key: str) -> Any:
-    """Read one setting, falling back to its default on any trouble.
-
-    Preferences are never worth an exception: a corrupt or absent value
-    should give the user a working panel, not a stack trace at startup.
-    """
+    """Read one setting, falling back to its default on any error."""
     default = DEFAULTS[key]
     _kind, getter, _setter = _accessor(default)
     try:

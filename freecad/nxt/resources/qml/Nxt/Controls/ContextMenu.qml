@@ -1,32 +1,17 @@
 import QtQuick
 import QtQuick.Controls.Basic
 
-// The tree's context menu: Qt Quick Controls' Menu, in its own window.
-//
-// `popupType: Popup.Window` (Qt 6.8+) gives the menu a popup window of its
-// own, as QMenu has, so it reaches past the dock, closes on a click anywhere
-// else or on Escape, opens More on hover as a cascading submenu, and is
-// walked with the arrow keys - all Qt's, none of it ours. The Basic style
-// is imported by name so FreeCAD's widget style cannot reach in; every
-// visible part is drawn here, in the panel's theme.
-//
-// What goes in it is decided in Python from the TOML definition files and
-// arrives as plain data (menus/present.py). `load()` builds the items from
-// it; one menu is made per opening and destroyed when it closes.
+// The tree's context menu, built by load() from data in menus/present.py.
+// Popup.Window (Qt 6.8+) lets it reach past the dock; Basic style is
+// imported by name so FreeCAD's widget style cannot reach in.
 Menu {
-    // Not `menu`: every MenuItem has a `menu` property of its own, which
-    // would shadow it inside the rows.
+    // Not `menu`: MenuItem's own `menu` property would shadow it.
     id: contextMenu
 
     popupType: Popup.Window
-    // Submenus open beside the menu on hover, as a desktop menu's do; the
-    // default depends on the platform.
     cascade: true
-    // Opens at its anchor's corner, not overlapping it: the anchor is a
-    // point (see NxtTree.qml).
     overlap: 0
     padding: 4
-    // Wide enough for the icon bar, and for the longest row.
     implicitWidth: Math.max(236, contentWidth + leftPadding + rightPadding)
 
 
@@ -40,14 +25,10 @@ Menu {
         border.color: theme.border
     }
 
-    // The item that stands for More in this menu is made from this.
     delegate: Row_ {}
 
     onClosed: Qt.callLater(contextMenu.destroy)
 
-    // ------------------------------------------------------------ building
-
-    // One entry: a row, or a submenu when it has items of its own.
     function addEntry(target, spec, style) {
         if (spec.items && spec.items.length) {
             var inner = submenu.createObject(null, {title: spec.label});
@@ -101,20 +82,16 @@ Menu {
         contextMenu.chosen(command);
     }
 
-    // ------------------------------------------------------------- parts
-
     component Row_: MenuItem {
         id: row
         property var spec: ({})
         property string style: "plain"
         property string shortcutText: spec.shortcut || ""
 
-        // The row standing for More is made by the Menu itself, with no
-        // spec: it takes its label from the submenu.
+        // The Menu makes the More row itself, without a spec.
         text: subMenu ? subMenu.title : (spec.label || "")
         enabled: subMenu !== null || spec.enabled === true
         implicitHeight: theme.rowHeight
-        // Hover highlights a row and opens More; not left to the platform.
         hoverEnabled: true
         leftPadding: 10
         rightPadding: 10
@@ -233,7 +210,6 @@ Menu {
         }
     }
 
-    // What the menu is for.
     Component {
         id: header
 
@@ -266,12 +242,7 @@ Menu {
         }
     }
 
-    // The icon bar: the same five for every object; one that does not
-    // apply is dimmed where it stands.
-    //
-    // A MenuItem, so the keyboard can stop on it like any row: Down from
-    // the top reaches it, Left and Right move between its buttons, Enter
-    // runs the one marked.
+    // Icon bar; a MenuItem so keyboard navigation stops on it.
     Component {
         id: bar
 
@@ -280,7 +251,6 @@ Menu {
             property var buttons: []
             property int current: 0
 
-            // The bar's width is shared out among its buttons.
             readonly property real buttonWidth:
                 (width - 4 - 2 * Math.max(0, buttons.length - 1))
                 / Math.max(1, buttons.length)
@@ -325,8 +295,6 @@ Menu {
                         required property var modelData
                         required property int index
                         readonly property bool usable: modelData.enabled
-                        // Marked for the keyboard only while the bar has
-                        // it, so a mouse user never sees two highlights.
                         readonly property bool marked:
                             barItem.highlighted && barItem.current === index
 

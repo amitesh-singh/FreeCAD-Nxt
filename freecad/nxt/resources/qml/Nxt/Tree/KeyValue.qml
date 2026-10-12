@@ -1,8 +1,7 @@
 import QtQuick
 import Nxt.Controls
 
-// One of an object's defining values in the detail strip: its name, and
-// the editor for its kind (see ValueEditor).
+// One defining value in the detail strip: name and editor (ValueEditor).
 Row {
     id: entry
 

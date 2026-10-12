@@ -1,10 +1,7 @@
 """Which objects a document file saved as expanded in the tree.
 
-FreeCAD writes each object's tree state into the file's GuiDocument.xml
-(`<ViewProvider name="Body" expanded="1" ...>`). It also restores it into
-each object's State ("Expanded") - but only through its own tree, and only
-some time after the document has loaded, which is after the panel has
-already laid the document out. So the panel reads the file itself.
+Read from GuiDocument.xml because FreeCAD sets State "Expanded" only
+after the panel has laid the document out.
 """
 
 from __future__ import annotations

@@ -1,13 +1,7 @@
 import QtQuick
 
-// One choice of a few, all in view: a row of joined buttons, the chosen one
-// filled. For a setting with two to four values, where a drop-down would
-// hide the alternatives behind a click.
-//
-// `options` is a list of {value, label}; `value` is the chosen one. Picking
-// emits `picked(value)` and leaves `value` to whoever owns the setting, so
-// the control always shows what is stored rather than what was clicked.
-// Left and Right move the choice when it has focus.
+// One choice of a few, as joined buttons. Emits `picked(value)` and leaves
+// `value` to the owner, so it shows what is stored.
 FocusScope {
     id: control
 

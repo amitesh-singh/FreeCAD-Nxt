@@ -1,21 +1,7 @@
 """Serve ViewObject icons to QML.
 
-FreeCAD composes an object's icon in C++ (base icon plus overlays for tip
-markers, links, errors and touched state), so redrawing it in QML would mean
-reimplementing that composition. Instead we hand QML a URL and render the
-real QIcon on demand:
-
-    image://nxticon/<document>/<object>/<revision>[/gray]
-    image://nxticon/@cmd/<Command>
-
-The revision segment exists purely to defeat QML's image cache: when an
-object changes in a way that alters its overlay, the model bumps the number
-and the URL becomes a cache miss.
-
-A trailing `gray` asks for the same icon desaturated. That is done here
-rather than in QML on purpose: Qt's own desaturate effect lives in modules
-this build may not ship, and a shader per chip would be paid for on every
-frame. Here it is paid once, and QML's image cache keeps it.
+URLs: image://nxticon/<doc>/<object>/<revision>[/gray] and
+image://nxticon/@cmd/<Command>. The revision only busts QML's cache.
 """
 
 from __future__ import annotations
@@ -33,8 +19,7 @@ from ..core.qt import QtCore, QtGui, QtWidgets
 _IMAGE_TYPE = QQuickImageProvider.ImageType.Pixmap
 
 PROVIDER_ID = "nxticon"
-#: `image://nxticon/@cmd/<Command>` is a FreeCAD command's icon, for the
-#: context menu. No document can be named this: names start with a letter.
+#: Cannot clash with a document name, which starts with a letter.
 COMMAND_PREFIX = "@cmd"
 VIRTUAL_PREFIX = "~"      # scene.VIRTUAL_PREFIX; no scene import here
 DEFAULT_ICON_PX = 16
@@ -102,7 +87,6 @@ class IconProvider(QQuickImageProvider):
 
     @staticmethod
     def _folder() -> QtGui.QIcon:
-        """A panel-only group draws as a Std_Group does."""
         icon = QtGui.QIcon(":/icons/folder.svg")
         if icon.isNull():
             icon = QtWidgets.QApplication.style().standardIcon(
@@ -111,11 +95,7 @@ class IconProvider(QQuickImageProvider):
 
     @staticmethod
     def _desaturate(pixmap: QtGui.QPixmap) -> QtGui.QPixmap:
-        """The same icon, drained of colour, alpha intact.
-
-        Via ARGB rather than Format_Grayscale8, which has no alpha channel
-        and would fill every transparent pixel with black.
-        """
+        """The same icon in grey, alpha intact (Grayscale8 drops alpha)."""
         image = pixmap.toImage().convertToFormat(
             QtGui.QImage.Format.Format_ARGB32)
         for y in range(image.height()):

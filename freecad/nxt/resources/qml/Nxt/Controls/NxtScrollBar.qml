@@ -1,14 +1,11 @@
 import QtQuick
 
-// A scrollbar for any Flickable: drag the thumb, click or hold on the track
-// to page. Thin at rest, wider under the pointer; dims when idle but stays
-// in view while there is more to scroll to. Drawn by hand, so the host's
+// A thin scrollbar for any Flickable. Drawn by hand so the host's
 // QtQuick.Controls style cannot reach it.
 Item {
     id: bar
 
     property Flickable target
-    //: Width when the pointer is near; the bar is drawn thinner at rest.
     property real wideWidth: theme.scrollBarWidth || 10
 
     readonly property bool scrollable: target !== null

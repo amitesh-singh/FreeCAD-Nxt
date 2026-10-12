@@ -19,9 +19,7 @@ def make_view(parent: QtWidgets.QWidget, source: str,
               prepare: Callable[[Any], None] | None = None) -> Any:
     """A QQuickWidget showing `source` from the QML folder.
 
-    `context` becomes the QML context properties. A floating view sizes
-    itself to its QML and is see-through, for drawing over the 3D view;
-    otherwise the QML fills the widget. `prepare` runs before loading.
+    A floating view sizes itself to its QML and is see-through.
     """
     qtquick.use_shared_graphics_api()
     quick_widgets = qtquick.modules()[2]
@@ -49,10 +47,8 @@ def make_view(parent: QtWidgets.QWidget, source: str,
 def window_offset(view: Any) -> QtCore.QPointF:
     """Where `view` sits in its top-level window, under Wayland only.
 
-    A QQuickWidget draws into an offscreen window at the corner of
-    FreeCAD's. Under Wayland a popup is placed against its parent item's
-    rectangle in that window, so it has to be opened from an item moved by
-    this much. Elsewhere placement is already right and this is zero.
+    Wayland places QML popups relative to the offscreen window's corner,
+    so they must be shifted by this; elsewhere it is zero.
     """
     if view is None or not QtGui.QGuiApplication.platformName() \
             .startswith("wayland"):

@@ -1,18 +1,12 @@
 import QtQuick
 
-// A drop target for the document's top level (bridge.dropOnRoot): the
-// header's document name, and empty space below the rows when docked.
-// `accepting` is true while a drag it would take is over it, for whoever
-// draws the highlight.
+// A drop target for the document's top level (bridge.dropOnRoot).
 DropArea {
     id: area
 
-    //: The panel's drag ghost, which carries the names being dragged.
     property Item ghost
     property bool accepting: false
-    //: Optional: (x, y) -> bool, where in the area a drop is the top
-    //: level's. Below the rows, for the tree's empty space: a row that
-    //: refuses a drop must not hand it on to the document instead.
+    //: Optional (x, y) -> bool: whether a drop there is the top level's.
     property var allowAt: null
 
     function wanted(x, y) {
@@ -20,20 +14,16 @@ DropArea {
                && nxt.canDropOnRoot(names());
     }
 
-    // A reorder within a Body slides a row up and down its column; it is
-    // never a move out of the Body.
     function names() {
         return ghost && !ghost.sliding ? ghost.names : [];
     }
 
-    //: What a drop here does, in words, for the ghost to say.
     property string hint: qsTr("To the top of the document")
 
     onAcceptingChanged: {
         if (!ghost || ghost.sliding)
             return;
-        // Cleared only if it is still this area's: a row may have spoken
-        // since, the rows lying over this area.
+        // Cleared only if still ours: a row over this area may have spoken since.
         if (accepting)
             ghost.say(area.hint, true);
         else if (ghost.hint === area.hint)

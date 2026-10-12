@@ -1,23 +1,7 @@
 """Sketch diagnostics, read from the solver's cached results.
 
-Two different sources of "something is wrong" meet here.
-
-`obj.State` carries the document's own view: Touched, Invalid, Error. That
-is what a failed recompute looks like. It is *not* what a redundant
-constraint looks like - a sketch with redundant constraints solves fine and
-recomputes fine, so its State is clean, which is why the Report view is the
-only place that message appears.
-
-The solver's own findings come from the Sketcher, through the `getLast*`
-family. Those read the cache left by the most recent solve, which is free;
-this module never calls `solve()`. Re-solving thirty sketches on every
-snapshot rebuild is precisely the per-rebuild cost that made the tip drag
-unsafe, and a cached answer is stale in exactly the same way the Report
-view's message is stale - which is the thing the user is comparing it to.
-
-Which accessors a given FreeCAD build exposes varies, so each is probed
-rather than assumed and the panel shows whatever is there. `probe.run()`
-prints which were found.
+Redundant constraints leave `State` clean, so solver results are read
+too. Never calls `solve()`; accessors vary by build, so each is probed.
 """
 
 from __future__ import annotations
@@ -39,13 +23,8 @@ def failed_to_recompute() -> str:
     return translate("Nxt", "failed to recompute")
 
 
-#: (attribute, severity, phrase). Report order, worst first.
-#:
-#: These are *properties* on Sketcher::SketchObject, not methods - which is
-#: what two earlier guesses at a `getLast*` method family got wrong. Reading
-#: a property is free and has no side effects, so the panel never re-solves;
-#: the values are whatever the last solve left, which is the same thing the
-#: solver panel and the Report view are showing.
+#: (attribute, severity, phrase), worst first. Properties on
+#: Sketcher::SketchObject holding the last solve's results.
 CHECKS: tuple[tuple[str, int, str], ...] = (
     ("ConflictingConstraints", ERROR,
      QT_TRANSLATE_NOOP("Nxt", "conflicting constraints")),
@@ -57,14 +36,12 @@ CHECKS: tuple[tuple[str, int, str], ...] = (
      QT_TRANSLATE_NOOP("Nxt", "partially redundant constraints")),
 )
 
-#: Names worth showing in a dump. Deliberately broad - this is for finding
-#: out what a build offers, not for calling things.
+#: Names worth showing in a dump.
 _INTERESTING = ("redund", "conflict", "malform", "solver", "constrain",
                 "dof", "status", "valid", "error")
 
-#: Only these may actually be invoked. Everything else matching the words
-#: above is listed by name and left alone: `autoRemoveRedundants` matches
-#: "redund" and would silently edit the user's sketch.
+#: Only these may be called: `autoRemoveRedundants` also matches "redund"
+#: and would edit the sketch.
 _SAFE_PREFIXES = ("getLast",)
 _SAFE_EXACT = (("getStatusString", "isValid", "isTouched", "isError") +
                tuple(name for name, _severity, _phrase in CHECKS))
@@ -74,13 +51,10 @@ _ABSENT: object = object()
 
 
 def _finding(obj: DocObject, name: str) -> bool | list[int] | None:
-    """What one attribute says, or None when this build does not have it.
+    """What one attribute says, or None when this build lacks it.
 
-    None means "no information" and must never be confused with "nothing
-    wrong" - that conflation is what made an earlier version report a clean
-    gutter on a document with a redundant constraint in it. Accepts either a
-    property or a zero-argument getter, since which one a build offers has
-    already changed once.
+    None means "no information", not "nothing wrong". Accepts a property
+    or a zero-argument getter.
     """
     attribute: Any = getattr(obj, name, _ABSENT)
     if attribute is _ABSENT:
@@ -101,13 +75,7 @@ def _finding(obj: DocObject, name: str) -> bool | list[int] | None:
 
 
 def status_lines(obj: DocObject) -> list[str]:
-    """FreeCAD's own words for this object's state.
-
-    `getStatusString()` is what the stock tree puts in its tooltip, so using
-    it verbatim means the panel cannot drift from what the rest of the
-    application says. Used as the fallback when the typed properties are
-    absent - they give exact constraint indices, this gives prose.
-    """
+    """FreeCAD's own status text (`getStatusString()`), as lines."""
     getter = getattr(obj, "getStatusString", None)
     if not callable(getter):
         return []
@@ -125,14 +93,9 @@ def degrees_of_freedom(obj: DocObject) -> int | None:
 
 def dump(obj: DocObject,
          everything: bool = False) -> list[tuple[str, str]]:
-    """Everything this build might carry solver findings in, for one object.
+    """Attributes that might carry solver findings; only getters called.
 
-    Read-only by construction: a name is only called if it is clearly a
-    getter, because several of the names that match "redundant" are the ones
-    that *remove* redundant constraints.
-
-    `everything` appends the full attribute list. Verbose, but it ends the
-    guessing - a keyword filter only finds names I thought of.
+    `everything` appends the full attribute list.
     """
     rows = [("State", repr(list(getattr(obj, "State", []) or []))),
             ("TypeId", repr(getattr(obj, "TypeId", "")))]
@@ -168,7 +131,7 @@ def dump(obj: DocObject,
 
 
 def available(obj: DocObject) -> dict[str, bool]:
-    """Which accessors this object actually offers. For the probe."""
+    """Which accessors this object offers."""
     return {accessor: callable(getattr(obj, accessor, None))
             for accessor, _severity, _phrase in CHECKS}
 
@@ -186,15 +149,9 @@ def answers(obj: DocObject) -> bool:
 
 def inspect(obj: DocObject, in_error: bool = False,
             note_unavailable: bool = False) -> tuple[int, list[str]]:
-    """(severity, notes) for one object. Findings only.
+    """(severity, notes) for one object.
 
-    Constraint *state* - degrees of freedom, fully-constrained - is not a
-    finding and is not here; `degrees_of_freedom` and `fully_constrained`
-    report it separately, and the card shows it on the line that already
-    carries the container. In this user's document 18 of 30 sketches have
-    degrees of freedom left, so treating that as a finding would mark the
-    majority of the sketches and drown the one that needs attention - the
-    same mistake the per-row staleness dot made.
+    Remaining degrees of freedom are not a finding: most sketches have them.
     """
     severity = ERROR if in_error else NONE
     notes: list[str] = []
@@ -203,10 +160,10 @@ def inspect(obj: DocObject, in_error: bool = False,
     answered = False
     for accessor, level, phrase in CHECKS:
         if phrase in reported:
-            continue            # the other spelling of this finding answered
+            continue
         result = _finding(obj, accessor)
         if result is None:
-            continue            # this build does not have this accessor
+            continue
         answered = True
         if result is False or result == []:
             continue
@@ -218,20 +175,12 @@ def inspect(obj: DocObject, in_error: bool = False,
             notes.append("%s: %s" % (translate("Nxt", phrase),
                                      ", ".join(str(i) for i in result)))
 
-    # Silence is not health - but "this build exposes no solver accessors"
-    # is one fact about the installation, not thirty facts about sketches.
-    # Repeating it on every card buried the cards that had something to say.
-    # The snapshot carries it once instead; see Snapshot.solver_findings.
+    # Normally reported once via Snapshot.solver_findings, not per card.
     if not answered and note_unavailable:
         notes.insert(0, translate(
             "Nxt", "solver findings unavailable in this build"))
 
-    # No typed findings? Fall back to FreeCAD's own prose, which at least
-    # says the same thing the solver panel is saying - but only where the
-    # typed accessors are absent or something is actually wrong. On a build
-    # that answers them, a clean sketch has nothing to add, and calling
-    # getStatusString() anyway meant formatting a status string for every
-    # healthy sketch on every rebuild to produce text no row displays.
+    # Fall back to FreeCAD's prose; skip it for healthy sketches (cost).
     if not notes and (not answered or severity > NONE or in_error):
         notes.extend(status_lines(obj))
 

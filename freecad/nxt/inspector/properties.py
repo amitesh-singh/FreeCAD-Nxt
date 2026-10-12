@@ -1,11 +1,4 @@
-"""The few properties that define an object, for the detail strip.
-
-The strip shows a handful of values an object is made of - a Pad's length, a
-fillet's radius - editable in place. Everything else is one click away in
-the Property Inspector. Which properties are "the few" is a judgement per
-type, so it is a table; a type that is not in it shows no values and only
-the link to the inspector, rather than a guess.
-"""
+"""The few properties that define an object, for the detail strip."""
 
 from __future__ import annotations
 
@@ -56,12 +49,7 @@ def _strip_kind(type_id: str) -> str | None:
 
 
 def describe(obj: Any) -> list[dict[str, Any]]:
-    """The object's key properties, shaped for QML.
-
-    Each entry: name, kind (quantity/number/bool/enum), text (as the user
-    would type it), checked (bool kinds), options (enum kinds), expression
-    (the bound expression, or ""), readOnly.
-    """
+    """The object's key properties, shaped for QML."""
     out: list[dict[str, Any]] = []
     names = KEY_PROPERTIES.get(getattr(obj, "TypeId", ""), ())
     present = set(getattr(obj, "PropertiesList", ()) or ())
@@ -101,12 +89,7 @@ def visible_count(obj: Any) -> int:
 
 
 def apply(obj: Any, prop: str, value: str | bool) -> bool:
-    """Set one key property from the strip, as one undo step.
-
-    A text value starting with "=" binds an expression; any other text
-    clears one that was bound, since typing a plain value over an
-    expression means "not computed any more".
-    """
+    """Set one key property as one undo step; "=..." binds an expression."""
     doc = getattr(obj, "Document", None)
     if doc is None:
         return False
@@ -135,6 +118,5 @@ def _assign(obj: Any, prop: str, value: str | bool) -> None:
         current = getattr(obj, prop)
         setattr(obj, prop, type(current)(float(value)))
     else:
-        # Quantity properties parse a string with units themselves, in
-        # the user's unit system: "10 mm", "0.5 in", "30 deg".
+        # Quantities parse unit strings themselves ("10 mm").
         setattr(obj, prop, str(value))

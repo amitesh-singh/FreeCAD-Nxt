@@ -1,25 +1,7 @@
 """Isolate: show only some objects in the 3D view, for a while.
 
-A view mode, not an edit. Entering it remembers the visibility of every
-object it changes; leaving it puts exactly those back. No undo step is
-written and, where FreeCAD allows, the document is not left marked as
-modified by it - isolating to look at something is not a change to the
-model.
-
-What stays in view is the isolated objects, the containers above them
-(or they would not draw), and whatever is inside them, untouched. Every
-other shown object is hidden. An isolated object that was hidden - a
-Pad that is not its Body's tip, say - is shown.
-
-The mode leaves when asked (`exit`, the notices' Exit, Escape in the
-tree, the command or menu action again), when another document becomes
-active, and when its document closes or an isolated object is deleted.
-Saving while isolated saves the visibility as it was before: the mode is
-lifted for the save and put back after it.
-
-Independent of the model panel. The panel and the 3D view notice both
-follow `changed`; the command `Nxt_Isolate` drives it from a toolbar or
-menu.
+A view mode, not an edit: no undo step, and the document's modified
+mark is cleared again where FreeCAD allows. Saves keep the prior view.
 """
 
 from __future__ import annotations
@@ -34,9 +16,7 @@ from ..app.i18n import translate
 from ..core import log
 from ..core.qt import QtCore
 
-# --------------------------------------------------------------------------- #
-# the plan: which objects to show and hide. Pure over duck-typed objects.
-# --------------------------------------------------------------------------- #
+# -- plan: which objects to show and hide --
 
 
 def _members(obj: Any) -> list[Any]:
@@ -81,11 +61,7 @@ def descendants(obj: Any) -> set[str]:
 
 def plan(objects: Iterable[Any], targets: Iterable[Any]
          ) -> tuple[set[str], dict[str, bool]]:
-    """(kept, changes): what stays in view, and the visibility to set.
-
-    `changes` maps an object's name to the visibility it gets; only
-    objects whose visibility actually changes are in it.
-    """
+    """(kept names, name -> new visibility for objects that change)."""
     targets = list(targets)
     inside: set[str] = set()
     above: set[str] = set()
@@ -111,15 +87,12 @@ def plan(objects: Iterable[Any], targets: Iterable[Any]
     return kept, changes
 
 
-# --------------------------------------------------------------------------- #
-# the mode
-# --------------------------------------------------------------------------- #
+# -- the mode --
 
 def _visibility(doc: Any) -> dict[str, bool]:
-    """Every object's visibility, to put back on leaving.
+    """Every object's visibility, not only the changed ones.
 
-    All of them, not only the ones the mode changes: FreeCAD hides a
-    Body's other features itself when one of them is shown.
+    FreeCAD hides a Body's other features itself when one is shown.
     """
     return {o.Name: bool(o.ViewObject.Visibility) for o in doc.Objects
             if getattr(o, "ViewObject", None) is not None}
@@ -136,13 +109,12 @@ class Isolation(QtCore.QObject):
         self._targets: list[str] = []
         self._labels: list[str] = []
         self._kept: set[str] = set()
-        #: name -> visibility before the mode changed it.
         self._saved: dict[str, bool] = {}
         self._changes: dict[str, bool] = {}
         self._was_modified: bool | None = None
         self._saving = False
 
-    # -- state -------------------------------------------------------------- #
+    # -- state --
 
     def active(self) -> bool:
         return self._doc is not None
@@ -154,11 +126,11 @@ class Isolation(QtCore.QObject):
         return list(self._targets)
 
     def kept(self) -> set[str]:
-        """What stays in view: the targets, above them and inside them."""
+        """Targets, their containers and their contents."""
         return set(self._kept)
 
     def text(self) -> str:
-        """The notices' wording: "Isolated: Pad", or a count for several."""
+        """The notice text."""
         if not self.active():
             return ""
         if len(self._labels) == 1:
@@ -167,7 +139,7 @@ class Isolation(QtCore.QObject):
         return translate("Nxt", "Isolated: %1 objects").replace(
             "%1", str(len(self._labels)))
 
-    # -- for QML: the 3D view's notice and the tree's dimming -------------- #
+    # -- QML API --
 
     @QtCore.Property(bool, notify=changed)
     def isActive(self) -> bool:  # noqa: N802 - QML API
@@ -179,19 +151,17 @@ class Isolation(QtCore.QObject):
 
     @QtCore.Property("QVariantMap", notify=changed)  # type: ignore[arg-type]
     def keptNames(self) -> dict[str, bool]:  # noqa: N802 - QML API
-        """What stays in view, as a map: rows not in it are dimmed."""
+        """Kept names as a map; the tree dims rows not in it."""
         return {name: True for name in self._kept}
 
     @QtCore.Slot(result=bool)
     def leave(self) -> bool:
-        """The notices' Exit."""
         return self.exit()
 
-    # -- entering and leaving ----------------------------------------------- #
+    # -- entering and leaving --
 
     def toggle(self, names: Iterable[str],
                doc_name: str | None = None) -> None:
-        """Isolate `names`, or leave the mode if it is on."""
         if self.active():
             self.exit()
         else:
@@ -209,7 +179,7 @@ class Isolation(QtCore.QObject):
 
     def isolate(self, names: Iterable[str],
                 doc_name: str | None = None) -> bool:
-        """Enter the mode for `names`. False if there was nothing to do."""
+        """Enter the mode. False if there was nothing to isolate."""
         if self.active():
             self.exit()
         doc = (App.getDocument(doc_name) if doc_name
@@ -241,7 +211,7 @@ class Isolation(QtCore.QObject):
         return True
 
     def exit(self) -> bool:
-        """Leave the mode, putting back what it changed. False if off."""
+        """Leave the mode, restoring visibility. False if off."""
         if not self.active():
             return False
         doc_name = self._doc
@@ -254,7 +224,7 @@ class Isolation(QtCore.QObject):
         self.changed.emit()
         return True
 
-    # -- helpers ------------------------------------------------------------ #
+    # -- helpers --
 
     @staticmethod
     def _restore(doc_name: str | None, saved: dict[str, bool]) -> None:
@@ -264,8 +234,7 @@ class Isolation(QtCore.QObject):
             doc = None                  # closed
         if doc is None:
             return
-        # Hidden first: showing a Body's feature hides its siblings, so
-        # the ones to be shown have to come last to stay shown.
+        # Hide first: showing a Body feature hides its siblings.
         for name, shown in sorted(saved.items(), key=lambda kv: kv[1]):
             obj = doc.getObject(name)
             view = getattr(obj, "ViewObject", None)
@@ -285,11 +254,7 @@ class Isolation(QtCore.QObject):
             return None
 
     def _reset_modified(self) -> None:
-        """Clear the modified mark the mode's own changes set, if any.
-
-        Only when the document was unmodified going in: a document with
-        real changes stays marked.
-        """
+        """Clear the modified mark if the document was clean going in."""
         if self._was_modified is not False or self._doc is None:
             return
         try:
@@ -298,7 +263,7 @@ class Isolation(QtCore.QObject):
         except Exception:
             pass                        # read-only in this build: harmless
 
-    # -- document events (see Observer) ------------------------------------- #
+    # -- document events --
 
     def document_closed(self, doc_name: str) -> None:
         if doc_name == self._doc:
@@ -317,7 +282,7 @@ class Isolation(QtCore.QObject):
             self.exit()
 
     def saving(self, doc_name: str) -> None:
-        """Lift the mode for a save, so the file keeps the user's view."""
+        """Lift the mode so the saved file keeps the user's view."""
         if doc_name != self._doc or self._saving:
             return
         self._saving = True
@@ -332,7 +297,7 @@ class Isolation(QtCore.QObject):
 
 
 class Observer:
-    """App document events the mode follows. Installed by the services."""
+    """App document events the mode follows."""
 
     def __init__(self, isolation: Isolation) -> None:
         self._isolation = isolation

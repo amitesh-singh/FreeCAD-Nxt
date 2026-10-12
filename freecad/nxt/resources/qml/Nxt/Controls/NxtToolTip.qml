@@ -1,18 +1,8 @@
 import QtQuick
 import QtQuick.Controls.Basic
 
-// Nxt's tooltip: Qt Quick's own ToolTip, drawn in the panel's theme.
-//
-// Drop one inside whatever it explains and bind `shown` to that item's
-// hover; it fills its parent, so the tip lines up under it. Nothing is
-// built until the pointer has rested for `delay` ms: a tree has hundreds
-// of rows with several of these each, and a ToolTip per control, made up
-// front, would cost a popup object per control per row for tips almost
-// none of which are ever seen.
-//
-// In a window of its own (Popup.Window), as the context menu and the
-// settings popup are, so a narrow dock does not clip it. Off entirely
-// when the "Show tooltips on rows" preference is (theme.showToolTips).
+// Nxt's tooltip, in its own window (Popup.Window) so a narrow dock does not
+// clip it. Built lazily: a tree has hundreds of rows with several each.
 Item {
     id: root
 
@@ -25,24 +15,15 @@ Item {
     readonly property bool wanted: shown && theme.showToolTips
                                    && text.length > 0
 
-    // Set once the pointer has rested; cleared the moment it leaves.
     property bool open: false
 
-    // Where the pointer rested, in this item: the tip opens just below and
-    // to the right of it, as a native tooltip does, rather than centred
-    // on the control - which on a small control inside a scaled or
-    // overlaid panel landed well away from the pointer.
+    // Opens below-right of the pointer, as a native tooltip does.
     property point anchor: Qt.point(0, 0)
 
     HoverHandler { id: pointer }
 
-    // What the tip opens from: a one-pixel item at the spot, not the
-    // control. Under Wayland a popup in a window of its own is placed
-    // against the rectangle of the item it opens from, taken in that
-    // item's window - and the panel's window is an offscreen one at the
-    // corner of FreeCAD's - so the tip landed a panel's offset away from
-    // the pointer. The context menu opens the same way; see
-    // host.menuAnchorOffset(), zero everywhere but Wayland.
+    // Opens from a 1px item at the spot: under Wayland the popup is placed
+    // against the anchor in the offscreen panel window (see host.menuAnchorOffset()).
     Item {
         id: spot
         width: 1
@@ -76,9 +57,7 @@ Item {
         }
     }
 
-    // Built the first time it is wanted, then kept: showing and hiding an
-    // existing popup is immediate, where destroying one leaves its window
-    // up until the deletion is processed.
+    // Kept once built: destroying a popup leaves its window up until deleted.
     Loader {
         id: loader
         anchors.fill: parent
@@ -90,7 +69,6 @@ Item {
             parent: spot
             x: 0
             y: 0
-            // Kept this far inside the screen near an edge.
             margins: 4
             enter: null
             exit: null

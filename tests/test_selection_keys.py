@@ -123,6 +123,7 @@ def make_bridge() -> Any:
     bridge.invalidate = lambda *a, **k: None
     bridge._rollback = bridge_mod.rollback.Rollback(bridge)
     bridge._drag_drop = bridge_mod.drag_drop.DragDrop(bridge)
+    bridge._activation = bridge_mod.activation.Activation(bridge)
     return bridge
 
 
@@ -298,10 +299,10 @@ class ActivateTests(unittest.TestCase):
         DOC.objects["B"].TypeId = "App::DocumentObjectGroup"
         DOC.objects["B"].isDerivedFrom = lambda _t: False
         self.bridge._active = ""
-        self.bridge._pending_active = ""
+        act = self.bridge._activation
         self.started: list[str] = []
-        self.bridge._activate_timer = types.SimpleNamespace(
-            start=lambda: self.started.append(self.bridge._pending_active))
+        act._activate_timer = types.SimpleNamespace(
+            start=lambda: self.started.append(act._pending_active))
         self.toggled: list[str] = []
         self.bridge.toggleExpanded = self.toggled.append
 
@@ -326,8 +327,9 @@ class ActivateTests(unittest.TestCase):
             activeDialog=lambda: task[0])
         self.addCleanup(delattr, Gui, "Control")
         edits: list[Any] = []
-        self.bridge._edit_timer = types.SimpleNamespace(
-            start=lambda: edits.append(self.bridge._pending_edit))
+        act = self.bridge._activation
+        act._edit_timer = types.SimpleNamespace(
+            start=lambda: edits.append(act._pending_edit))
         self.bridge.activate("C")
         self.assertEqual(edits, [])
         task[0] = False
@@ -339,7 +341,7 @@ class ActivateTests(unittest.TestCase):
         self.assertEqual((self.started, self.toggled), ([], ["B"]))
 
     def test_the_keys(self) -> None:
-        key = bridge_mod.TreeBridge._active_key
+        key = bridge_mod.activation.Activation._active_key
         part = types.SimpleNamespace(
             TypeId="App::Part", isDerivedFrom=lambda t: t == "App::Part")
         assembly = types.SimpleNamespace(
@@ -928,18 +930,18 @@ class EditTransactionTests(unittest.TestCase):
             self.editing = obj
 
     def test_the_edit_opens_its_own_undo_step_first(self) -> None:
-        self.bridge._enter_edit("Doc", "Pad")
+        self.bridge._activation._enter_edit("Doc", "Pad")
         self.assertEqual(self.log, [("open", "Edit Pad", True),
                                     ("edit", "Pad")])
 
     def test_an_open_step_is_left_to_whoever_opened_it(self) -> None:
         self.active = "Something else"
-        self.bridge._enter_edit("Doc", "Pad")
+        self.bridge._activation._enter_edit("Doc", "Pad")
         self.assertEqual(self.log, [("edit", "Pad")])
 
     def test_no_edit_no_step(self) -> None:
         self.can_edit = False
-        self.bridge._enter_edit("Doc", "Pad")
+        self.bridge._activation._enter_edit("Doc", "Pad")
         self.assertEqual(self.log[-1], ("close", True))
 
 

@@ -2,25 +2,10 @@ import QtQuick
 import Nxt.Controls
 import Nxt.Tree
 
-// Root of the Nxt model panel.
+// Root of the Nxt model panel: one list in creation order, sketches as
+// siblings of the features that use them.
 //
-// One list. A container's children are drawn in the order they were made,
-// so a Body reads as a record of the work: sketch, the feature that used
-// it, the next sketch, the next feature. Sketches are lifted out of the
-// feature that claims them and placed as siblings, because a consumer does
-// not own a sketch - the next feature may use the same one - and nesting
-// would file a sketch at the point it was first used rather than when it
-// was drawn.
-//
-// This replaced a two-pane layout with the sketches in a shelf below. The
-// shelf made reuse obvious and sequence impossible to see; since a sketch
-// is built on geometry that existed at one moment, sequence turned out to
-// be the thing worth showing. Reuse is now carried by the reference chips
-// on the consuming feature.
-//
-// Deliberately free of QtQuick.Controls: this widget is embedded in a host
-// whose Qt style we do not control, and the handful of primitives we need
-// are cheaper to draw than to restyle.
+// No QtQuick.Controls: the host QQuickWidget's style would reach them.
 Rectangle {
     id: root
     color: theme.canvas
@@ -29,22 +14,13 @@ Rectangle {
 
     readonly property int headerHeight: Math.round(theme.rowHeight * 1.25)
 
-    // The widest the header and a row's detail strip may grow: a share of
-    // the screen, so it adapts to resolution and follows the panel to
-    // another monitor, with a floor that keeps them usable on small
-    // screens. Screen.width is 0 until the panel is shown, so it waits.
+    // Header/detail-strip width cap; Screen.width is 0 until shown.
     readonly property real contentCap: Screen.width > 0
         ? Math.max(theme.headerMinWidth,
                    Screen.width * theme.headerMaxPercent / 100)
         : width
 
-    // Nxt's overlay (view_overlay.py): does a press at (x, y) land on
-    // something the panel draws? Asked for every press before it is
-    // delivered: a point on a pill, the header, a strip or a rollback bar
-    // is the panel's; anything else goes straight to the 3D view. Asked,
-    // not inferred from whether the scene accepted the press - a tap
-    // handler on a chip takes a press without accepting it, and the chip's
-    // click was lost to the model.
+    // Overlay hit test (view_overlay.py): is (x, y) the panel's or the 3D view's?
     function wantsPoint(x, y) {
         if (header.contains(header.mapFromItem(root, x, y)))
             return true;
@@ -70,16 +46,11 @@ Rectangle {
         return row.wantsPoint(r.x, r.y);
     }
 
-    // Nxt's overlay: the wheel over the panel scrolls the list (see
-    // view_overlay.py; the list itself takes no input there, so that the
-    // wheel elsewhere zooms the model). `angle` is in eighths of a degree,
-    // as Qt reports a wheel; `pixel` is a touchpad's own distance, if any.
+    // Overlay wheel (view_overlay.py). `angle` in eighths of a degree.
     property real wheelBoost: 1
     property double lastWheel: 0
 
     function scrollWheel(angle, pixel, paging) {
-        // Over a breadcrumb too long for its strip, the wheel scrolls the
-        // trail, as it does docked.
         if (breadcrumb.visible && breadcrumb.hovered && breadcrumb.overflows) {
             breadcrumb.scrollBy(pixel !== 0 ? pixel : angle / 120 * 40);
             return;
@@ -102,21 +73,21 @@ Rectangle {
                                                    treeList.contentY - step));
     }
 
-    // ================================================================ header
+    // -- header --
 
     TreeHeader {
         id: header
         objectName: "header"
         width: Math.min(parent.width, root.contentCap)
         height: root.headerHeight
-        // Above the list, so the search results can hang over it.
+        // Above the list, so search results can hang over it.
         z: 100
         ghost: ghost
         settingsOpen: root.settingsOpen
         onSettingsClicked: root.toggleSettings()
     }
 
-    // ================================================================== tree
+    // -- tree --
 
     Item {
         id: treePane
@@ -127,11 +98,7 @@ Rectangle {
         readonly property real overlayBarSpace:
             host.viewOverlay ? theme.scrollBarWidth : 0
 
-        // Docked, empty space below the rows is the document's top level:
-        // a row dropped there leaves its container. Beneath the list, so a
-        // row under the pointer is always the target first. Not in Nxt's
-        // overlay, where empty space is the model's - the header's name is
-        // the way there.
+        // Docked only: empty space below the rows is the document's top level.
         RootDropArea {
             anchors.fill: parent
             z: -1
@@ -154,17 +121,10 @@ Rectangle {
             flickableDirection: Flickable.VerticalFlick
             cacheBuffer: 400
             focus: true
-            // Up and Down are the panel's, not the list's: they move the
-            // selection, which the list's own key navigation does not.
             keyNavigationEnabled: false
-            // Inside the 3D view (Nxt's own overlay) the list does not
-            // take presses or drags on its empty space - they belong to
-            // the model behind, and reach it by propagation
-            // (view_overlay.py).
+            // In the overlay, empty-space presses belong to the model behind.
             interactive: !host.viewOverlay
 
-            // Ahead of the list's own wheel handling, which has no
-            // acceleration or paging.
             WheelHandler {
                 target: null
                 enabled: !host.viewOverlay
@@ -176,63 +136,40 @@ Rectangle {
                 }
             }
 
-            // Which row, if any, has opened a space under it for something
-            // being dragged. Two sources that cannot both be active - you
-            // are either dragging an object or dragging the bar - kept
-            // separate so neither has to clear the other's state.
             property int barGap: -1
             property int dropGap: -1
             readonly property int gapAfterRow: barGap >= 0 ? barGap : dropGap
-            // The rows being dragged, and whether the drag is a reorder
-            // within a Body (see the drag ghost below).
             property var dragSources: []
-            // A row kept where it is on screen while strips above it
-            // open and close (auto-show; see the bridge's rowHeld).
+            // See the bridge's rowHeld.
             property int heldRow: -1
             property real heldOffset: 0
             property bool reorderDrag: false
-            // The row a sliding drag would drop into, or -1.
             property int intoRow: -1
 
             delegate: TreeRow { dragGhost: ghost; detailCap: root.contentCap }
 
-            // One empty row after the last: scrolled to the end, the last
-            // row - and a rollback bar under it - is never jammed against
-            // the bottom edge.
             footer: Item {
                 width: treeList.width
                 height: theme.rowHeight
             }
 
-            // A translucent QQuickWidget composites over what is behind it,
-            // but changing content does not ask that surface to redraw - so
-            // without this, the previous frame's pills stay stranded in the
-            // transparent gaps until something unrelated repaints. Scrolling
-            // moves them; expanding a branch and resizing move them too, so
-            // every signal that can is wired up. The call is coalesced on
-            // the other side, so this is cheap.
+            // A translucent QQuickWidget does not repaint what is behind it when
+            // content moves; nudge it (coalesced host-side).
             onContentYChanged: if (theme.overlay) host.repaintBehind()
             onContentHeightChanged: if (theme.overlay) host.repaintBehind()
             onCountChanged: if (theme.overlay) host.repaintBehind()
             onHeightChanged: if (theme.overlay) host.repaintBehind()
         }
 
-        // The containers the top of the list is inside, once their rows
-        // have scrolled away: pinned over the top of the list.
         Breadcrumb {
             id: breadcrumb
             objectName: "breadcrumb"
             z: 50
-            // Docked it spans the panel, as the header's divider does; in
-            // Nxt's overlay it is a pill the width of the header's.
             width: theme.overlay ? header.width : parent.width
 
-            //: The row just under the strip, and every container of it.
             property int under: -1
             property var containers: []
 
-            // `changed`: the rows themselves did, so the same row number
-            // may be another object now.
             function refresh(changed) {
                 var at = treeList.indexAt(0, treeList.contentY + height);
                 if (at === under && !changed)
@@ -241,13 +178,11 @@ Rectangle {
                 containers = (at >= 0 && nxt.breadcrumb(at)) || [];
             }
 
-            // Only those out of sight: a container still on screen is
-            // its own heading. A row too far off to exist is out of sight.
+            // itemAtIndex is null for rows too far off to exist.
             crumbs: containers.filter(function (crumb) {
                 var item = treeList.itemAtIndex(crumb.row);
                 return item === null || item.y < treeList.contentY;
             })
-            // Under the strip, not behind it.
             onCrumbClicked: function (row) {
                 treeList.positionViewAtIndex(row, ListView.Beginning);
                 treeList.contentY = Math.max(treeList.originY,
@@ -267,9 +202,7 @@ Rectangle {
             }
         }
 
-        // Timeline bars, one per Body with a visible history. An overlay
-        // rather than list rows: rows are a uniform height, so a row's y is
-        // arithmetic, and the model stays a plain sequence of objects.
+        // Timeline bars: an overlay, not list rows.
         Item {
             id: tipLayer
             anchors.fill: parent
@@ -277,16 +210,14 @@ Rectangle {
             clip: true
             z: 5
 
-            // The bars ride with the rows: scrolling moves this one item,
-            // instead of re-placing every bar on every frame.
+            // Bars ride with the rows in content coordinates; scrolling moves one item.
             Item {
                 id: tipContent
                 y: -treeList.contentY
                 width: parent.width
                 height: treeList.contentHeight
 
-                // Advances every few rows scrolled, so bars re-measure
-                // rows the list has realised since.
+                // Bumps every few rows so bars re-read itemAtIndex (not reactive).
                 readonly property int realised:
                     Math.floor(treeList.contentY / (theme.rowHeight * 5))
 
@@ -296,10 +227,6 @@ Rectangle {
                 TimelineBar {
                     required property var modelData
 
-                    // Starts at the Body's indent, because it is a
-                    // position in that Body's history rather than a handle
-                    // attached to one row. Where it *ends* is the bar's own
-                    // business - see TimelineBar.
                     x: theme.rowPad + modelData.depth * theme.indent
                     body: modelData.body
                     pos: modelData.pos
@@ -308,7 +235,6 @@ Rectangle {
                     rowHeight: theme.rowHeight
                     list: treeList
                     fullWidth: treeList.width
-                    listContentY: 0
                     realised: tipContent.realised
                     listTopMargin: treeList.anchors.topMargin
                     visible: y + height >= treeList.contentY
@@ -321,7 +247,6 @@ Rectangle {
             }
         }
 
-        // The selection's dependencies, over the list's right edge.
         DependencyArrows {
             anchors.fill: treeList
             list: treeList
@@ -337,7 +262,6 @@ Rectangle {
             x: host.viewOverlay ? 0 : parent.width - width
         }
 
-
         Text {
             anchors.centerIn: parent
             visible: treeList.count === 0
@@ -348,46 +272,33 @@ Rectangle {
         }
     }
 
-    // ============================================================ drag ghost
+    // -- drag ghost --
 
     DragGhost {
         id: ghost
         list: treeList
     }
 
-    // ========================================================= context menu
+    // -- context menu --
 
     Component {
         id: contextMenuComponent
         ContextMenu {}
     }
 
-    // What the context menu opens from: a point, not a control. Under
-    // Wayland a menu in a window of its own is placed against the whole
-    // rectangle of the item it opens from - opened from the panel, it sat
-    // at the panel's bottom-left corner - so it opens from this one-pixel
-    // item, moved to the click first. See host.menuAnchorOffset().
+    // Wayland places a popup against its parent item's whole rect, so popups
+    // open from this 1px item. See host.menuAnchorOffset().
     Item {
         id: menuAnchor
         width: 1
         height: 1
     }
 
-    // Built afresh for each opening, from the selection as it is now:
-    // where the row was right-clicked, or under a row from the keyboard.
-    // The menu is a window of its own (see ContextMenu.qml).
-    // The gear's quick settings: one at a time, opened below the gear with
-    // its right edge on the gear's, from the same anchor the context menu
-    // uses (see menuAnchor).
     property bool settingsOpen: false
     property var settingsPopup: null
-    // When the popup last closed, in ms. A press on the gear while the
-    // popup is open closes it (a press outside it) before the gear's click
-    // arrives - and the click then opened it again. A click that lands
-    // just after a close is that same press, so it does not reopen.
+    // A gear press closes the popup before its click arrives; ignore that click.
     property double settingsClosedAt: 0
 
-    // The gear: open the settings, or close them if they are open.
     function toggleSettings() {
         if (settingsOpen) {
             if (settingsPopup)
@@ -433,8 +344,7 @@ Rectangle {
             return;
         var menu = contextMenuComponent.createObject(root);
         menu.load(data);
-        // Run once the menu has gone, so a command that opens a dialog or
-        // a task panel does not start underneath it.
+        // After the menu closes, so a dialog does not open beneath it.
         menu.chosen.connect(function (command) {
             Qt.callLater(function () { nxt.runMenuItem(command); });
         });
@@ -459,21 +369,11 @@ Rectangle {
             item.beginRename();
     }
 
-    // ============================================================= keyboard
+    // -- keyboard --
 
-    // Driven by the selection rather than by the list's currentIndex, so a
-    // key does the same thing wherever the row happens to be - and so it
-    // agrees with what the 3D view and the rest of FreeCAD consider current.
-    // A focused TextInput consumes these first, so typing a space into the
-    // search box or a rename field does not toggle anything.
-    // Space is also a FreeCAD shortcut (toggle visibility), and a shortcut
-    // is offered the key before the panel is: FreeCAD's command then ran
-    // in place of the handler below, without the Part Design handling in
-    // toggleSelectedVisibility. Claiming the key here keeps it for the
-    // panel while the panel has the keyboard.
-    // Home and End likewise: Home is FreeCAD's "home view".
+    // Space/Home/End are FreeCAD shortcuts, offered the key before the panel;
+    // claim them in shortcutOverride (a focused TextInput still gets them first).
     Keys.onShortcutOverride: function (event) {
-        // Escape during a drag cancels it, before any shortcut sees it.
         if (event.key === Qt.Key_Escape && ghost.Drag.active) {
             event.accepted = true;
             return;
@@ -497,7 +397,6 @@ Rectangle {
         } else if (event.key === Qt.Key_Menu
                    || (event.key === Qt.Key_F10
                        && (event.modifiers & Qt.ShiftModifier))) {
-            // Beside the row it is for, under its icon.
             var at = nxt.contextMenuRow();
             if (at >= 0) {
                 treeList.positionViewAtIndex(at, ListView.Contain);
@@ -508,8 +407,7 @@ Rectangle {
             }
             event.accepted = true;
         } else if (event.key === Qt.Key_Escape) {
-            // Only taken when it closed something, so Escape still
-            // reaches FreeCAD (clearing the selection) otherwise.
+            // Unaccepted otherwise, so FreeCAD can clear the selection.
             event.accepted = nxt.closeDetail() || isolation.leave();
         } else if (event.key === Qt.Key_Space) {
             nxt.toggleSelectedVisibility();
@@ -542,7 +440,7 @@ Rectangle {
         }
     }
 
-    // ====================================================== reveal plumbing
+    // -- bridge signals --
 
     Connections {
         target: nxt
@@ -564,7 +462,6 @@ Rectangle {
             if (row < 0)
                 return;
             var offset = treeList.heldOffset;
-            // After the rows have taken their new heights.
             Qt.callLater(function () {
                 var item = treeList.itemAtIndex(row);
                 if (!item)
@@ -576,7 +473,6 @@ Rectangle {
         function onRevealTreeRow(row) {
             treeList.positionViewAtIndex(row, ListView.Contain);
         }
-        // The inspector opens from the row, which knows where its own edge is.
         function onPropertyInspectorRequested(row) {
             treeList.positionViewAtIndex(row, ListView.Contain);
             var item = treeList.itemAtIndex(row);

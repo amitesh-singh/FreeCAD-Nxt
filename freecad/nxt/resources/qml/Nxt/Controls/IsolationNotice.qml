@@ -1,11 +1,6 @@
 import QtQuick
 
 // "Isolated: Pad   [Exit]" - the isolate mode's notice (isolate.py).
-//
-// Shown at the top centre of the 3D view (isolate_notice.py), sized to
-// its text and button: the view has width to spare. Drawn in
-// the theme, with an accent edge so it reads as a mode that is on rather
-// than as a message to dismiss.
 Rectangle {
     id: notice
 

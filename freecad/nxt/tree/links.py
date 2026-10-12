@@ -1,18 +1,7 @@
 """Dependency arrows: what the selected object reads, and what reads it.
 
-Worked out here as plain data, drawn in QML (DependencyArrows.qml): one
-entry per arrow, from row to row, in the gutter at the tree's right edge.
-Blue arrows come in from what the selection reads; purple arrows go out
-to what reads it - SolidWorks' parent/child colours. The line says what
-kind of link it is: solid for geometry, dotted for an attachment, dashed
-for an expression, dash-dot for a link or clone.
-
-Left out: links the tree already shows by nesting - a Part boolean's
-operands sit under it - since an arrow would only repeat the indent.
-
-A target inside a collapsed branch is drawn to the nearest row that is
-showing, its ancestor, and arrows landing on the same row are merged with
-a count. A target with no row at all (filtered out) is dropped.
+Plain data for DependencyArrows.qml. Links shown by nesting are skipped;
+hidden targets go to their nearest shown ancestor.
 """
 
 from __future__ import annotations
@@ -20,7 +9,6 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
-#: Property names that say what kind of link a reference is.
 _ATTACH = {"AttachmentSupport", "Support", "MapMode", "AttacherEngine"}
 _EXPRESSION = {"ExpressionEngine"}
 _LINK = {"LinkedObject", "Objects", "LinkedObjects"}
@@ -68,9 +56,8 @@ def arrows(snapshot: Any, name: str,
     if node is None or source < 0:
         return {"source": -1, "links": []}
 
-    raw: list[tuple[str, str, str]] = []        # (other, dir, kind)
+    raw: list[tuple[str, str, str]] = []
     for other, _label, _severity, _part in node.refs:
-        # `name` holds `other` as a nested operand: the indent says it.
         if snapshot.is_ancestor(other, name):
             continue
         entry = nodes.get(other)

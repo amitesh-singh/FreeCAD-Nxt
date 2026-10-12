@@ -1,16 +1,7 @@
 """Document and selection observers.
 
-Three separate FreeCAD observer channels feed the panel:
-
-    App observer   structure and data - objects created, deleted, relabelled,
-                   recomputed, undone.
-    Gui observer   view providers created and deleted, edit mode.
-    Selection      the global selection, which we mirror rather than own.
-
-None of them rebuild anything directly. They call `bridge.invalidate()`,
-which collapses a burst of a thousand signals during a recompute into one
-rebuild on the next event-loop turn. Selection is the exception: it is cheap
-and needs to feel instant, so it syncs synchronously.
+All call `bridge.invalidate()`, which coalesces bursts into one rebuild;
+selection syncs synchronously.
 """
 
 from __future__ import annotations
@@ -22,8 +13,7 @@ import FreeCADGui as Gui
 
 from ..core import log
 
-#: Property changes that cannot affect anything the panel draws. Skipping
-#: them keeps a Placement drag from queueing a rebuild on every mouse move.
+#: Undrawn properties; skipping them avoids rebuilds during drags.
 _IGNORED_PROPERTIES: frozenset[str] = frozenset({
     "Placement", "Shape", "_Body", "AttachmentOffset",
     "ExpressionEngine", "Proxy",
@@ -64,7 +54,6 @@ class _AppObserver(object):
         self._bridge.invalidate(icons=True)
 
     def slotStartSaveDocument(self, doc: Any, label: str) -> None:
-        # Before FreeCAD writes the file: it saves what is open.
         try:
             self._bridge.save_expansion(doc)
         except Exception:
@@ -78,11 +67,9 @@ class _GuiObserver(object):
     def __init__(self, bridge: Any) -> None:
         self._bridge = bridge
 
-    # No slotChangedObject: FreeCAD hands it each view provider as a Python
-    # object, and does so while the provider is still being constructed -
-    # which fixes its Python type at a base class for good (Assembly then
-    # lost isInEditMode, and with it sub-assemblies). Visibility arrives
-    # through the App observer, as the object's own Visibility property.
+    # No slotChangedObject: it converts view providers to Python mid-
+    # construction, fixing their type at a base class. Visibility comes
+    # via the App observer.
 
     def slotCreatedObject(self, vobj: Any) -> None:
         self._bridge.invalidate(icons=True)
@@ -104,8 +91,7 @@ class _SelectionObserver(object):
     def __init__(self, bridge: Any) -> None:
         self._bridge = bridge
 
-    # Adding to the selection from outside the panel is what reveals rows;
-    # removing and clearing only update them.
+    # Only adding reveals rows; removing and clearing just update them.
     def addSelection(self, doc: Any, obj: Any, sub: Any, pnt: Any) -> None:
         self._bridge.sync_selection()
         self._bridge.picked(str(doc), str(obj), str(sub or ""))
@@ -151,8 +137,6 @@ class Observers(object):
         except Exception:
             log.error("could not install selection observer")
             self._sel = None
-        # The services (services.py) do the 3D double-click edit whether
-        # or not the panel is open; the panel only adds the row reveal.
         try:
             from ..app import services
             live = services.start()

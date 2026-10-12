@@ -1,16 +1,7 @@
 import QtQuick
 
-// Find, not filter.
-//
-// Filtering a tree to show a match throws away the context that makes the
-// match meaningful, and leaves the user to undo the search before they can
-// carry on working. This searches instead: the tree is never touched, the
-// hits appear in a list under the field, and choosing one opens the path to
-// it, selects it and scrolls it into view.
-//
-// Results cover every object in the document, profiles included, and land
-// in the one list the panel now has - so a hit is always somewhere the user
-// can be taken to.
+// Find, not filter: hits list under the field, and choosing one reveals
+// and selects it in the untouched tree.
 Item {
     id: box
 
@@ -30,11 +21,7 @@ Item {
         var target = box.results[index].name;
         box.open = false;
 
-        // Deferred, because this is reached from a result delegate's tap
-        // handler and clearing the query empties the Repeater's model -
-        // destroying that very delegate. Destroying an object while one of
-        // its signal handlers is on the stack calls qFatal in QML, which
-        // aborts the process rather than merely warning.
+        // Deferred: clearing destroys the delegate whose handler is running (qFatal).
         Qt.callLater(function () {
             field.text = "";
             box.chosen(target);
@@ -66,7 +53,7 @@ Item {
         onAccepted: box.choose(box.current)
         onDismissed: {
             if (box.open) {
-                box.open = false;       // first Escape closes the results
+                box.open = false;
             } else {
                 field.text = "";
                 field.input.focus = false;
@@ -74,8 +61,7 @@ Item {
         }
     }
 
-    // Closing on focus loss has to lag slightly, or clicking a result
-    // dismisses the list before the tap is delivered to it.
+    // Lags so a click on a result lands before the list closes.
     Timer {
         id: closer
         interval: 150
@@ -159,8 +145,6 @@ Item {
                     Text {
                         width: parent.width
                         visible: text.length > 0
-                        // A hoisted sketch has no path in the tree, so say
-                        // which half it is in rather than showing nothing.
                         text: modelData.isProfile
                               ? (modelData.context.length > 0
                                  ? qsTr("profile in %1").arg(modelData.context)

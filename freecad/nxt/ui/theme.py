@@ -1,7 +1,6 @@
 """Colours and metrics for the panel, taken from the stock tree view.
 
-Not from `QApplication.palette()`: that follows the desktop theme and
-knows nothing about FreeCAD's stylesheet. See DESIGN.md.
+Not from `QApplication.palette()`: that ignores FreeCAD's stylesheet.
 """
 
 from __future__ import annotations
@@ -29,8 +28,7 @@ PARENT_HUE = QtGui.QColor(66, 139, 230)
 CHILD_HUE = QtGui.QColor(168, 92, 214)
 ARROW_MIX = 0.85
 
-#: A severity mark cuts its interior glyph out in whichever of these
-#: contrasts with the fills, decided once against their mean lightness.
+#: Severity mark glyph ink, chosen against the fills' mean lightness.
 MARK_INK_PIVOT = 165
 MARK_INK_ON_DARK = QtGui.QColor(255, 255, 255)
 MARK_INK_ON_LIGHT = QtGui.QColor(28, 28, 28)
@@ -39,14 +37,11 @@ PILL_ALPHA = 0.88
 PILL_HOVER_ALPHA = 0.94
 PILL_BORDER_ALPHA = 0.14
 
-#: The glyphs the panel draws itself - expand arrows, the tip bar - are
-#: the text colour taken this far towards whatever is behind them, so they
-#: read on a light theme and a dark one without shouting over the labels.
+#: Drawn glyphs are the text colour mixed this far towards what is behind.
 BRANCH_MIX = 0.3
 BRANCH_ON_DARK = QtGui.QColor(235, 235, 235)
 BRANCH_ON_LIGHT = QtGui.QColor(30, 30, 30)
-#: FreeCAD's own defaults for the 3D view's background, for a profile that
-#: has never saved them.
+#: FreeCAD's default 3D view background colours.
 VIEW_SIMPLE = 3940932863
 VIEW_TOP = 859006463
 VIEW_BOTTOM = 2880154879
@@ -54,9 +49,7 @@ VIEW_BOTTOM = 2880154879
 #: Metrics, as a fraction of the row height unless named otherwise.
 MIN_ROW_HEIGHT = 20
 ROW_TEXT_PADDING = 8
-#: Space around a row's text, by the RowDensity preference. Everything else
-#: in a row - icon, marks, fonts, chips - is a share of the row's height,
-#: so this one number scales them all.
+#: Padding around a row's text by RowDensity; it scales everything else.
 ROW_PADDING_BY_DENSITY = {"compact": 3, "normal": ROW_TEXT_PADDING,
                           "roomy": 14}
 INDENT = 14
@@ -84,10 +77,8 @@ def _with_alpha(colour: QtGui.QColor, alpha: float) -> QtGui.QColor:
     return out
 
 
-#: Least lightness gap between text and background that still reads. Below
-#: it the palette is not describing what is on screen - a stylesheet theme
-#: such as FreeCAD Light paints the stock tree itself and can leave the
-#: widget palette black on black.
+#: Least readable lightness gap. A stylesheet theme (FreeCAD Light) can
+#: leave the widget palette black on black.
 MIN_CONTRAST = 90
 
 
@@ -128,14 +119,7 @@ VIEW_BACKGROUND_KEYS = frozenset({
 
 
 class ViewBackgroundWatch:
-    """Calls back when the 3D view's background preference changes.
-
-    Overlay ink (expand arrows, the tip bar, tree lines) is chosen to show
-    against that background, which used to be read only when the theme
-    next refreshed: change the background in FreeCAD's preferences and the
-    ink stayed tuned to the old one until a Reload. A parameter observer
-    on FreeCAD's View group, kept attached while the panel lives.
-    """
+    """Calls back when the 3D view's background preference changes."""
 
     def __init__(self, callback: Any) -> None:
         self._callback = callback
@@ -163,11 +147,7 @@ class ViewBackgroundWatch:
 
 
 def _view_background() -> QtGui.QColor | None:
-    """The 3D view's background, averaged down its gradient.
-
-    What the drawn glyphs sit on in overlay mode, where the panel paints
-    nothing behind them.
-    """
+    """The 3D view's background, averaged down its gradient."""
     try:
         import FreeCAD as App
         view = App.ParamGet(TOKEN_GROUP)
@@ -198,9 +178,8 @@ def _sample(window: QtWidgets.QWidget,
             viewport: QtWidgets.QWidget) -> QtGui.QColor | None:
     """The colour at `viewport`'s empty bottom corner, drawn by `window`.
 
-    Grabbed through the window rather than the viewport: the viewport is
-    transparent and a stylesheet can paint its background on an ancestor,
-    so a grab of the viewport alone comes back black.
+    Grabbed via the window: a stylesheet may paint an ancestor, and the
+    transparent viewport alone grabs black.
     """
     size = viewport.size()
     if size.width() < 4 or size.height() < 4:
@@ -216,11 +195,7 @@ def _sample(window: QtWidgets.QWidget,
 
 
 def _painted_base(widget: Any) -> QtGui.QColor | None:
-    """The background the stock tree is actually drawn with, or None.
-
-    Only while it is on screen: the fallback when the stylesheet does not
-    say, or says it in a way `qss_colours` cannot read.
-    """
+    """The stock tree's on-screen background, or None if not visible."""
     try:
         viewport = widget.viewport() if widget is not None else None
         if viewport is None or not viewport.isVisible():
@@ -240,12 +215,7 @@ def _mix(a: QtGui.QColor, b: QtGui.QColor, t: float) -> QtGui.QColor:
 
 def find_reference_widget(
         main_window: QtWidgets.QWidget | None) -> QtWidgets.QWidget | None:
-    """The best available stand-in for 'a styled tree in this application'.
-
-    Order matters: the stock tree carries the stylesheet rules written for
-    trees specifically, which is what we want to match. Anything else is a
-    consolation prize.
-    """
+    """The stock tree (or nearest item view) to take styling from."""
     if main_window is None:
         return None
     for cls in (QtWidgets.QTreeWidget, QtWidgets.QTreeView,
@@ -253,10 +223,8 @@ def find_reference_widget(
         for widget in main_window.findChildren(cls):
             if widget.isVisible() or widget.parent() is not None:
                 return widget
-    # None rather than the main window: at startup the stock tree may not
-    # exist yet, and returning something that merely works lets the panel
-    # settle for it forever. None means "ask again later", and the Theme
-    # falls back to the application palette in the meantime.
+    # Not the main window: at startup the tree may not exist yet; None
+    # means "ask again later".
     return None
 
 
@@ -264,9 +232,7 @@ class Theme(QtCore.QObject):
 
     changed = QtCore.Signal()
 
-    #: Overlay mode: the panel floats over the 3D view with no background of
-    #: its own. Presentation state, so it lives here rather than on the
-    #: bridge - and every delegate already sees `theme`.
+    #: Overlay mode: the panel floats over the 3D view with no background.
     _overlay = False
 
     def __init__(self, parent: QtCore.QObject | None = None,
@@ -343,10 +309,7 @@ class Theme(QtCore.QObject):
     def _rebuild(self) -> None:
         """Compute every colour once, on refresh.
 
-        Not on every read. These are bound from delegates, so a getter that
-        mixes a fresh QColor each time is re-run for every row on every
-        binding evaluation - and QML reported the churn as a binding loop on
-        `color`, which it is not far from being.
+        Per-read getters re-ran for every row and QML reported a binding loop.
         """
         widget = self._widget_palette.color(QtGui.QPalette.ColorGroup.Active,
                                             QtGui.QPalette.ColorRole.Window)
@@ -355,11 +318,7 @@ class Theme(QtCore.QObject):
         text = self._widget_palette.color(QtGui.QPalette.ColorGroup.Active,
                                           QtGui.QPalette.ColorRole.Text)
         if self._painted is not None:
-            # What the stylesheet says (or the stock tree shows) beats what
-            # the palette says: a stylesheet theme paints over the palette
-            # without changing it. Text from the stylesheet if it sets one,
-            # else the palette's if it reads, else the far end of the
-            # lightness range.
+            # A stylesheet paints over the palette without changing it.
             base = self._painted
             if self._qss_text is not None:
                 text = self._qss_text
@@ -389,9 +348,7 @@ class Theme(QtCore.QObject):
         self._text = text
         self._accent = accent
         self._accentText = accent_text
-        # Text links use the palette's Link role, as Qt's own labels do; the
-        # Highlight role is a fill for selected text to sit on, and as text
-        # on the panel's background it can be too faint to read.
+        # Link, not Highlight: Highlight is a fill and too faint as text.
         self._link = self._widget_palette.color(
             QtGui.QPalette.ColorGroup.Active, QtGui.QPalette.ColorRole.Link)
         self._dark = base.lightness() < DARK_LIGHTNESS
@@ -404,21 +361,14 @@ class Theme(QtCore.QObject):
         self._danger = _mix(base, DANGER_HUE, SEVERITY_MIX)
         self._arrowIn = _mix(base, PARENT_HUE, ARROW_MIX)
         self._arrowOut = _mix(base, CHILD_HUE, ARROW_MIX)
-        # What a severity mark cuts its interior glyph out in. It has to
-        # contrast with the warning and danger fills rather than with the
-        # panel, because in overlay mode the panel has no colour at all -
-        # binding this to the canvas would erase the glyph exactly when the
-        # background behind it is least predictable. Both fills are mid-tone
-        # and saturated, so the readable choice is the far end of the
-        # lightness range from them, not from the theme.
+        # Contrast with the severity fills, not the panel: in overlay mode
+        # the panel has no colour.
         severity_lightness = (self._warning.lightness() +
                               self._danger.lightness()) / 2
         self._markInk = (MARK_INK_ON_DARK
                          if severity_lightness < MARK_INK_PIVOT
                          else MARK_INK_ON_LIGHT)
 
-        # The drawn glyphs sit on the panel when docked and on the 3D view
-        # in an overlay, so that is what they have to stand out from.
         behind = base
         if self._overlay and self._view_background is not None:
             behind = self._view_background
@@ -428,26 +378,15 @@ class Theme(QtCore.QObject):
                    else BRANCH_ON_LIGHT)
         self._branchInk = _mix(ink, behind, BRANCH_MIX)
 
-        # Overlay backdrops. Per-row rather than panel-wide, which is what
-        # keeps text legible over a dark model and a pale background in the
-        # same frame - the scrim sits exactly where the text is and nowhere
-        # else. Derived from the palette so it inverts with the stylesheet
-        # instead of being a hard-coded white.
+        # Per-row overlay scrims keep text legible over any 3D background.
         self._pill = _with_alpha(base, PILL_ALPHA)
         self._pillHover = _with_alpha(_mix(base, accent, HOVER_MIX),
                                       PILL_HOVER_ALPHA)
         self._pillBorder = _with_alpha(text, PILL_BORDER_ALPHA)
-        # Nothing behind the panel in overlay mode; the 3D view is the
-        # backdrop. Kept as a colour rather than a flag so QML can bind it.
         self._canvasColor = (QtGui.QColor(0, 0, 0, 0) if self._overlay
                              else QtGui.QColor(base))
 
-        # Metrics are cached here for the same reason the colours are, and
-        # it matters more: a row height derived on every read built a
-        # QFontMetrics per binding evaluation, and `rowHeight` is read a
-        # dozen times per row - so a relayout of twenty visible rows
-        # constructed a few hundred of them, sixty times a second while the
-        # timeline bar was moving. That is what made the drag stutter.
+        # Cached: a QFontMetrics per binding read made timeline drags stutter.
         self._rowHeight = self._measure_row_height()
         self._tipGutter = max(MIN_TIP_GUTTER,
                               _scaled(self._rowHeight, TIP_GUTTER_RATIO))
@@ -505,11 +444,7 @@ class Theme(QtCore.QObject):
 
     @QtCore.Property(QtGui.QColor, notify=changed)
     def surface(self) -> QtGui.QColor:
-        """A half step away from the canvas, for surfaces.
-
-        A half step away from the canvas, for anything that needs to
-        read as a surface laid on the panel rather than part of it.
-        """
+        """A half step away from the canvas, for surfaces."""
         return self._surface
 
     @QtCore.Property(QtGui.QColor, notify=changed)
@@ -544,11 +479,7 @@ class Theme(QtCore.QObject):
 
     @QtCore.Property(QtGui.QColor, notify=changed)
     def hover(self) -> QtGui.QColor:
-        """Pre-selection tint.
-
-        A quarter of the way to the selection colour: clearly present
-        while scanning, clearly not a selection.
-        """
+        """Pre-selection tint, a quarter of the way to the selection."""
         return self._hover
 
     @QtCore.Property(QtGui.QColor, notify=changed)
@@ -573,11 +504,7 @@ class Theme(QtCore.QObject):
 
     @QtCore.Property(QtGui.QColor, notify=changed)
     def canvas(self) -> QtGui.QColor:
-        """What the panel paints behind everything.
-
-        What the panel paints behind everything - the base colour when
-        docked, fully transparent in overlay mode.
-        """
+        """Panel background: base when docked, transparent in overlay."""
         return self._canvasColor
 
     @QtCore.Property(QtGui.QColor, notify=changed)
@@ -650,11 +577,7 @@ class Theme(QtCore.QObject):
 
     @QtCore.Property(int, notify=changed)
     def rowPad(self) -> int:
-        """Left inset before the first slot.
-
-        Shared with the timeline bar, which has to land on the same
-        grid as the rows.
-        """
+        """Left inset before the first slot; shared with the timeline bar."""
         return ROW_PAD
 
     @QtCore.Property(int, notify=changed)
@@ -663,15 +586,9 @@ class Theme(QtCore.QObject):
 
     @QtCore.Property(int, notify=changed)
     def tipGutter(self) -> int:
-        """Slot reserved on every row for the tip marker.
+        """Slot on every row for the tip marker, before the disclosure.
 
-        It sits between the indentation and the disclosure triangle.
-
-        On every row, not just a Body's features: reserving it selectively
-        would indent the feature rows relative to their siblings, and in a
-        tree an x offset reads as depth. Its own slot rather than sharing
-        the disclosure's, because a MultiTransform is both a stack member
-        and a parent, so one row can need the marker and the expander at
-        once.
+        On every row, since an x offset reads as depth; separate from the
+        disclosure since a MultiTransform row can need both.
         """
         return self._tipGutter

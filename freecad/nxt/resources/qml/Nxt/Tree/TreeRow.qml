@@ -2,19 +2,8 @@ import QtQuick
 import QtQuick.Controls.Basic
 import Nxt.Controls
 
-// One row of the panel.
-//
-// Indentation is drawn, not structural: the model hands us a depth and we
-// offset. That is what lets a sketch be lifted out of the feature that
-// claims it and placed beside that feature instead - the row does not know
-// it was ever nested, it only knows its depth.
-//
-// A row is two parts stacked: the line itself, which is always exactly one
-// row high, and a detail strip below it that is closed almost always. The
-// line has to stay a fixed height for the timeline bar to be able to land
-// between two of them; the strip is allowed to make the delegate taller,
-// which is why the bar asks the list where a row is rather than
-// multiplying an index by a row height.
+// One row of the panel: a fixed-height line plus an optional detail strip.
+// Indentation comes from depth only, so lifted sketches need no nesting.
 Item {
     id: row
 
@@ -48,22 +37,14 @@ Item {
     required property var branches
     required property int activeFrom
 
-    // The feature that made the face just picked in the 3D view, when that
-    // is not the selected object - the tip, for a face on a Body's solid.
-    // Outlined in the accent colour, over a hover-coloured fill, until the
-    // selection changes: marked, not selected, because the selection is
-    // FreeCAD's and is the face.
+    // Feature that made the face picked in the 3D view; outlined, not selected.
     readonly property bool pickOrigin: nxt.pickOrigins.indexOf(row.name) >= 0
 
     property Item dragGhost
     property bool dropTarget: false
     property bool renaming: false
 
-    // Opens the Property Inspector level with this row. Docked, beside the
-    // dock's border (-1 says so). In the 3D view there is no dock to stand
-    // beside and the panel draws above the inspector, so it opens clear of
-    // the widest pill on screen: beside this row's own pill it could still
-    // lie under a longer neighbour.
+    // Docked: beside the dock border (-1). In the 3D view: clear of the widest pill.
     function openInspector() {
         var corner = row.mapToGlobal(0, 0);
         var left = -1;
@@ -78,18 +59,10 @@ Item {
         }
         nxt.openPropertyInspector(row.name, left, corner.y);
     }
-    //: Widest the detail strip may grow, shared with the panel header.
     property real detailCap: width
 
-    // A click on the label of a row that is already the selection starts a
-    // rename - the file-manager gesture, and the one thing a single click
-    // can mean on a row that is already selected. It cannot fire on the
-    // click that *made* the selection, or a row could never be selected by
-    // its name without going into an edit box.
-    //
-    // Deferred by the platform's double-click interval, because a double
-    // click opens the object and its first half looks exactly like this.
-    // Whichever arrives first wins, and a drag cancels it outright.
+    // Click on an already-selected label renames, deferred past the
+    // double-click interval so a double click (open) wins.
     Timer {
         id: renameDelay
         interval: Application.styleHints.mouseDoubleClickInterval + 20
@@ -99,9 +72,7 @@ Item {
     function armRename() { renameDelay.restart(); }
     function disarmRename() { renameDelay.stop(); }
 
-    // Hit-tested against the label's *glyphs* rather than its box, which
-    // runs most of the width of the row. Clicking the empty space beside a
-    // short name is not clicking the name.
+    // Hit-tests the label's glyphs, not its box.
     function overGlyphs(x, y) {
         var local = title.mapFromItem(head, x, y);
         var glyphs = Math.min(title.width, title.contentWidth);
@@ -109,12 +80,8 @@ Item {
             && local.y >= 0 && local.y <= title.height;
     }
 
-    // Losing the selection cancels a pending rename: it was armed because
-    // this row was the selection, and it no longer is.
-    // And ends one that is open, keeping what was typed - as clicking
-    // away from a name being edited does in a file manager. The box
-    // closing itself relies on it losing the keyboard, which it does not
-    // when it never had it.
+    // Losing selection cancels a pending rename and commits an open one:
+    // the box may never have had keyboard focus to lose.
     onSelectedChanged: {
         if (!row.selected) {
             row.disarmRename();
@@ -122,8 +89,7 @@ Item {
         }
     }
 
-    // Rename edits Label, never Name: Name is the immutable identifier every
-    // link in the document is written against.
+    // Edits Label, never Name (the immutable link identifier).
     function beginRename() {
         renameInput.text = row.label;
         row.renaming = true;
@@ -140,40 +106,25 @@ Item {
     }
 
     function cancelRename() {
-        // Clears the flag first, so the focus loss that follows finds
-        // nothing left to commit.
+        // Clear first so the following focus loss commits nothing.
         row.renaming = false;
     }
 
     width: ListView.view ? ListView.view.width : 280
     implicitHeight: head.height + (showDetail ? detail.height : 0) + gap
 
-    // Where this row's overlay pill ends, for anything that has to line up
-    // with it from outside the list - the timeline bar, which is not a row
-    // and so cannot anchor to one.
     readonly property real pillRight: theme.overlay
                                     ? tail.x + tail.width + 5
                                     : head.width
 
-    // ------------------------------------------------------------- the gap
-
-    // While something is being dragged, the row it would land under opens a
-    // little. A drop target outline says *which* row; the gap says where the
-    // thing in your hand is going to end up, which is the question actually
-    // being asked mid-drag. Animated, because an instant jump reads as the
-    // list twitching rather than as a space being made.
+    // -- drag gap --
     readonly property bool gapBelow: ListView.view
                                      && ListView.view.gapAfterRow === row.index
-    // A reorder within a Body opens a whole row's height: the dragged row
-    // itself is on its way into that space. Any other drop only hints.
     readonly property int dragGapHeight:
         ListView.view && ListView.view.reorderDrag
             ? theme.rowHeight : Math.round(theme.rowHeight * 0.55)
-    // This row is the one in your hand: it stays where it was, faded, as a
-    // reminder of where it came from, while its image follows the pointer.
     readonly property bool dragSource:
         ListView.view && ListView.view.dragSources.indexOf(row.name) >= 0
-    // A sliding drag will drop *into* this row (NxtTree.qml's ghost).
     readonly property bool slideInto: ListView.view
                                       && ListView.view.intoRow === row.index
     property real gap: 0
@@ -183,10 +134,7 @@ Item {
         NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
     }
 
-    // What the gutter mark says. Four states, four silhouettes - see
-    // SeverityMark. A sketch that is merely under-constrained gets the
-    // quietest of them, because that is the state most sketches are in
-    // most of the time and it is not a fault.
+    // Under-constrained sketches get the quietest mark: it is not a fault.
     readonly property int markLevel: {
         if (row.severity >= 2) return 3;
         if (row.severity >= 1) return 2;
@@ -195,20 +143,11 @@ Item {
         return 0;
     }
 
-    // A clean sketch has nothing to flag, but it still has a detail strip
-    // worth opening - it is where the list of features using it lives. So
-    // the mark's slot stays clickable and shows a faint ring on hover.
-    //
-    // Asked of the strip rather than worked out again here. Duplicating the
-    // condition is what put a mark on a row whose strip then opened empty:
-    // the mark said "this row has consumers", the strip said "only lifted
-    // rows list consumers", and a feature is never lifted.
+    // Asked of the strip so the mark never promises an empty strip.
     readonly property bool hasDetail: content.hasContent
     readonly property bool showDetail: row.detailOpen && row.hasDetail
 
-    // Does this row's failure belong to one of its profiles? If so the chip
-    // carries the red and the label stays normal - reddening the feature's
-    // own name blames it for something it did not do.
+    // A failure owned by a profile reddens the chip, not the label.
     readonly property bool blamedOnProfile: {
         if (!row.inError || !row.refs)
             return false;
@@ -218,12 +157,9 @@ Item {
         return false;
     }
 
-    // Nxt's overlay (view_overlay.py): does this point, in the row, land on
-    // something the row draws - its expand arrow, its pill, or its open
-    // detail strip? If not, a press there belongs to the 3D view behind.
+    // Overlay hit test (view_overlay.py): misses fall through to the 3D view.
     function wantsPoint(px, py) {
         if (py < head.height) {
-            // The arrow sits outside the pill, to its left.
             var left = row.hasChildren ? expander.x : row.pillLeft;
             return px >= left - 2 && px <= row.pillRight + 2;
         }
@@ -231,9 +167,6 @@ Item {
                && px <= detail.width - 8;
     }
 
-    // The row's hover controls - the eye, the status mark's ring - show
-    // for the pointer, and for the keyboard: on the row the keyboard is
-    // on, while the list has the keyboard.
     readonly property bool showControls: hover.hovered
         || (row.ListView.isCurrentItem && row.ListView.view !== null
             && row.ListView.view.activeFocus)
@@ -242,10 +175,7 @@ Item {
         isolation.isActive && !isolation.keptNames[row.name]
 
     readonly property int leftPad: theme.rowPad + depth * theme.indent
-    // The detail strip lines up with the row's pill, so it reads as part of
-    // it. Past two levels deep it stops following the indent - a narrow
-    // dock cannot spare the width - and a tick under the pill keeps the
-    // two joined.
+    // Strip follows the indent only two levels deep; a tick marks the pill.
     readonly property int detailIndentCap: 2
     readonly property real pillLeft: icon.x - 5
     readonly property real detailLeft:
@@ -254,9 +184,6 @@ Item {
     readonly property int guideOffset: Math.round(theme.rowHeight * 0.3)
 
     readonly property var shownRefs: {
-        // Which ones is a preference (theme.chipMode): only those with a
-        // problem, as it was designed; every one; or none, leaving the
-        // detail strip to name them.
         var out = [];
         if (!row.refs || theme.chipMode === "none")
             return out;
@@ -267,7 +194,7 @@ Item {
         return out;
     }
 
-    // -- tooltips (NxtToolTip): what each control on the row says ---------
+    // -- tooltips --
 
     function refTip(ref) {
         var lines = [ref.label + (ref.label !== ref.name
@@ -321,11 +248,9 @@ Item {
         return ref.sub.length > 0 ? ref.label + ":" + ref.sub : ref.label;
     }
 
-    //: Beyond this many characters a name stops being shown and the chip
-    //: falls back to its icon. Whole name or clean icon, never a fragment:
-    //: an elided name costs the width *and* still makes you hover.
+    //: Longer names show as an icon chip; never elided.
     readonly property int chipTextLimit: 16
-    //: Below this the row has no width to spare whatever the name is.
+    //: Width below which chips are icons.
     readonly property int chipTextFloor: 240
 
     readonly property bool compactChips: {
@@ -338,12 +263,8 @@ Item {
     }
     readonly property int chipLimit: row.compactChips ? 6 : 1
 
-    // ================================================================= line
+    // -- line --
 
-    // Connector lines, behind everything and the full height of the row,
-    // detail strip included, so they run unbroken from row to row. Over
-    // the 3D view they take the ink the expand arrows use, which is
-    // chosen to show against the view's background.
     TreeLines {
         visible: theme.showTreeLines
         anchors.fill: parent
@@ -362,24 +283,11 @@ Item {
         id: head
         width: parent.width
         height: theme.rowHeight
-        // Dimmed while isolating (isolate.py) if out of view: still there
-        // to read and pick, clearly not what the 3D view is showing.
         opacity: (row.dragSource ? 0.3 : 1.0)
                  * (row.isolatedOut ? 0.45 : 1.0)
 
-        // Never animate a colour to or from "transparent". That value is
-        // transparent *black*, so ColorAnimation interpolates through
-        // semi-opaque black and the row flashes a grey bar on its way in
-        // and out - visible on two rows at once while one fades in and the
-        // other fades out. Keep the fill colour solid and animate opacity.
-        //
-        // Docked, this is the row's selection/hover wash and spans the
-        // width. In overlay mode it is the row's *backdrop* and wraps only
-        // the content, which is what keeps a floating panel readable over
-        // an arbitrary model: the scrim exists where the text is and
-        // nowhere else, so the disclosure arrows sit on bare transparency
-        // and the whole thing reads as labels rather than a translucent
-        // sheet.
+        // Never animate to/from "transparent" (transparent black flashes grey):
+        // keep the colour solid and animate opacity.
         Rectangle {
             id: fill
             y: 1
@@ -409,10 +317,8 @@ Item {
             Behavior on color { ColorAnimation { duration: 70 } }
         }
 
-        // A brief glow over the row when it was just picked in the 3D view
-        // and scrolled into sight: says "here it is" after the list moved.
-        // Over the fill rather than a change to it, so the selection colour
-        // underneath is never animated.
+        // Glow after a 3D pick scrolls the row into view; overlaid so the
+        // selection colour is never animated.
         Rectangle {
             id: flash
             x: fill.x
@@ -447,10 +353,7 @@ Item {
             }
         }
 
-        // Drop feedback rides on its own outline so it stays visible while
-        // the fill is faded out - during a drag the pointer is grabbed by
-        // the source row, so this row is a drop target without being
-        // hovered.
+        // Own outline: the drop target is not hovered while the source holds the grab.
         Rectangle {
             anchors.fill: fill
             radius: fill.radius
@@ -460,9 +363,7 @@ Item {
             border.color: theme.accent
         }
 
-        // A hairline guide per ancestor level, so deep nesting stays
-        // readable. Suppressed in overlay mode - a rule drawn across the 3D
-        // view reads as part of the model, not as part of the panel.
+        // Ancestor guides; hidden in overlay, where they read as model geometry.
         Repeater {
             model: theme.overlay || theme.showTreeLines ? 0 : row.depth
             Rectangle {
@@ -476,16 +377,11 @@ Item {
             }
         }
 
-        // ------------------------------------------------- the active mark
+        // -- active mark --
 
         Rectangle {
             objectName: "activeMark"
             visible: row.isActive
-            // Outside the row's own indent when docked, so it tracks a Body
-            // nested in a Part instead of floating at the panel edge. In
-            // overlay mode it moves just inside the pill, for the reason
-            // the spine does: a rule drawn on bare transparency over the
-            // 3D view reads as part of the model.
             x: theme.overlay ? icon.x - 3 : Math.max(1, row.leftPad - 4)
             y: 2
             width: 3
@@ -494,26 +390,11 @@ Item {
             color: theme.accent
         }
 
-        // ------------------------------------------------------- the spine
-
-        // The Body's history, drawn as a line down its children: solid
-        // where the model is built, dashed past the rollback bar. This is
-        // the non-colour half of the rolled-back state. Dimming alone is a
-        // brightness difference, which is the cue that survives worst -
-        // a dashed line and a solid line are different shapes, and stay
-        // different in a greyscale screenshot or at a glance.
+        // -- spine: solid where built, dashed past the rollback bar --
         Item {
             id: spine
-            // Docked, the spine runs down the panel's own gutter and reads
-            // as one continuous line through the Body. In overlay mode
-            // there is no continuity to draw - the rows are separate pills
-            // over the 3D view, and a line in the gutter would float on
-            // bare transparency and read as part of the model. So it moves
-            // inside the pill's left edge and appears only where it is
-            // saying something: on the rows past the bar. Losing the
-            // rolled-back cue entirely in overlay mode would leave that
-            // state carried by dimming alone, which is the one cue this
-            // panel does not rely on by itself.
+            // In overlay only past the bar, inside the pill, so rollback
+            // is not carried by dimming alone.
             visible: row.bodyName !== "" && (!theme.overlay || row.afterTip)
             x: theme.overlay ? icon.x - 3
                              : row.leftPad + Math.round(theme.tipGutter * 0.45)
@@ -527,8 +408,7 @@ Item {
                 opacity: 0.45
             }
 
-            // Dashes, drawn as segments rather than with a dash pattern so
-            // this costs one Repeater and no Canvas per row.
+            // Segments rather than a Canvas per row.
             Repeater {
                 model: row.afterTip ? 3 : 0
                 Rectangle {
@@ -566,14 +446,7 @@ Item {
             height: width
             sourceSize.width: width * 2
             sourceSize.height: width * 2
-            // Hidden: gray as well as faded, so the state survives a
-            // theme where the fade is hard to tell apart. Served gray by
-            // the icon provider (icons.py). A Body's features too: the
-            // one whose solid is on screen is the one drawn in full,
-            // which is the tip unless the eye has picked another.
             source: row.iconUrl + (!row.objectVisible ? "/gray" : "")
-            // Past the rollback bar a row is fainter still: it had not
-            // been built yet at the moment the bar is showing.
             opacity: row.afterTip ? 0.32
                    : row.objectVisible ? 1.0 : 0.38
             Behavior on opacity { NumberAnimation { duration: 110 } }
@@ -598,14 +471,10 @@ Item {
             visible: !row.renaming
             anchors.verticalCenter: parent.verticalCenter
             x: icon.x + icon.width + 6
-            // Never reads `tail.x` (which depends on this width in overlay
-            // mode) nor its own `implicitWidth` (which an elided Text
-            // re-emits on every width change). Both loop on a mode switch.
+            // Must not read tail.x or implicitWidth: binding loop on mode switch.
             width: theme.overlay
                  ? Math.min(labelMetrics.advanceWidth,
                             Math.max(40, head.width - x - 110),
-                            // Inside the 3D view the panel spans the view:
-                            // a name gets its own width, up to half of it.
                             host.viewOverlay ? Math.max(40, head.width / 2)
                                              : Infinity)
                  : Math.max(0, head.width - x - tail.width - 16)
@@ -620,8 +489,6 @@ Item {
                  : row.objectVisible ? theme.text
                  : theme.textDim
 
-            // Only when there is more to say than the row already shows:
-            // a name cut short, or an internal name unlike the label.
             HoverHandler { id: titleHover }
             NxtToolTip {
                 shown: titleHover.hovered
@@ -646,8 +513,6 @@ Item {
             visible: row.renaming
             anchors.verticalCenter: parent.verticalCenter
             x: title.x
-            // In an overlay the line runs across the 3D view: the field
-            // takes the name's room and a little more, not all of it.
             width: theme.overlay
                  ? Math.min(head.width - x - 10,
                             Math.max(160, labelMetrics.advanceWidth + 48))
@@ -663,12 +528,9 @@ Item {
             Keys.onEscapePressed: row.cancelRename()
         }
 
-        // ---------------------------------------------- chips and gutter
+        // -- chips and gutter --
 
-        // The right-hand group, positioned as a whole. `x` is assigned
-        // rather than anchored, so switching modes moves it instead of
-        // rebuilding its anchor graph - and nothing inside is ever
-        // re-anchored.
+        // x assigned, not anchored, so a mode switch never re-anchors.
         Item {
             id: tail
             y: 0
@@ -684,10 +546,6 @@ Item {
                 anchors.left: parent.left
                 spacing: 3
 
-                // Says the container is the active one, in a word: the
-                // bar at the row's edge is easy to miss, most of all on a
-                // pill in the 3D view. Inverted on a selected row, whose
-                // fill is the accent already.
                 Rectangle {
                     objectName: "activeChip"
                     visible: row.isActive
@@ -707,16 +565,7 @@ Item {
                     }
                 }
 
-                // The references carrying a problem - see `shownRefs`.
-                // Kept on the operation and deliberately not mirrored onto
-                // the thing read: a sketch used by six features would grow
-                // a row six chips wide, and a timeline you cannot scan is
-                // worse than one that states a relationship only once. The
-                // other side of it lives in the read object's detail strip.
-                //
-                // One is named, if the name fits. Several, or one too long
-                // for the row, become icons. The names are one click away
-                // in the detail strip either way.
+                // Shown on the consumer only; the read object lists them in its strip.
                 Repeater {
                     model: row.shownRefs.slice(0, row.chipLimit)
                     Chip {
@@ -727,7 +576,6 @@ Item {
                         iconUrl: modelData.iconUrl
                         severity: modelData.severity
                         onClicked: nxt.revealObjectRow(modelData.name)
-                        // Straight into the referenced object's editor.
                         onDoubleClicked: nxt.activate(modelData.name)
                         tip: row.refTip(modelData)
                     }
@@ -741,8 +589,6 @@ Item {
                 }
             }
 
-            // ----------------------------------------------- state marks
-
             Row {
                 id: state
                 anchors.verticalCenter: parent.verticalCenter
@@ -750,10 +596,6 @@ Item {
                 anchors.leftMargin: 6
                 spacing: 5
 
-                // Visibility, on every row. On a Body's feature it shows
-                // the solid as it stood at that step and leaves the tip
-                // where it is: a look back, where dragging the bar is a
-                // roll back.
                 Item {
                     anchors.verticalCenter: parent.verticalCenter
                     width: theme.iconSize
@@ -777,8 +619,6 @@ Item {
                     }
                 }
 
-                // The gutter. Always the last thing in the row, so it is
-                // always at the same distance from the edge.
                 Item {
                     anchors.verticalCenter: parent.verticalCenter
                     width: theme.markSize
@@ -790,9 +630,6 @@ Item {
                         size: parent.width
                         level: row.markLevel > 0 ? row.markLevel
                              : (row.hasDetail && row.showControls) ? 1 : 0
-                        // A ring that only appeared because the pointer is
-                        // here must not read the same as one that is
-                        // telling you something.
                         opacity: row.markLevel > 0 ? 1.0 : 0.45
                         active: row.detailOpen
                         onClicked: nxt.toggleDetail(row.name)
@@ -813,13 +650,11 @@ Item {
 
         HoverHandler { id: hover }
 
-        // ---------------------------------------------------- interaction
+        // -- interaction --
 
         DropArea {
             anchors.fill: parent
-            // A reorder within a Body finds its slot from where the dragged
-            // row is, not from the row under the pointer; see the drag
-            // ghost in NxtTree.qml.
+            // Reorders find their slot from the ghost (NxtTree.qml).
             enabled: !(row.ListView.view && row.ListView.view.reorderDrag)
 
             function setGap(open) {
@@ -832,16 +667,11 @@ Item {
                     row.dragGhost ? row.dragGhost.names : [], row.name);
                 row.dropTarget = says !== "";
                 if (!row.dropTarget) drag.accepted = false;
-                // A reparent puts the dragged object *inside* the target,
-                // which is to say on the rows below it - so the space opens
-                // under the target rather than above it.
                 setGap(row.dropTarget);
-                // And says so beside the pointer: where it ends up.
                 if (row.dragGhost)
                     row.dragGhost.say(row.dropTarget ? says
                         : qsTr("Can't drop on %1").arg(row.label),
                         row.dropTarget);
-                // A closed container held over opens, to drop deeper.
                 if (row.dropTarget && row.hasChildren && !row.expanded)
                     springOpen.restart();
             }
@@ -871,38 +701,23 @@ Item {
             }
         }
 
-        // z below everything else on purpose. A MouseArea that accepts a
-        // press takes an exclusive grab, and delivery runs topmost-first -
-        // declared last at the default z it would sit above the expander,
-        // the reference chips and the gutter mark, and none of their
-        // TapHandlers would ever see an event. Plain Rectangles and Text do
-        // not accept mouse events, so pushing this underneath costs nothing
-        // and revives the controls.
+        // z: -1 so this grabbing MouseArea sits under the controls' TapHandlers.
         MouseArea {
-            // Inside the 3D view (Nxt's own overlay) only the pill takes
-            // the mouse: a press beside it is left unaccepted, and so
-            // reaches the model behind (view_overlay.py).
+            // In the 3D view only the pill takes presses (view_overlay.py).
             x: host.viewOverlay ? row.pillLeft : 0
             width: host.viewOverlay ? row.pillRight - row.pillLeft
                                     : parent.width
             height: parent.height
             z: -1
             acceptedButtons: Qt.LeftButton | Qt.RightButton
-            // In the row line's (head's) coordinates, not this area's:
-            // in Nxt's overlay the area starts at the pill, not at the
-            // row's left edge, and the rename and drag code both measure
-            // against the row.
+            // In head's coordinates.
             property point origin
             property bool armed: false
-            // Pressed, without a modifier, on one of several selected rows:
-            // that may be the start of dragging them all, so the selection
-            // is left alone until the button comes up without a drag.
+            // Press on a multi-selection: may start a group drag.
             property bool held: false
 
             onPressed: function (mouse) {
                 if (mouse.button === Qt.RightButton) {
-                    // Opens where the row was clicked, once the selection
-                    // has settled; the point is in the panel's scene.
                     var at = mapToItem(null, mouse.x, mouse.y);
                     if (row.ListView.view)
                         row.ListView.view.forceActiveFocus();
@@ -938,23 +753,11 @@ Item {
                     if (Math.abs(at.x - origin.x)
                             + Math.abs(at.y - origin.y) < 8)
                         return;
-                    // Moving the object is not asking to rename it.
                     row.disarmRename();
-                    // Within a Body, a drag reorders: the row itself slides
-                    // up and down its column, held where it was grabbed.
-                    // Anything else can go anywhere, so a label follows the
-                    // pointer instead.
-                    // Several selected rows travel together; within one
-                    // Body they still slide, behind the row that was
-                    // grabbed.
                     var names = held ? nxt.dragNames(row.name) : [row.name];
-                    // A Body's members, and a Part's or group's, slide:
-                    // the drag is a reorder, with "into" a sibling and out
-                    // of the container still on offer (NxtTree.qml).
+                    // Container members slide (reorder); others carry a label.
                     var container = nxt.slideContainer(names);
                     var sliding = container !== "";
-                    // In an overlay the row is its pill: the picture is
-                    // that much of the line, not the whole of it.
                     var cropLeft = theme.overlay ? Math.max(0, row.pillLeft - 2)
                                                  : 0;
                     var cropWidth = theme.overlay
@@ -1000,13 +803,7 @@ Item {
                 held = false;
             }
 
-            // Anywhere on the row, including the label: opening the
-            // object is what a double click means everywhere else in
-            // FreeCAD, and splitting the row into two zones that did
-            // different things on the same gesture was a rule nobody could
-            // see. Renaming is the single click on an already-selected
-            // name, which this cancels - the first half of a double click
-            // is indistinguishable from it until the second half arrives.
+            // Opens the object anywhere on the row; cancels a pending rename.
             onDoubleClicked: function (mouse) {
                 row.disarmRename();
                 nxt.activate(row.name);
@@ -1014,7 +811,7 @@ Item {
         }
     }
 
-    // =============================================================== detail
+    // -- detail --
 
     Item {
         id: detail
@@ -1047,8 +844,6 @@ Item {
             border.color: theme.pillBorder
         }
 
-        // Only when the strip has stopped short of the pill: a tick on its
-        // top edge, under the pill's start, says whose strip it is.
         Rectangle {
             visible: row.detailLeft < row.pillLeft - 1
             x: row.pillLeft
@@ -1059,8 +854,6 @@ Item {
             color: theme.accent
         }
 
-        // Close. The strip's own button, so a strip opened from the gutter
-        // mark or the menu can be closed where it is; Escape does the same.
         Item {
             id: closeButton
             z: 2
@@ -1093,8 +886,6 @@ Item {
             Accessible.name: qsTr("Close details")
         }
 
-        // Pin, while strips follow the selection: a pinned strip stays
-        // open when the next row is clicked.
         Item {
             id: pinButton
             objectName: "detailPin"
@@ -1114,7 +905,6 @@ Item {
                 color: pinButton.pinned ? theme.accent : theme.hover
                 visible: pinButton.pinned || pinMouse.containsMouse
             }
-            // A pin, drawn: a head, and a point below it.
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 4

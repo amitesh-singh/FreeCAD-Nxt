@@ -1,20 +1,7 @@
 """The tree colours a stylesheet sets, with FreeCAD's colour tokens resolved.
 
-A Qt stylesheet does not reliably write its colours into widget palettes,
-so the palette can describe something other than what is on screen. The
-stylesheet itself is the source: this finds the rules that colour a tree
-and reads `background-color` and `color` from them.
-
-FreeCAD resolves its tokens before it applies the stylesheet, so the
-applied text - `QApplication.styleSheet()`, from the main window's
-StyleSheet setting, never the overlay one - normally holds plain colours.
-A value may be a plain colour (`#f0f0f0`, `rgb(...)`, a named colour) or a
-FreeCAD token, `@Name`, whose value is a parameter in
-`BaseApp/Preferences/View`. A token may point at another token. Anything
-this cannot read exactly - a function of other colours, say - reads as
-None, and the caller falls back rather than guess.
-
-Pure apart from `param_lookup`, which the caller supplies.
+Qt stylesheets do not reliably update widget palettes, so the stylesheet
+itself is read. Anything not readable exactly reads as None.
 """
 
 from __future__ import annotations
@@ -24,10 +11,8 @@ from collections.abc import Callable
 
 from ..core.qt import QtGui
 
-#: Most specific first: the first of these a stylesheet colours wins. The
-#: tree's own classes, then what a tree sits in - a theme can leave the tree
-#: transparent (FreeCAD Light's `QAbstractScrollArea` is) and colour the
-#: dock or every widget behind it instead.
+#: Most specific first. Containers are included because a theme (FreeCAD
+#: Light) can leave the tree transparent and colour what is behind it.
 SELECTORS = ("Gui--TreeWidget", "QTreeWidget", "QTreeView",
              "QAbstractItemView", "QAbstractScrollArea",
              "QDockWidget", "QMainWindow", "QWidget")
@@ -50,11 +35,7 @@ def _declarations(body: str) -> dict[str, str]:
 
 
 def rules_for(qss: str, selector: str) -> dict[str, str]:
-    """Declarations for exactly `selector`, later rules overriding earlier.
-
-    Only the bare selector: pseudo-states (`:selected`), sub-controls
-    (`::item`) and descendant selectors describe something else.
-    """
+    """Declarations for exactly the bare `selector`, later rules winning."""
     merged: dict[str, str] = {}
     for match in _RULE.finditer(_COMMENT.sub("", qss)):
         selectors = [s.strip() for s in match.group(1).split(",")]
@@ -89,16 +70,15 @@ def colour_of(value: str | int | None, lookup: Lookup,
             alpha = float(parts[3]) if len(parts) > 3 else 255.0
         except ValueError:
             return None
-        # A see-through background says "whatever is behind me", not a
-        # colour to paint with. Qt takes alpha as 0-255 or, with a decimal
-        # point, as 0-1.
+        # Translucent means "whatever is behind". Qt alpha is 0-255, or
+        # 0-1 with a decimal point.
         full = 1.0 if len(parts) > 3 and "." in parts[3] else 255.0
         if alpha < full:
             return None
         return QtGui.QColor(r, g, b)
     colour = QtGui.QColor(text)
     if not colour.isValid() or colour.alpha() < 255:
-        return None                 # `transparent`, #RRGGBBAA and the like
+        return None
     return colour
 
 
@@ -112,10 +92,7 @@ def _background(decls: dict[str, str]) -> str | None:
 
 def tree_colours(qss: str, lookup: Lookup
                  ) -> tuple[QtGui.QColor | None, QtGui.QColor | None]:
-    """(background, text) the stylesheet gives a tree; None where it's silent.
-
-    Each is taken from the most specific selector that sets it.
-    """
+    """(background, text) a stylesheet gives a tree; None where silent."""
     base: QtGui.QColor | None = None
     text: QtGui.QColor | None = None
     for selector in SELECTORS:

@@ -1,9 +1,4 @@
-"""The FreeCAD side of the menu: what commands say, and running them.
-
-Nxt's own actions (`nxt:...`) need the tree's state and live on the bridge;
-this module handles FreeCAD commands and view provider edit modes, and
-opening FreeCAD's own menu when asked for it.
-"""
+"""Looking up and running FreeCAD commands and edit modes for the menu."""
 
 from __future__ import annotations
 
@@ -16,10 +11,8 @@ import FreeCADGui as Gui
 from .definitions import EDIT_MODES
 from .present import CommandInfo
 
-#: A command's prefix, and the module that registers it. A workbench's
-#: commands exist only once its Gui module is imported - Sketcher's are
-#: not there until Sketcher has been activated once - so the menu imports
-#: it on first use, as FreeCAD's own toolbars do.
+#: A workbench's commands exist only once its Gui module is imported,
+#: so import it on first use.
 _GUI_MODULES = {
     "Sketcher": "SketcherGui",
     "PartDesign": "PartDesignGui",
@@ -42,19 +35,13 @@ def _command(name: str) -> Any:
     return command
 
 
-#: Commands the menu must never offer. Std_Expressions' isActive() - which
-#: FreeCAD calls before running any command - updates the entries of its
-#: own submenu, which exist only once FreeCAD has shown it somewhere; run
-#: from anywhere else first, it crashes FreeCAD. Nxt has its own
-#: expression actions (tree/menu_actions.py).
+#: Never offered: Std_Expressions' isActive() crashes FreeCAD until its
+#: submenu has been shown. Nxt has its own expression actions.
 UNSAFE = frozenset({"Std_Expressions"})
 
 
 def lookup(name: str) -> CommandInfo | None:
-    """What FreeCAD says about a command, or None if it is not registered.
-
-    None too for a command in UNSAFE, so no definition file can offer it.
-    """
+    """What FreeCAD says about a command; None if unregistered or UNSAFE."""
     if name in UNSAFE:
         return None
     command = _command(name)
@@ -75,12 +62,7 @@ def lookup(name: str) -> CommandInfo | None:
 def is_active(command: Any) -> bool:
     """Whether FreeCAD would enable a command now; True when unsure.
 
-    Only asked of a command whose action FreeCAD has already built. Some
-    commands' isActive() updates the entries of their own submenu, and
-    until that submenu exists the pointers it follows are null: calling
-    Std_Expressions.isActive() before anything has shown it took FreeCAD
-    down with a segmentation fault. A command with no action yet has not
-    been shown anywhere, so there is no enabled state to agree with.
+    isActive() can segfault before the command's action is built.
     """
     try:
         if not command.getAction():
@@ -136,10 +118,9 @@ def run_edit(obj: Any, command: str) -> bool:
 
 
 def open_native_menu() -> None:
-    """Open FreeCAD's own tree menu for the selection, at the pointer.
+    """Open FreeCAD's own tree menu at the pointer.
 
-    Sent to FreeCAD's Model tree as if it had been right-clicked there.
-    Deferred, so the Nxt menu that asked for it has closed first.
+    Deferred so the Nxt menu has closed first.
     """
     from ..core.qt import QtCore, QtGui, QtWidgets
 

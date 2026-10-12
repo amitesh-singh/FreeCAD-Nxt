@@ -1,9 +1,6 @@
-"""The addon's assets - icons and QML - located through importlib.resources.
+"""The addon's assets, located through importlib.resources.
 
-Resolved from the package rather than from `__file__`, so they are found
-wherever and however the addon is installed. FreeCAD's icon path and QML's
-import path both want real directories, which an installed addon always
-has; `as_file` would only matter for a zipped install.
+Resolved from the package, not `__file__`, so any install layout works.
 """
 
 from __future__ import annotations
@@ -15,8 +12,7 @@ _ROOT = files(__name__)
 
 #: Command and addon icons, registered with FreeCAD's icon path.
 ICONS = Path(str(_ROOT / "icons"))
-#: The project's logo. A copy named preferences-freecad-nxt.svg is what
-#: FreeCAD's Preferences dialog finds for the FreeCAD-Nxt group.
+#: The logo; FreeCAD's Preferences finds a copy, preferences-freecad-nxt.svg.
 LOGO = ICONS / "FreeCAD-Nxt.svg"
 
 #: QML: the panel's and inspector's root files, and the `Nxt` module.

@@ -1,16 +1,13 @@
 import QtQuick
 import Nxt.Controls
 
-// The undo toast in the 3D view (toast.py). Sized to its content; the
-// Python side centres it at the top of the view, and hides it once it
-// has faded.
+// The undo toast in the 3D view (toast.py); Python positions and hides it.
 UndoToast {
     id: banner
 
     // Null-safe: the banner can outlive `toasts` by an event at teardown.
     actions: toasts ? toasts.labels : []
     sticky: toasts ? toasts.sticky : false
-    // Not visible until first shown, which is not a toast going away.
     property bool ready: false
 
     Component.onCompleted: {

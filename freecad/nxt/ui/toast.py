@@ -1,16 +1,7 @@
 """The undo toast at the top centre of the 3D view.
 
-"Moved Pocket after Pad · Undo": what Nxt just did in one gesture, with a
-way back (ToastBanner.qml). It belongs to the services, so anything in
-Nxt can raise one through `services.toast`, with the model panel open or
-not. With no 3D view to show it over, the message goes to the Report
-view instead.
-
-It also carries what Nxt found and left for the user, with buttons of
-the caller's own: "Sketch is not closed · Edit".
-
-What Undo would undo is remembered by the document's undo count, so it
-does nothing once anything else has happened.
+Undo is tied to the document's undo count, so it does nothing once
+anything else has happened.
 """
 
 from __future__ import annotations
@@ -28,10 +19,9 @@ from ..core.view3d import active_viewport
 from ..core.widgets import alive
 from .view_notice import TopNotice
 
-#: Called with the document once the toast's Undo has undone the change,
-#: for whatever undo does not restore by itself (view state).
+#: Called with the document after Undo, to restore view state.
 AfterUndo = Callable[[Any], None]
-#: A button on the toast: (its label, what it does).
+#: A toast button: (label, callback).
 Action = tuple[str, Callable[[], Any]]
 
 
@@ -46,11 +36,9 @@ class Toast(TopNotice):
     def __init__(self, theme: Any, above: Callable[[], TopNotice | None],
                  parent: QtCore.QObject | None = None) -> None:
         super().__init__(theme, parent)
-        #: The notice this one keeps clear of, when that one is showing.
         self._above = above
         self._message = ""
-        #: What is showing: (document, its undo count just after the
-        #: change or None if there is nothing to undo, AfterUndo).
+        #: (document name, undo count or None, AfterUndo).
         self._current: tuple[str, int | None, AfterUndo | None] | None = None
         self._actions: list[Action] = []
         self._sticky = False
@@ -70,12 +58,7 @@ class Toast(TopNotice):
     def show(self, doc: Any, message: str,
              after_undo: AfterUndo | None = None, undoable: bool = True,
              actions: Sequence[Action] = (), sticky: bool = False) -> None:
-        """Say what was just done to `doc`, and offer to undo it.
-
-        Not `undoable`: something to be told that Nxt did not do.
-        `actions` are further buttons; `sticky` keeps it up until one is
-        used or it is dismissed.
-        """
+        """Say what was just done to `doc`, and offer to undo it."""
         self._current = (
             str(getattr(doc, "Name", "")),
             int(getattr(doc, "UndoCount", -1)) if undoable else None,
@@ -103,7 +86,7 @@ class Toast(TopNotice):
 
     @QtCore.Slot(result=bool)
     def undo(self) -> bool:
-        """The toast's Undo. True if the change was undone."""
+        """Undo the change; True if it was undone."""
         pending, self._current = self._current, None
         self.cleared.emit()
         doc = App.ActiveDocument
@@ -125,12 +108,10 @@ class Toast(TopNotice):
 
     @QtCore.Slot()
     def dismissed(self) -> None:
-        """The toast has gone, by itself or by hand: Undo goes with it."""
+        """The toast has gone; Undo goes with it."""
         self._current = None
         if alive(self._widget):
-            self._widget.hide()     # kept, for the next message
-
-    # ------------------------------------------------------------------ #
+            self._widget.hide()
 
     def _context(self) -> dict[str, Any]:
         return {"toasts": self}
@@ -144,8 +125,6 @@ class Toast(TopNotice):
         return active_viewport()
 
     def _view_changed(self, *_args: Any) -> None:
-        # Another view is something else happening: the toast does not
-        # follow there.
         if self._current is not None \
                 and self._wanted_host() is not self._host:
             self.dismissed()

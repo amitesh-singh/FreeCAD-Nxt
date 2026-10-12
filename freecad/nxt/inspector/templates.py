@@ -1,16 +1,7 @@
 """Property Inspector templates: a layout for one family of objects.
 
-The inspector lays out any object from what it says about itself
-(inspector.py). A template refines that for objects it knows: cards named
-for the task rather than FreeCAD's groups, readable labels, an enumeration
-as a row of buttons, and items shown only while another property calls for
-them - a second length only for two lengths.
-
-It never hides a property. What a template does not name stays where the
-generic layout put it, under "Everything else"; a name the object does not
-have is skipped, so one template serves FreeCAD versions whose property
-sets differ. Templates are data: resources/inspector/*.toml, whose header
-describes the format.
+Templates (resources/inspector/*.toml) never hide a property: unnamed ones
+stay under "Everything else", and missing names are skipped.
 """
 
 from __future__ import annotations
@@ -24,9 +15,7 @@ from typing import Any
 
 import FreeCAD as App
 
-#: How a template may ask for a property to be edited: "dropdown" (the
-#: default for an enumeration), "segmented" (every choice in view; for a
-#: yes/no, its two states named by `labels`) and "switch" (a yes/no).
+#: Editors a template may request for a property.
 EDITORS = frozenset({"", "dropdown", "segmented", "switch"})
 
 
@@ -37,10 +26,8 @@ class Item:
     wide: bool | None = None
     editor: str = ""
     show_if: tuple[tuple[str, tuple[Any, ...]], ...] = ()
-    #: Enumeration values left out of "choices" when the object has the
-    #: named property: (value, property).
+    #: (value, property): omit value when the object has property.
     omit_if: tuple[tuple[str, str], ...] = ()
-    #: For a yes/no shown "segmented": what no and yes are called.
     labels: tuple[str, ...] = ()
 
 
@@ -68,11 +55,9 @@ class Card:
 
 @dataclass(frozen=True)
 class Couple:
-    """A mode that is another one's value at zero, and is never chosen.
+    """A mode equal to another at zero; only `nonzero` is ever written.
 
-    A "Profile plane" start is an "Offset" start at zero. The mode's
-    choices hold only `nonzero`; choosing it, or typing the value, writes
-    `nonzero` - so the offset's handle shows in the 3D view even at zero.
+    Keeps the offset's 3D handle visible even at zero.
     """
 
     value: str
@@ -87,8 +72,7 @@ class Template:
     types: tuple[str, ...]
     cards: tuple[Card, ...]
     choices: dict[str, str] = field(default_factory=dict)
-    #: Properties never shown while the object has another: (hidden, the
-    #: one that supersedes it) - Midplane, once SideType exists.
+    #: (hidden, superseding property), e.g. Midplane by SideType.
     hide_if: tuple[tuple[str, str], ...] = ()
     couples: tuple[Couple, ...] = ()
 
@@ -191,11 +175,7 @@ def _same(value: Any, wanted: Any) -> bool:
 
 
 def shown(item: Item | Column, objects: list[Any]) -> bool:
-    """Whether `item` is called for now: one of its tests holds.
-
-    A test on a property an object lacks is left out; with none left, the
-    item shows. Several objects that disagree show it.
-    """
+    """Whether any of `item`'s tests holds; untestable items show."""
     tests = [(name, values) for name, values in item.show_if
              if all(hasattr(o, name) for o in objects)]
     if not tests:
@@ -209,11 +189,7 @@ def shown(item: Item | Column, objects: list[Any]) -> bool:
 
 def apply(template: Template, objects: list[Any],
           groups: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
-    """Take the template's properties out of `groups` into its cards.
-
-    `groups` are the generic layout's, name -> entries, and keep what the
-    template does not place. Returns the cards, as groups, in order.
-    """
+    """Move the template's properties out of `groups` into its cards."""
     found: dict[str, dict[str, Any]] = {}
     for name, entries in groups.items():
         for entry in entries:
@@ -242,7 +218,7 @@ def apply(template: Template, objects: list[Any],
                    for column in card.columns if shown(column, objects)]
         columns = [c for c in columns if c["items"]]
         if len(columns) == 1:
-            columns[0]["title"] = ""    # a heading only tells columns apart
+            columns[0]["title"] = ""
         after = laid_out(card.after)
         count = (len(items) + len(after)
                  + sum(len(c["items"]) for c in columns))
@@ -268,7 +244,6 @@ def _shaped(template: Template, item: Item, generic: dict[str, Any],
         entry["optionLabels"] = list(item.labels)
     for couple in template.couples:
         if item.prop == couple.mode and couple.zero in entry["options"]:
-            # Zero's mode is the other's, at zero: one choice for both.
             entry["options"] = [o for o in entry["options"]
                                 if o != couple.zero]
             if entry["text"] == couple.zero:
@@ -292,13 +267,7 @@ def _shaped(template: Template, item: Item, generic: dict[str, Any],
 
 def coupled(template: Template | None, objects: list[Any], prop: str,
             value: Any) -> list[tuple[str, Any]] | None:
-    """The edits that setting `prop` to `value` makes, in order.
-
-    None when no couple is involved: the edit is just itself. Zero's mode
-    is never written: typing the value, or choosing the shared mode, sets
-    the other one - an offset of zero is still an offset, and keeps its
-    handle in the 3D view.
-    """
+    """The edits setting `prop` to `value` makes, or None if uncoupled."""
     if template is None or not objects:
         return None
     for couple in template.couples:

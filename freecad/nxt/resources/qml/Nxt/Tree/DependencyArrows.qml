@@ -1,22 +1,12 @@
 import QtQuick
 
-// The selection's dependencies, drawn as arrows in a gutter at the tree's
-// right edge (links.py works out which). Blue arrows come in from what the
-// selection reads; purple arrows go out to what reads it. The line says
-// the kind of link: solid geometry, dotted attachment, dashed expression,
-// dash-dot link or clone. A faint dotted leader joins each row involved to
-// the gutter, and a count marks an arrow that stands for several rows (a
-// collapsed branch). A target scrolled out of sight gets a small arrowhead
-// at the top or bottom edge, pointing the way.
-//
-// Drawn over the list, never taking the mouse: it is a picture of the
-// rows, not a control.
+// The selection's dependencies as arrows in a gutter at the tree's right edge
+// (links.py). Drawn over the list; never takes the mouse.
 Canvas {
     id: arrows
 
     property ListView list
     property var arrowData: nxt.linkArrows
-    //: Width of the gutter the arrows loop through.
     readonly property int gutter: Math.round(theme.rowHeight * 1.9)
 
     antialiasing: true
@@ -35,8 +25,7 @@ Canvas {
         function onChanged() { arrows.requestPaint(); }
     }
 
-    // Where a row's middle is, in this canvas, or null when it is not
-    // built (scrolled well out of sight): then -1 above, +1 below.
+    // Row middle in this canvas, or -1 above / +1 below when not built.
     function rowY(row) {
         var item = list.itemAtIndex(row);
         if (!item)
@@ -50,20 +39,13 @@ Canvas {
         return item ? Math.min(item.pillRight + 4, gutterX - 2) : -1;
     }
 
-    // Where the arrows loop. Docked: the list's right edge. In an overlay
-    // the rows are pills of their own widths, so the gutter sits just past
-    // the widest pill the arrows actually pass - between the topmost and
-    // bottommost rows they join.
+    // Docked: the list's right edge. Overlay: past the widest pill spanned.
     property real gutterX: width - gutter + 2
     function placeGutter() {
-        // Docked, every row spans the list: the right edge is the place.
         if (!theme.overlay) {
             gutterX = width - gutter + 2;
             return;
         }
-        // Only the rows the arrows actually span: from the topmost row any
-        // of them touches to the bottommost, limited to what is on screen.
-        // A wide pill elsewhere in the tree has nothing to do with them.
         var d = arrows.arrowData;
         var lo = d.source, hi = d.source;
         for (var k = 0; k < d.links.length; ++k) {
@@ -85,10 +67,7 @@ Canvas {
         gutterX = Math.min(width - gutter + 2, widest + 10);
     }
 
-    //: From an arrowhead's tip to the middle of its back edge, and half the
-    //: back edge. Longer than it is wide, so the tip reads as a point at
-    //: any angle - a squatter head turned 30 degrees looked like a wedge
-    //: pointing the wrong way.
+    //: Arrowhead length and half-width.
     readonly property real headLength: 8
     readonly property real headHalfWidth: 3
 
@@ -120,9 +99,7 @@ Canvas {
             var yEnd = off ? (y < 0 ? 3 : height - 3) : y;
             if (!off)
                 rows.push(link.row);
-            // Nested lanes: short spans hug the rows, long ones go wide.
             var bulge = 10 + (i % 5) * 7;
-            // Data flows from what is read to what reads it.
             var ya = link.dir === "in" ? yEnd : src;
             var yb = link.dir === "in" ? src : yEnd;
             ya += link.dir === "in" ? 0 : 3;
@@ -132,12 +109,7 @@ Canvas {
             ctx.fillStyle = colour;
             ctx.lineWidth = 1.6;
             ctx.setLineDash(dash(link.kind));
-            // The curve arrives at 30 degrees, not flat: its last control
-            // point lies on that line back from the tip, so the curve's
-            // final direction is exactly the arrowhead's and the head
-            // continues the line instead of sitting at an angle to it.
-            // The line stops at the middle of the head's back edge; the
-            // head carries it the last few pixels to the tip, straight.
+            // The last control point lies on the head's axis, so the head continues the line.
             var tipX = x0 + 3, tipY = yb;
             var dx = Math.cos(Math.PI / 6);
             var dy = (ya < yb ? -1 : 1) * Math.sin(Math.PI / 6);
@@ -150,12 +122,7 @@ Canvas {
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // The arrowhead, at the reading end, pointing into the row
-            // along the curve's own final direction (see the curve above),
-            // so it reads as the line's end rather than a separate mark.
             if (!(off && link.dir === "out")) {
-                // The body of the head lies back along the curve's last
-                // direction: from the tip toward the last control point.
                 var tilt = Math.atan2(c2y - tipY, c2x - tipX);
                 ctx.save();
                 ctx.translate(tipX, tipY);
@@ -169,7 +136,6 @@ Canvas {
                 ctx.restore();
             }
             if (off) {
-                // Out of sight: a head at the edge, pointing the way.
                 var tip = y < 0 ? 0 : height;
                 var sign = y < 0 ? 1 : -1;
                 ctx.beginPath();
@@ -193,7 +159,6 @@ Canvas {
             }
         }
 
-        // Leaders: row to gutter, so the eye can follow across.
         ctx.strokeStyle = theme.textDim;
         ctx.globalAlpha = 0.6;
         ctx.lineWidth = 1;

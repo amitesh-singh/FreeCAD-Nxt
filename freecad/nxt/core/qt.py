@@ -1,13 +1,4 @@
-"""The Qt binding, and the few places Qt's API needs smoothing over.
-
-At runtime this is FreeCAD's `PySide` compatibility shim, which keeps the
-addon working across whatever Qt the host was built with; outside FreeCAD
-(the tests, an IDE) it is PySide6 directly. Type checkers always see
-PySide6. The addon is Qt 6 only, as FreeCAD itself now is: there is no
-PySide2 path.
-
-QtQuick lives in `qtquick.py`, imported only when a QML surface is built.
-"""
+"""The Qt binding: FreeCAD's `PySide` shim, else PySide6 (Qt 6 only)."""
 
 from __future__ import annotations
 
@@ -26,15 +17,11 @@ __all__ = ["QtCompat", "QtCore", "QtGui", "QtWidgets"]
 
 
 class QtCompat:
-    """Everything that differs between Qt builds or bindings, in one place."""
+    """What differs between Qt builds or bindings."""
 
     @staticmethod
     def enum_int(value: Any) -> int:
-        """A Qt enum as a plain int, for storing.
-
-        PySide6 exposes Qt enums as enum.Enum rather than IntEnum, so
-        int() refuses them; the stored form has to be a plain number.
-        """
+        """A Qt enum as a plain int; PySide6 enums are not IntEnum."""
         return int(value.value if isinstance(value, Enum) else value)
 
     @staticmethod

@@ -1,11 +1,4 @@
-"""The isolate mode's notice at the top centre of the 3D view.
-
-A small QQuickWidget over the active 3D view while the mode is on
-(isolate.py), showing IsolationBanner.qml: what is isolated, and Exit.
-It is the mode's one notice; the model panel only dims. It follows the
-active view: shown over any 3D view of the isolated document that
-becomes active, never over another document's.
-"""
+"""The isolate mode's notice at the top centre of the 3D view."""
 
 from __future__ import annotations
 
@@ -54,17 +47,8 @@ class ViewNotice(TopNotice):
 class EscapeToExit(ApplicationEventFilter):
     """Escape leaves the isolate mode from anywhere it means nothing else.
 
-    An application event filter, so it works with the keyboard in the 3D
-    view or anywhere else - not only in the model panel. It stands aside,
-    and Escape does what it always did, whenever:
-      * the mode is off;
-      * a task panel is open or something is being edited, where Escape
-        cancels the task;
-      * a dialog, menu or popup is up;
-      * the keyboard is in a text field or spin box, where Escape belongs
-        to the field;
-      * the keyboard is in the model panel, whose own Escape closes a
-        detail strip first and then leaves the mode.
+    Stands aside for task panels, edits, dialogs/popups, text fields and
+    the model panel, which handle Escape themselves.
     """
 
     def __init__(self, isolation: Any,
@@ -73,7 +57,7 @@ class EscapeToExit(ApplicationEventFilter):
         self._isolation = isolation
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
-        # Every event in the application passes here: cheap tests first.
+        # Every application event passes here: cheap tests first.
         if event.type() != QtCore.QEvent.Type.KeyPress \
                 or event.key() != QtCore.Qt.Key.Key_Escape:
             return False
@@ -88,7 +72,6 @@ class EscapeToExit(ApplicationEventFilter):
     @staticmethod
     def _free() -> bool:
         """Whether Escape means nothing else right now."""
-        # Static: asked of the class, which also types them as widgets.
         app = QtWidgets.QApplication
         if app.instance() is None:
             return False
@@ -111,6 +94,6 @@ class EscapeToExit(ApplicationEventFilter):
         widget = focus
         while widget is not None:
             if widget.objectName() == "NxtModelPanel":
-                return False            # the panel's own Escape
+                return False
             widget = widget.parentWidget()
         return True

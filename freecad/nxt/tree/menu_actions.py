@@ -1,10 +1,4 @@
-"""The context menu, from the tree's side: building it and running items.
-
-The bridge's slots are thin; the work is here, so the bridge does not grow
-a method per menu item. Nxt's own actions (`nxt:...`) mostly reuse what the
-panel already does from its rows - isolate, set the tip, open the detail
-strip - applied to the selection the menu was opened on.
-"""
+"""Building the tree's context menu and running its items."""
 
 from __future__ import annotations
 
@@ -77,15 +71,12 @@ def run(bridge: TreeBridge, command: str, names: list[str]) -> None:
     bridge.invalidate(icons=True)
 
 
-# ---------------------------------------------------------------------------
-# Nxt's actions. Each takes the bridge and the objects the menu was for.
-# ---------------------------------------------------------------------------
+# -- Nxt actions --
 
 Action = Callable[["TreeBridge", list[Any]], None]
 
 
 def _isolate(bridge: TreeBridge, objects: list[Any]) -> None:
-    """Enter or leave the isolate mode (isolate.py) for these objects."""
     from ..app import services
     isolation = services.isolation()
     if isolation is None:
@@ -119,7 +110,6 @@ def _recompute(bridge: TreeBridge, objects: list[Any]) -> None:
 
 
 def _reveal_failure(bridge: TreeBridge, objects: list[Any]) -> None:
-    """Open the object's detail strip, where its failure is spelled out."""
     name = objects[0].Name
     bridge.revealObjectRow(name)
     bridge._tree.toggle_detail(name, True)
@@ -176,11 +166,6 @@ def _make_active(bridge: TreeBridge, objects: list[Any]) -> None:
 
 
 def _select_same_type(bridge: TreeBridge, objects: list[Any]) -> None:
-    """Every member of the object's Body of the object's own type.
-
-    "Every Pocket", "every sketch": by TypeId, so a Pad does not bring the
-    Pockets with it. In the Body's order, the object itself included.
-    """
     obj = objects[0]
     body = None
     try:
@@ -240,18 +225,12 @@ def _collapse_all(bridge: TreeBridge, objects: list[Any]) -> None:
     bridge._tree.collapse_all()
 
 
-# ---------------------------------------------------------------------------
-# Expressions. FreeCAD's own Std_Expressions cannot be run from here (see
-# menus/runner.py, UNSAFE), so these do the same, in the same clipboard
-# format, so a copy made here pastes with FreeCAD's command and the other
-# way round. Only the ExpressionEngine property is handled: it is where
-# expressions on object properties live; a spreadsheet's cells are left to
-# FreeCAD's own command.
-# ---------------------------------------------------------------------------
+# -- Expressions --
+# Std_Expressions is unsafe to run from here (menus/runner.py); this mirrors
+# its clipboard format. Only ExpressionEngine; spreadsheet cells are not.
 
-#: One copied expression, as FreeCAD writes it:
-#: `##@@ <path> <doc>#<object>.<property> (<label>)`, then `##@@<comment>`,
-#: then the expression, then a blank line.
+#: FreeCAD's format: `##@@ <path> <doc>#<obj>.<prop> (<label>)`,
+#: `##@@<comment>`, the expression, a blank line.
 _EXPRESSION = re.compile(
     r"^##@@ ([^ ]+) (\w+)#(\w+)\.(\w+) [^\n]+\n##@@([^\n]*)\n",
     re.MULTILINE)

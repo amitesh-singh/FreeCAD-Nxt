@@ -1,19 +1,7 @@
-"""Why a sketch's profile is not closed, worked out from its edges alone.
+"""Why a sketch's profile is not closed, from its edges alone.
 
-No FreeCAD here: sketch_repair.py reads the edges out of a sketch and
-applies what this finds, so the reasoning can be tested without one.
-
-A profile closes when every edge end meets exactly one other. What
-stops that:
-
-    a gap        two loose ends that all but touch - the one thing
-                 mended in the sketch itself;
-    a duplicate  an edge drawn again over the same two ends;
-    a stub       an edge of no length;
-    a loose end  a profile not finished, or a stray edge;
-    a fork       three or more edges meeting at a point;
-    an overlap   edges lying over part of one another, found between
-                 straight lines and between circular arcs.
+Pure (no FreeCAD); sketch_repair.py feeds it and applies the result.
+Finds gaps, duplicates, stubs, loose ends, forks and overlaps.
 """
 
 from __future__ import annotations
@@ -25,50 +13,41 @@ from itertools import combinations
 from math import atan2, hypot, tau
 
 Point = tuple[float, float]
-#: An edge's end: (edge index, START or END), as a constraint names it.
+#: (edge index, START or END), as a constraint names it.
 End = tuple[int, int]
 
 #: Sketcher's point positions.
 START, END = 1, 2
 
-#: Ends closer than this already meet: OpenCASCADE's own tolerance, which
-#: is what decides whether FreeCAD finds the wire closed.
+#: OpenCASCADE's tolerance, which decides whether the wire is closed.
 JOINED = 1e-7
-#: Loose ends this near each other, as a fraction of the sketch's
-#: diagonal, are a gap: they look joined with the whole sketch in view.
+#: Gap distance, as a fraction of the sketch diagonal.
 GAP_FRACTION = 0.01
-#: An edge this near another's line or circle, by the same measure, lies
-#: on it. Far tighter than a gap: the two sides of a thin slot are close
-#: and parallel, and are not an overlap.
+#: Far tighter than a gap so a thin slot's sides are not an overlap.
 OVERLAP_FRACTION = 1e-4
 
 
 @dataclass(frozen=True)
 class Edge:
-    """One open curve that is not construction geometry."""
+    """One open, non-construction curve."""
 
     index: int
     start: Point
     end: Point
     mid: Point
     length: float
-    #: A straight line, or (with a centre) a circular arc: the two shapes
-    #: an overlap can be found between.
     straight: bool = False
     centre: Point | None = None
 
 
 @dataclass(frozen=True)
 class Findings:
-    #: Pairs of loose ends to join.
     gaps: list[tuple[End, End]] = field(default_factory=list)
-    #: Indices of duplicates and stubs.
+    #: Duplicates and stubs.
     surplus: list[int] = field(default_factory=list)
-    #: Loose ends that joining the gaps will leave.
+    #: Loose ends left after joining the gaps.
     open_ends: int = 0
-    #: Points where three or more edges meet.
     forks: int = 0
-    #: Pairs of edges lying over part of one another, by index.
     overlaps: list[tuple[int, int]] = field(default_factory=list)
 
     def closed(self) -> bool:
@@ -82,11 +61,7 @@ def _distance(a: Point, b: Point) -> float:
 
 def _near(points: Sequence[Point],
           radius: float) -> Iterator[tuple[float, int, int]]:
-    """(distance, i, j) for each pair of points within `radius`.
-
-    Swept in x order, so only points in the same narrow band are ever
-    compared.
-    """
+    """(distance, i, j) for point pairs within `radius`, swept in x."""
     order = sorted(range(len(points)), key=points.__getitem__)
     for at, i in enumerate(order):
         for j in order[at + 1:]:
@@ -117,11 +92,7 @@ def _diagonal(edges: Sequence[Edge]) -> float:
 
 
 def _places(on: Edge, other: Edge, slack: float) -> list[float] | None:
-    """How far along `on` each of `other`'s three points lies.
-
-    Measured from `on`'s start, past its end or before its start if the
-    point is beyond it. None if `other` is not on `on`'s line or circle.
-    """
+    """Distance along `on` of `other`'s points; None if not on it."""
     points = (other.start, other.mid, other.end)
     if on.straight:
         dx, dy = on.end[0] - on.start[0], on.end[1] - on.start[1]
@@ -142,8 +113,7 @@ def _places(on: Edge, other: Edge, slack: float) -> list[float] | None:
     def angle(point: Point) -> float:
         return atan2(point[1] - cy, point[0] - cx)
 
-    # Counter-clockwise from `begin`: an arc drawn the other way begins
-    # at its end.
+    # Normalise to counter-clockwise from `begin`.
     begin, sweep = angle(on.start), (angle(on.end) - angle(on.start)) % tau
     if (angle(on.mid) - begin) % tau > sweep:
         begin, sweep = angle(on.end), tau - sweep
@@ -162,7 +132,6 @@ def _lies_on(on: Edge, other: Edge, slack: float) -> bool:
 
 def _overlaps(edges: Sequence[Edge],
               slack: float) -> list[tuple[int, int]]:
-    """Pairs of edges lying over part of one another, by index."""
     shaped = [e for e in edges if e.straight or e.centre is not None]
     return [(a.index, b.index) for a, b in combinations(shaped, 2)
             if _lies_on(a, b, slack) or _lies_on(b, a, slack)]
@@ -178,7 +147,7 @@ def inspect(edges: Sequence[Edge],
     diagonal = _diagonal(edges)
     tolerance = fraction * diagonal
 
-    # Each edge's two ends sit side by side: edge k has points 2k, 2k + 1.
+    # Edge k has points 2k and 2k + 1.
     points = [p for e in edges for p in (e.start, e.end)]
     vertex = _vertices(points)
 
@@ -209,8 +178,7 @@ def inspect(edges: Sequence[Edge],
         gaps.append(((edges[i // 2].index, START + i % 2),
                      (edges[j // 2].index, START + j % 2)))
 
-    # An overlap always leaves a loose end or a fork: without either
-    # there is none to look for.
+    # An overlap always leaves a loose end or a fork.
     pairs = _overlaps(
         [e for k, e in enumerate(edges) if k not in duplicate],
         OVERLAP_FRACTION * diagonal) if loose or forks else []

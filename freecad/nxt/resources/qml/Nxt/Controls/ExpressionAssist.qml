@@ -1,32 +1,14 @@
 import QtQuick
 import QtQuick.Controls.Basic
 
-// Help writing an expression in any value field: give it the field's
-// TextInput and the object the field belongs to, and once the text starts
-// with "=" it shows, under the field, what fits at the cursor and what the
-// expression gives now.
-//
-//   Up, Down      move through the suggestions
-//   Tab           put the highlighted one in
-//   Return        put it in, once Up or Down has picked one; otherwise
-//                 Return is the field's own (apply the expression)
-//   Escape        hide the list; a second Escape is the field's
-//   a click       puts that one in
-//
-// The field calls handleKey() from its own Keys.onPressed, first; a key it
-// returns true for is taken. It never takes the keyboard from the field:
-// the list is a window of its own, made as a tooltip is (a Qt::ToolTip
-// window), which never takes focus - a popup window grabs the keyboard,
-// and the field being typed in lost it the moment the list appeared.
-//
-// It needs `expressions` (freecad/nxt/tools/expressions.py) on the QML context.
-// Without it, or without an owner, it does nothing at all.
+// Expression help under a value field once its text starts with "=".
+// The field calls handleKey() first. A ToolTip window, since a popup
+// window would grab the keyboard from the field.
 Item {
     id: assist
 
-    //: The TextInput being typed in.
     property Item input: null
-    //: The object the field edits a property of: "Document#Name" or "Name".
+    //: "Document#Name" or "Name".
     property string owner: ""
 
     readonly property bool available:
@@ -36,9 +18,9 @@ Item {
                                    && input.text.trim().charAt(0) === "="
     property var suggestions: []
     property int current: 0
-    //: Up or Down has picked a suggestion, so Return means "this one".
+    //: Return accepts the suggestion.
     property bool picked: false
-    //: Escape hid the list; it stays hidden until the text changes.
+    //: Hidden by Escape until the text changes.
     property bool hushed: false
     property var result: ({ok: false, text: ""})
 
@@ -59,12 +41,10 @@ Item {
             popup.close();
             return;
         }
-        // Opened from this item; on Wayland shifted by where the view
-        // really is in FreeCAD's window (quick_host.window_offset).
         var below = input.mapToItem(assist, 0, input.height + 2);
         var shift = expressions.anchorOffset(assist);
-        // Wayland places a popup window against its parent item, not at
-        // popup.x/y, so move the parent there and open at its corner.
+        // Wayland places popups against their parent item, not popup.x/y,
+        // so the anchor item is moved (shifted by quick_host.window_offset).
         anchor.x = below.x + shift.x;
         anchor.y = below.y + shift.y;
         popup.open();
@@ -202,7 +182,6 @@ Item {
                 }
             }
 
-            // What it gives now, or why nothing.
             Rectangle {
                 width: parent.width
                 height: 1

@@ -1,21 +1,15 @@
 import QtQuick
 
 // What Nxt just did, with a way back: "Moved Pocket after Pad · Undo".
-// Shown after a drag, a rename or a tip move - gestures that change the
-// model at once, with nothing to confirm - and gone by itself after a few
-// seconds, or as soon as it is used or dismissed.
-//
-// Also something found that is the user's to act on: "Sketch is not
-// closed · Edit". That one is `sticky`, and stays until dismissed.
+// Fades after a few seconds unless `sticky`.
 Rectangle {
     id: toast
 
     property string message: ""
-    //: The label of each button, in order. None: only a message.
+    //: Button labels, in order.
     property var actions: []
-    //: Stays until used or dismissed.
     property bool sticky: false
-    //: How long it stays, in milliseconds. Longer while pointed at.
+    //: Milliseconds; longer while hovered.
     property int stay: 6000
     signal actionRequested(int index)
 
@@ -38,18 +32,12 @@ Rectangle {
 
     visible: opacity > 0
     opacity: 0
-    //: Width of whatever it is shown in; its host keeps this current.
+    //: Host width; kept current by the host.
     property real available: 400
-    //: Kept clear of the edges of whatever it is shown in.
     property int margin: 10
-    //: Space at each end, and between the message and each button.
     readonly property int pad: 12
-    // Sized from the parts' own widths, never from this item's width:
-    // the message's width was once worked out from the toast's, and the
-    // toast's from the message's, and the two settled on nothing - a
-    // box a few pixels wide with the text spilling out of it.
-    // Asked of the list, not the row: a row emptied of its buttons keeps
-    // the width it had.
+    // Sized from the parts' own widths, never this item's: a circular binding
+    // collapsed it to a few pixels.
     readonly property real actionsRoom:
         actions.length > 0 ? buttons.width + pad : 0
     readonly property real room:
@@ -66,7 +54,6 @@ Rectangle {
     Timer {
         id: timer
         interval: toast.stay
-        // Not while it is being read with the pointer on it.
         onTriggered: hover.hovered ? restart() : toast.dismiss()
     }
     HoverHandler { id: hover }

@@ -1,12 +1,10 @@
 import QtQuick
 
-// The picture of what is being dragged in the tree, and the drag's
-// bookkeeping: where a drop would go, sliding within a container,
-// edge scrolling and cancelling.
+// Drag image and bookkeeping for tree drags: drop target, sliding,
+// edge scrolling, cancel.
 Item {
     id: ghost
 
-    //: The tree's list, which the ghost scrolls and measures against.
     property ListView list
     z: 1000
     width: sliding ? shot.width : label.implicitWidth + 34
@@ -14,32 +12,21 @@ Item {
     visible: Drag.active
 
     property var names: []
-    //: Where a drop would put what is in hand, in words ("Into Body",
-    //: "After Pad"); empty when nothing is under the pointer.
+    //: Drop hint text; empty when no target.
     property string hint: ""
-    //: False when the hint says a drop is refused, and is drawn so.
     property bool hintOk: true
 
     function say(text, ok) {
         hint = text;
         hintOk = ok;
     }
-    // Sliding: a reorder within a Body. The ghost is then a picture of
-    // the row itself, locked to its column and held at the point it was
-    // grabbed, so the row moves rather than a label beside the pointer.
+    // Sliding: reorder within a container, ghost locked to its column.
     property bool sliding: false
-    // While sliding: the row it would be dropped after, if the drop
-    // is allowed there, and what the panel said about each row asked.
     property string slideTarget: ""
     property var verdicts: ({})
-    // While sliding: the row it would drop into instead - the middle
-    // of a sibling that takes it - and what was said of each asked.
     property string slideInto: ""
     property var intoVerdicts: ({})
-    // Set by the row that starts the drag: the container it slides in,
-    // whether that is a Body (whose members only reorder), and how
-    // deep its rows sit - a row shallower than that, other than the
-    // container, is outside it.
+    // Set by the row that starts the drag.
     property string container: ""
     property bool inBody: false
     property int sourceDepth: 0
@@ -58,31 +45,21 @@ Item {
         slideInto = "";
         verdicts = ({});
         intoVerdicts = ({});
-        // The drop target is the row under the pointer, so the hot spot
-        // is the point that was grabbed.
         Drag.hotSpot.x = sliding ? grabbedAt.x : 12;
         Drag.hotSpot.y = sliding ? grabbedAt.y : height / 2;
         ghost.list.dragSources = objectNames;
         ghost.list.reorderDrag = sliding;
         hint = "";
         cancelled = false;
-        // The keyboard, so Escape reaches the panel to cancel.
         host.takeKeyboard();
         ghost.list.forceActiveFocus();
-        // Rows scrolled out of view are kept while a drag lasts: the
-        // row being dragged holds the pointer, and must not be
-        // recycled when the list scrolls under it (edgeScroll).
+        // Keep delegates alive: the dragged row holds the pointer and must not be recycled.
         ghost.list.cacheBuffer = 100000;
         Drag.active = true;
     }
 
-    // The row's picture: the part of `item` from `left`, `w` wide.
-    // Drawn by the scene graph in the next frame, not grabbed to an
-    // image: grabToImage answers asynchronously, and in a panel that
-    // was not repainting it could fail to answer at all - the label
-    // stood in until something (switching windows) made the panel
-    // redraw. Cropped, so in an overlay the picture is the pill, not
-    // a bar the width of the 3D view.
+    // Scene-graph copy, not grabToImage: that is async and may never answer
+    // in a panel that is not repainting.
     function picture(item, left, w, h) {
         if (!Drag.active)
             return;
@@ -93,11 +70,9 @@ Item {
         shot.scheduleUpdate();
     }
 
-    //: Set when Escape called the drag off: the release that follows
-    //: is not a click.
+    //: Escape cancelled; the following release is not a click.
     property bool cancelled: false
 
-    // Escape: everything put back as it was, nothing dropped.
     function cancel() {
         if (!Drag.active)
             return;
@@ -142,8 +117,6 @@ Item {
         ghost.list.cacheBuffer = 400;
     }
 
-    // A drag moves pixels over the translucent surface in overlay mode;
-    // see ghost.list's onContentYChanged.
     onYChanged: {
         if (!Drag.active)
             return;
@@ -165,8 +138,7 @@ Item {
         return intoVerdicts[target];
     }
 
-    // Out of a Part or group: the drag stops sliding and becomes a
-    // free one, the label following the pointer and any row a target.
+    // Left the container: becomes a free drag.
     function unslide() {
         sliding = false;
         shot.sourceItem = null;
@@ -181,9 +153,6 @@ Item {
         say("", true);
     }
 
-    // Over the middle of a sibling that would take it: into that row.
-    // Over a row outside the container: no longer a slide. Returns
-    // true when either decided the matter.
     function slideAcross() {
         if (inBody)
             return false;
@@ -214,8 +183,7 @@ Item {
         return false;
     }
 
-    // Held over the middle of a closed container for a moment, it
-    // opens, to drop deeper.
+    // Spring-open a collapsed container hovered over.
     Timer {
         id: intoSpring
         interval: 700
@@ -227,12 +195,8 @@ Item {
         }
     }
 
-    // Opens the gap where the dragged row is, so it sits over the
-    // space it will drop into. Worked out on the list as it would be
-    // with no gap open: the gap moves rows, and measuring rows that
-    // are moving because of the answer would make the answer flicker.
-    // The slot chosen is the row boundary nearest the dragged row's
-    // top edge; the gap opens there, a row high, under the ghost.
+    // Measured as if no gap were open; otherwise the gap's own movement
+    // makes the answer flicker.
     function slide() {
         if (slideAcross())
             return;
@@ -268,16 +232,12 @@ Item {
         var ok = target !== "" && allowed(target);
         slideTarget = ok ? target : "";
         ghost.list.dropGap = ok ? best : -1;
-        // Onto the Body itself is to its start; onto a member, after it.
         say(!ok ? qsTr("Can't move here")
             : item.name === container ? qsTr("To the start of %1")
                                          .arg(item.label)
             : qsTr("After %1").arg(item.label), ok);
     }
 
-    // While a drag is near the top or bottom of the list, the list
-    // scrolls, faster the further in; a reorder keeps finding its
-    // slot as the rows pass under it.
     Timer {
         id: edgeScroll
         interval: 16
@@ -308,7 +268,6 @@ Item {
         }
     }
 
-    // Where it will land, beside the pointer.
     Rectangle {
         id: hintPill
         z: 2
@@ -334,16 +293,11 @@ Item {
 
     ShaderEffectSource {
         id: shot
-        // Once taken, not redrawn: the row it shows is dimmed while it
-        // is being dragged, and the copy keeps it as it was. (A copy
-        // leaves out its source's own opacity, so the dimming would
-        // not show in it anyway.)
+        // Not live: keeps the row as it was before being dimmed.
         live: false
         hideSource: false
         visible: ghost.sliding && sourceItem !== null
 
-        // Lifted: a shadow line under it and a little transparency, so
-        // it reads as held above the list rather than part of it.
         opacity: 0.95
         Rectangle {
             anchors.fill: parent
@@ -351,13 +305,10 @@ Item {
             radius: 4
             color: theme.surface
             border.width: 1
-            // Accent where it can drop; plain where it cannot.
             border.color: ghost.slideTarget !== "" ? theme.accent
                                                    : theme.border
         }
 
-        // How many are in hand, when the picture shows only the one
-        // that was grabbed.
         Rectangle {
             visible: ghost.names.length > 1
             anchors.right: parent.right

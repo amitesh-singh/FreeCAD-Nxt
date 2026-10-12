@@ -1,8 +1,7 @@
 import QtQuick
 import Nxt.Controls
 
-// One property in the Property Inspector: its label, and the editor for its
-// kind (ValueEditor). Edits go to the `inspector` bridge on the context.
+// One property in the Property Inspector: label and editor (ValueEditor).
 Column {
     id: field
 
@@ -11,7 +10,6 @@ Column {
     spacing: 2
 
     Row {
-        // A switch carries its own label.
         visible: field.spec.editor !== "switch"
         spacing: 4
         Text {
@@ -22,7 +20,6 @@ Column {
             elide: Text.ElideRight
         }
         Text {
-            // An expression drives this value.
             visible: !!field.spec.expression && field.spec.expression.length > 0
             text: "ƒ"
             font.pixelSize: theme.fontAside

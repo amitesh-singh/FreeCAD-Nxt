@@ -1,17 +1,6 @@
 """Where a floating field goes, beside the thing it belongs to.
 
-Plain rectangles in, a position out; no FreeCAD and no Qt, so the rules
-are tested on their own (tests/test_placement.py). Screen coordinates:
-x to the right, y down, as Qt widgets have them.
-
-The rules, in order:
-  1. Beside the target, to its right, centred on it vertically, with a
-     gap - never on top of it, so the handle stays grabbable.
-  2. If that runs off the right edge, to its left instead.
-  3. Kept inside the view.
-  4. Clear of fields already placed: moved down, then up, one field's
-     height (plus the gap) at a time, until it is clear. Placed in a
-     fixed order, so the same targets always give the same layout.
+Pure geometry (no FreeCAD or Qt), in widget coordinates, y down.
 """
 
 from __future__ import annotations
@@ -54,20 +43,15 @@ def from_viewport(x: float, y: float, height: float,
                   ratio: float = 1.0) -> tuple[float, float]:
     """A point from FreeCAD's getPointOnViewport, in widget coordinates.
 
-    FreeCAD answers as Coin does: device pixels, origin at the BOTTOM
-    left, y up. Widgets have the origin at the top left, y down, in
-    logical pixels. `height` is the viewport's height in device pixels.
-
-    Reading y as top-down mirrored every placement about the middle of
-    the view: right on the first try at the middle, and moving the wrong
-    way up and down as the arrow was dragged.
+    Coin gives device pixels with y up from the bottom; `height` is the
+    viewport's height in device pixels.
     """
     ratio = ratio or 1.0
     return x / ratio, (height - y) / ratio
 
 
 def bounding(points: Iterable[tuple[float, float]]) -> Rect | None:
-    """The rectangle around some points: a 3D box's projected corners."""
+    """The rectangle around some points."""
     xs, ys = [], []
     for x, y in points:
         xs.append(x)
@@ -85,7 +69,7 @@ def _inside(rect: Rect, bounds: Rect) -> Rect:
 
 def beside(target: Rect, width: float, height: float, bounds: Rect,
            taken: Sequence[Rect] = ()) -> Rect:
-    """Where a field of this size goes, next to `target`."""
+    """Right of `target` (else left), in bounds, clear of `taken`."""
     y = target.centre_y - height / 2
     rect = Rect(target.right + GAP, y, width, height)
     if rect.right > bounds.right:
@@ -104,10 +88,7 @@ def beside(target: Rect, width: float, height: float, bounds: Rect,
 
 def layout(targets: Sequence[Rect], sizes: Sequence[tuple[float, float]],
            bounds: Rect) -> list[Rect]:
-    """Places several fields, each beside its target, none overlapping.
-
-    Also clear of every target, so no field hides another's handle.
-    """
+    """Place fields beside their targets, clear of fields and targets."""
     placed: list[Rect] = []
     for target, (width, height) in zip(targets, sizes):
         placed.append(beside(target, width, height, bounds,

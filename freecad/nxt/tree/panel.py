@@ -1,8 +1,4 @@
-"""Dock host for the Nxt model panel.
-
-A plain QDockWidget beside the stock tree, so the two can be compared side
-by side. The QML root and the bridge know nothing about the dock.
-"""
+"""QDockWidget hosting the Nxt model panel beside the stock tree."""
 
 from __future__ import annotations
 
@@ -45,7 +41,6 @@ _RESTYLE_EVENTS = (
     QtCore.QEvent.Type.ApplicationPaletteChange,
 )
 
-#: How far up the parent chain to look for FreeCAD's overlay container.
 SAVE_DEBOUNCE_MS = 400
 LATE_REPAINT_MS = 180
 OVERLAY_VERIFY_MS = 1200
@@ -54,21 +49,18 @@ OVERLAY_RETRY_MS = 1500
 OVERLAY_ATTEMPTS = 2
 DETECT_SETTLE_MS = 250
 
-#: The stock tree may not exist yet when the panel opens, and it is where
-#: the colours come from. Re-ask on this ladder rather than settling.
+#: The stock tree (colour source) may not exist yet at startup.
 THEME_RETRY_MS = (400, 1500, 4000)
 
+#: How far up the parent chain to look for FreeCAD's overlay container.
 _ANCESTOR_LIMIT = 12
 
-#: FreeCAD's own overlay command. It acts on the dock under the cursor,
-#: which is ours when the button in our title bar is what was clicked.
+#: Acts on the dock under the cursor, i.e. ours when our button is clicked.
 HOST_OVERLAY_COMMAND = "Std_DockOverlayToggle"
 
 _panel: ModelPanel | None = None
 
 
-#: The dock areas worth restoring to. Anything else - NoDockWidgetArea, or
-#: a stale value from an older build - means "put it back on the left".
 _DOCK_AREAS = (
     QtCore.Qt.DockWidgetArea.LeftDockWidgetArea,
     QtCore.Qt.DockWidgetArea.RightDockWidgetArea,
@@ -78,10 +70,7 @@ _DOCK_AREAS = (
 
 
 def _dock_area(stored: Any) -> QtCore.Qt.DockWidgetArea:
-    """Turn a stored number back into a dock area, defensively.
-
-    a parameter file outlives the code that wrote it.
-    """
+    """Stored number to dock area; anything unexpected maps to left."""
     try:
         area = QtCore.Qt.DockWidgetArea(int(stored))
     except Exception:
@@ -98,12 +87,7 @@ def _err_overlay() -> None:
 
 def _overlay_icon(size: int, floating: bool,
                   colour: QtGui.QColor) -> QtGui.QIcon:
-    """Draw the overlay button's icon.
-
-    A panel sitting over a surface, drawn rather than shipped - same
-    reasoning as the eye and the dart: at this size a bitmap is at the mercy
-    of the display's scale factor.
-    """
+    """Draw the overlay button's icon (drawn so it scales cleanly)."""
     pixmap = QtGui.QPixmap(size, size)
     pixmap.fill(QtCore.Qt.GlobalColor.transparent)
     painter = QtGui.QPainter(pixmap)
@@ -117,7 +101,6 @@ def _overlay_icon(size: int, floating: bool,
         QtCore.QRectF(inset, inset, size - 2 * inset, size - 2 * inset),
         size * 0.12, size * 0.12)
 
-    # the floating panel itself: filled when overlay is on, hollow when off
     panel = QtCore.QRectF(size * 0.30, size * 0.34,
                           size * 0.46, size * 0.22)
     if floating:
@@ -128,11 +111,10 @@ def _overlay_icon(size: int, floating: bool,
 
 
 class PanelTitleBar(QtWidgets.QWidget):
-    """Dock title bar that carries the panel's overlay control.
+    """Dock title bar with an overlay button.
 
-    Replacement dock title bar, so the panel can carry its own overlay
-    control. Replacing it costs the dock's stock float and close buttons,
-    so those are rebuilt here rather than quietly lost.
+    Replacing the title bar loses the stock float and close buttons, so
+    they are rebuilt here.
     """
 
     def __init__(self, dock: ModelPanel) -> None:
@@ -143,7 +125,6 @@ class PanelTitleBar(QtWidgets.QWidget):
         layout.setContentsMargins(6, 2, 2, 2)
         layout.setSpacing(1)
 
-        # The project's logo, at the title's text height.
         self._logo = QtWidgets.QLabel(self)
         logo = QtGui.QIcon(str(resources.LOGO))
         side = self.fontMetrics().height()
@@ -182,13 +163,7 @@ class PanelTitleBar(QtWidgets.QWidget):
         self.refresh()
 
     def _on_overlay_clicked(self) -> None:
-        """Ask FreeCAD to overlay the dock.
-
-        Ask FreeCAD to overlay the dock, and let detection switch the
-        painting. Falling back to the paint mode alone would leave the panel
-        looking overlaid while still sitting in the dock area, which is a
-        worse lie than doing nothing.
-        """
+        """Ask FreeCAD to overlay the dock; detection switches painting."""
         if settings_mod.get("OverlayMode") == "nxt":
             self._dock.set_view_overlay(True)
         elif not self._dock.request_host_overlay():
@@ -218,11 +193,7 @@ class ModelPanel(QtWidgets.QDockWidget):
         super().__init__(translate("Nxt", TITLE), parent)
         self.setObjectName(OBJECT_NAME)
 
-        # Everything the panel can be asked about has to exist before the
-        # QML is built, because loading it calls straight back in here:
-        # the root component reads the saved divider position on completion
-        # and reports it again as it settles. Anything assigned after
-        # setWidget() is, from QML's point of view, assigned too late.
+        # QML calls back into these while loading, so set before setWidget.
         self._view: Any = None     # QQuickWidget; the module loads lazily
         self._provider: icons_mod.IconProvider | None = None
         self._title_bar: PanelTitleBar | None = None
@@ -234,12 +205,7 @@ class ModelPanel(QtWidgets.QDockWidget):
         self._view_overlay: Any = None   # Nxt's own overlay, when used
         self._wants_view_overlay = False
 
-        # Owned timers, not QTimer.singleShot. A static single-shot outlives
-        # the object it was scheduled for, so on reload it fires into a
-        # deleted C++ wrapper and every one of these raises RuntimeError from
-        # a callback nobody is catching. Children of the dock die with it.
-        # Restarting one also debounces for free, which is what the pending
-        # flags were doing by hand.
+        # Owned timers: a static singleShot outlives the dock on reload.
         self._save_timer = self._timer(SAVE_DEBOUNCE_MS, self._flush_save)
         self._repaint_timer = self._timer(0, self._flush_repaint)
         self._repaint_late_timer = self._timer(
@@ -262,9 +228,7 @@ class ModelPanel(QtWidgets.QDockWidget):
 
         self.setWidget(self._build_body())
         self._observers.install()
-        # The overlay ink follows the 3D view's background as soon as it
-        # changes, not at the next refresh (theme.ViewBackgroundWatch).
-        # Deferred: the parameter's observers run inside whatever set it.
+        # Deferred: parameter observers run inside whatever set the value.
         self._background_watch = theme_mod.ViewBackgroundWatch(
             self._restyle_timer.start)
         self._background_watch.attach()
@@ -274,10 +238,7 @@ class ModelPanel(QtWidgets.QDockWidget):
                 self._title_bar)  # type: ignore[arg-type]
         self._hidden_title = QtWidgets.QWidget(self)
 
-        # FreeCAD's overlay manager reparents the dock into its own
-        # container, so the panel can notice it has been overlaid rather
-        # than being told. Deferred, because the reparent and the geometry
-        # change do not arrive together.
+        # The host overlay is detected from reparenting; see eventFilter.
         self.installEventFilter(self)
 
     def _timer(self, interval: int,
@@ -287,8 +248,6 @@ class ModelPanel(QtWidgets.QDockWidget):
         timer.setInterval(interval)
         timer.timeout.connect(slot)
         return timer
-
-    # ------------------------------------------------------------------ #
 
     def _build_body(self) -> QtWidgets.QWidget:
         if not qtquick.available():
@@ -319,11 +278,7 @@ class ModelPanel(QtWidgets.QDockWidget):
         view.engine().addImageProvider(icons_mod.PROVIDER_ID, self._provider)
 
     def _isolation(self) -> Any:
-        """The isolate mode the rows dim for.
-
-        The services' own; with the services not running, an idle one, so
-        the QML binds cleanly.
-        """
+        """The services' isolation, or an idle one so the QML binds."""
         from ..app import services
         from ..tools import isolate
         live = services.isolation()
@@ -341,15 +296,11 @@ class ModelPanel(QtWidgets.QDockWidget):
         layout.addWidget(detail_box, 1)
         return holder
 
-    # ------------------------------------------------------------------ #
-
     def _apply_clear_colour(self, view: Any = None) -> None:
         """Make the QML surface transparent in overlay mode.
 
-        A QQuickWidget renders into its own surface with an opaque clear
-        colour, so transparency has to be asked for explicitly - and the
-        widget attributes have to agree, or the scene graph composites over
-        black instead of over what is behind it.
+        The widget attributes must agree with the clear colour, or the
+        scene graph composites over black.
         """
         view = view or self._view
         if view is None:
@@ -363,13 +314,7 @@ class ModelPanel(QtWidgets.QDockWidget):
                            else self._theme.background)
 
     def set_overlay(self, on: bool) -> None:
-        """Float the panel over the 3D view, or put it back.
-
-        The dock is left alone: whether it is a normal dock, one of
-        FreeCAD's native overlays, or floating, is the host's business.
-        This only changes what the panel paints - no background of its own,
-        and a backdrop behind each row instead.
-        """
+        """Switch overlay painting; the dock placement is left alone."""
         self._theme.set_overlay(on)
         self._apply_clear_colour()
         self._sync_title_bar()
@@ -386,8 +331,6 @@ class ModelPanel(QtWidgets.QDockWidget):
             self.set_view_overlay(not self.overlay())
         else:
             self.set_overlay(not self.overlay())
-
-    # -- Nxt's own overlay (view_overlay.py) ------------------------------ #
 
     viewOverlayChanged = QtCore.Signal()
 
@@ -425,11 +368,7 @@ class ModelPanel(QtWidgets.QDockWidget):
 
     @QtCore.Slot()
     def leaveViewOverlay(self) -> None:  # noqa: N802 - QML API
-        """The header's dock button: back into the dock.
-
-        Deferred a turn: the press that asked is still being handled by the
-        panel's own widget, which leaving reparents.
-        """
+        """Return to the dock, deferred past the press that asked."""
         QtCore.QTimer.singleShot(0, lambda: self.set_view_overlay(False))
 
     def apply_overlay_mode(self) -> None:
@@ -438,17 +377,10 @@ class ModelPanel(QtWidgets.QDockWidget):
                 and settings_mod.get("OverlayMode") != "nxt":
             self.set_view_overlay(False)
 
-    # ------------------------------------------------------------------ #
-    # overlay detection
-    # ------------------------------------------------------------------ #
-
     def _in_host_overlay(self) -> bool:
-        """Has FreeCAD's overlay manager taken this dock?
+        """Whether FreeCAD's overlay manager has reparented this dock.
 
-        Detected from the parent chain rather than from an API, because the
-        overlay manager offers none - it reparents the dock into a container
-        of its own. A name match is a heuristic, so it only ever turns the
-        panel's own painting on; nothing else depends on it being right.
+        There is no API for this, so it is a class-name heuristic.
         """
         widget = self.parentWidget()
         for _step in range(_ANCESTOR_LIMIT):
@@ -486,14 +418,7 @@ class ModelPanel(QtWidgets.QDockWidget):
         self.set_overlay(detected)
 
     def _sync_title_bar(self) -> None:
-        """Hide the dock's title bar while FreeCAD overlays it.
-
-        The overlay manager supplies its own chrome and its own way back
-        out, so the dock's title bar is redundant there - and a solid bar
-        above a panel with no background looks like a mistake. Hidden only
-        when the *host* overlaid us: a hand-toggled overlay keeps its title
-        bar, or there would be no way to toggle back.
-        """
+        """Hide the title bar only while FreeCAD's overlay hosts the dock."""
         if self._detected_overlay:
             self.setTitleBarWidget(
                 self._hidden_title)  # type: ignore[arg-type]
@@ -511,20 +436,8 @@ class ModelPanel(QtWidgets.QDockWidget):
             self._release_timer.start()
         return super().eventFilter(obj, event)
 
-    # ------------------------------------------------------------------ #
-
-    # ------------------------------------------------------------------ #
-    # persistence
-    # ------------------------------------------------------------------ #
-
     def apply_saved_state(self, main_window: Any) -> None:
-        """Put the dock back where it was.
-
-        Qt restores dock geometry from the main window's saved state, but
-        only for docks that exist when that state is read - and this one is
-        created by an addon, long after. So the few facts Qt cannot restore
-        for us are recorded and replayed here.
-        """
+        """Replay saved float and overlay state Qt cannot restore itself."""
         self._restoring = True
         try:
             if settings_mod.get("Floating"):
@@ -535,11 +448,7 @@ class ModelPanel(QtWidgets.QDockWidget):
                     self.setGeometry(settings_mod.get("FloatX"),
                                      settings_mod.get("FloatY"),
                                      width, height)
-            # Deferred rather than done here: this runs before the dock has
-            # been shown or raised, and FreeCAD's overlay command acts on
-            # whichever dock is active. Asking while we are neither visible
-            # nor focused cannot work, which is what the first attempt got
-            # wrong.
+            # Host overlay waits until the dock is visible and active.
             self._wants_host_overlay = bool(settings_mod.get("HostOverlay"))
             self._wants_view_overlay = bool(
                 settings_mod.get("ViewOverlay")
@@ -552,11 +461,7 @@ class ModelPanel(QtWidgets.QDockWidget):
             self._restoring = False
 
     def restore_view_overlay(self) -> None:
-        """Back into the 3D view, if that is where FreeCAD closed with it.
-
-        Deferred a turn, after the dock is shown: with no 3D view open yet
-        the panel waits out of sight, and goes into the first one.
-        """
+        """Re-enter the 3D view overlay if the last session ended there."""
         if self._wants_view_overlay:
             self._wants_view_overlay = False
             QtCore.QTimer.singleShot(
@@ -578,17 +483,12 @@ class ModelPanel(QtWidgets.QDockWidget):
         self.setFocus(QtCore.Qt.FocusReason.OtherFocusReason)
         if not self.request_host_overlay():
             return
-        # Verified rather than assumed: if the command did not land on this
-        # dock, detection never fires, and painting pills over an ordinary
-        # dock background looks broken rather than overlaid.
         self._verify_timer.start()
 
     def _verify_host_overlay(self) -> None:
         if self._detected_overlay:
             return
-        # The main window is still settling early in a session, so one miss
-        # is not proof the command cannot land - retry once, later, before
-        # concluding anything.
+        # Early in a session the window is still settling; retry once.
         if self._host_overlay_attempts < OVERLAY_ATTEMPTS:
             self._host_overlay_timer.setInterval(OVERLAY_RETRY_MS)
             self._host_overlay_timer.start()
@@ -603,11 +503,7 @@ class ModelPanel(QtWidgets.QDockWidget):
             "this build offers for aiming it.\n" % HOST_OVERLAY_COMMAND)
 
     def save_state(self) -> None:
-        """Coalesced.
-
-        a drag emits move and resize continuously, and the parameter
-        store is not where that traffic belongs.
-        """
+        """Schedule a debounced save of the dock state."""
         if self._restoring:
             return
         self._save_timer.start()
@@ -637,14 +533,9 @@ class ModelPanel(QtWidgets.QDockWidget):
             App.Console.PrintError(traceback.format_exc())
 
     def _release_scenegraph(self) -> None:
-        """Drop cached scene graph resources after a reparent.
+        """Drop scene graph resources after a reparent.
 
-        Dragging the dock to another edge puts the widget in a new
-        top-level window, and therefore on a new QRhi - but the scene graph
-        still holds textures created on the old one, which Qt reports as
-        "Texture ... belongs to QRhi ..., but client code attempted to use
-        it with QRhi ...". Releasing them forces recreation against whatever
-        rendering context the widget has now.
+        A new top-level window means a new QRhi; old textures are invalid.
         """
         view = self._view
         if view is None:
@@ -659,27 +550,18 @@ class ModelPanel(QtWidgets.QDockWidget):
 
     @QtCore.Slot(result=QtCore.QPointF)
     def menuAnchorOffset(self) -> QtCore.QPointF:  # noqa: N802 - QML API
-        """Where the panel's scene sits in FreeCAD's window, under Wayland.
+        """Offset of the panel's scene in FreeCAD's window (Wayland only).
 
-        A Qt Quick menu that opens in a window of its own is placed, under
-        Wayland, relative to the rectangle of the item it was opened from -
-        and Qt takes that rectangle in the coordinates of the item's own
-        window. The panel's items live in a QQuickWidget, whose window is
-        an offscreen one lying at the corner of FreeCAD's, so the menu has
-        to be opened from an item shifted by where the panel really is.
-        Elsewhere the menu is placed from global coordinates, which already
-        account for this, and the offset is zero.
+        Wayland places popups relative to the QQuickWidget's offscreen
+        window, so menus must be shifted; elsewhere this is zero.
         """
         return quick_host.window_offset(self._view)
 
     @QtCore.Slot()
     def takeKeyboard(self) -> None:  # noqa: N802 - QML API
-        """Give the panel the keyboard, for a field that is about to edit.
+        """Give the view keyboard focus before a field starts editing.
 
-        A field in the panel can have the panel's own focus and still get
-        no keys: the keys go to whichever widget has the keyboard, and
-        with the panel in the 3D view that is usually the view. A rename
-        box then opened, took nothing typed and never closed.
+        In the 3D view overlay the keys otherwise go to the view.
         """
         view = self._view
         if view is None:
@@ -692,18 +574,10 @@ class ModelPanel(QtWidgets.QDockWidget):
 
     @QtCore.Slot()
     def repaintBehind(self) -> None:
-        """Nudge whatever is under the panel to repaint.
+        """Repaint what is under the panel, coalesced.
 
-        A translucent QQuickWidget composites over what is behind it, but
-        changing content does not tell that surface to redraw - so the
-        previous frame's pills stay stranded in the transparent gaps until
-        something unrelated repaints the area.
-
-        Coalesced, so QML can call it from every signal that might move a
-        pill without paying for each one. The second, later pass catches
-        relayouts that animate: expanding a branch settles over a couple of
-        frames, and a repaint issued before it finishes just re-photographs
-        the middle of the transition.
+        A translucent QQuickWidget does not make what is behind it redraw.
+        The later pass catches animated relayouts.
         """
         if not self._theme.overlay:
             return
@@ -719,11 +593,7 @@ class ModelPanel(QtWidgets.QDockWidget):
         self.update()
 
     def adopt_reference(self, widget: QtWidgets.QWidget | None) -> None:
-        """Take colours from a better reference widget.
-
-        Take colours from a better reference than the one we started
-        with - at startup the stock tree may not exist yet.
-        """
+        """Take colours from a better reference widget, if one appeared."""
         if widget is None or widget is self._theme.reference():
             return
         self._theme.set_reference(widget)
@@ -746,28 +616,13 @@ class ModelPanel(QtWidgets.QDockWidget):
         if getattr(self, "_restyle_timer", None) is None:
             return          # still constructing; refresh_theme runs anyway
         if event.type() in _RESTYLE_EVENTS:
-            # Deferred: when FreeCAD swaps stylesheets we may be polished
-            # before the widget we take our colours from.
+            # Deferred: we may be polished before our colour reference.
             self._restyle_timer.start()
 
     def shutdown(self) -> None:
-        """Take the panel down without the QML engine narrating it.
+        """Tear the panel down by deleting the view.
 
-        Out of the 3D view first, if Nxt's own overlay has it there: the
-        view goes back to the dock so it is torn down with it.
-
-        Emphatically *not* by nulling the context properties. Doing that
-        re-evaluates every binding that reads `nxt` or `theme` against null,
-        and since the delegates outlive `setSource(QUrl())` the console fills
-        with a TypeError for each one - dozens per reload. An earlier version
-        of this method tried to order those two steps correctly; the answer
-        is that there is no correct order, because the context properties
-        should never be cleared at all.
-
-        Deleting the widget takes its engine, its object tree and every
-        binding with it, in one step and in silence. The bridge and the
-        theme are children of this dock and die with it immediately
-        afterwards, so nothing is left pointing at them in between.
+        Never null the context properties: bindings would fire against null.
         """
         if self.in_view_overlay():
             try:
@@ -804,19 +659,13 @@ class ModelPanel(QtWidgets.QDockWidget):
             self.setWidget(None)  # type: ignore[arg-type]
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
-        # Recorded straight away rather than through the debounce: there may
-        # not be another event loop turn if this is the application quitting.
+        # Saved now: on quit there may be no further event loop turn.
         self._save_timer.stop()
-        # In Nxt's overlay the dock is hidden and cannot be closed by hand:
-        # a close then is FreeCAD quitting, and the panel is still open.
+        # In Nxt's overlay a close means FreeCAD is quitting.
         if not self.in_view_overlay():
             settings_mod.put("Visible", False)
         super().closeEvent(event)
 
-
-# --------------------------------------------------------------------------- #
-# lifecycle
-# --------------------------------------------------------------------------- #
 
 def _teardown() -> None:
     global _panel
@@ -833,14 +682,7 @@ def _teardown() -> None:
 
 
 def _on_quit() -> None:
-    """Destroy the QML view while what it binds to is still alive.
-
-    Nothing takes the panel down when FreeCAD quits: Qt deletes the main
-    window's children in its own order, and the bridge, the theme and the
-    services can go before the view - which then re-evaluates every binding
-    against null and prints a TypeError for each. So the view goes first,
-    and at once: a plain deleteLater may never get its turn this late.
-    """
+    """Destroy the QML view before what it binds to, on quit."""
     panel = _panel
     if panel is None:
         return
@@ -867,8 +709,6 @@ def show() -> ModelPanel | None:
         _panel = ModelPanel(mw)
         app = QtCore.QCoreApplication.instance()
         if app is not None:
-            # A reload leaves the old module's connection behind; it
-            # finds no panel there and does nothing.
             app.aboutToQuit.connect(_on_quit)
         first_run = not settings_mod.get("Configured")
 
@@ -882,9 +722,8 @@ def show() -> ModelPanel | None:
                     existing = dock
                     break
 
-        # Where FreeCAD's saved window layout had it, beside and in order
-        # with the other docks: the layout is read at startup, before this
-        # dock exists, and Qt keeps its place for a dock made afterwards.
+        # The window layout is read before this dock exists; Qt keeps its
+        # place for restoreDockWidget.
         if existing is not None or not mw.restoreDockWidget(_panel):
             if existing is not None:
                 area = mw.dockWidgetArea(existing)
@@ -892,9 +731,7 @@ def show() -> ModelPanel | None:
                 area = _dock_area(settings_mod.get("DockArea"))
             mw.addDockWidget(area, _panel)
 
-            # Tabbing beside the stock tree is a first-run courtesy only.
-            # After that the user's arrangement is the arrangement, and
-            # re-tabbing on every start would quietly undo it.
+            # First run only, so the user's arrangement is not undone.
             if existing is not None:
                 mw.tabifyDockWidget(existing, _panel)
                 settings_mod.put("Configured", True)
@@ -908,9 +745,6 @@ def show() -> ModelPanel | None:
     _panel.restore_view_overlay()
     settings_mod.put("Visible", True)
 
-    # The stock tree may not exist yet at startup, and it is where the
-    # panel's colours come from. Re-ask a few times rather than settling for
-    # the platform palette for the rest of the session.
     for delay in THEME_RETRY_MS:
         QtCore.QTimer.singleShot(delay, _upgrade_theme_reference)
     return _panel

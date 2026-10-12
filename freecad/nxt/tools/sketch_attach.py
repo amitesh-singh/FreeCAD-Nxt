@@ -1,16 +1,7 @@
 """A new sketch on three picked points, without the attachment dialog.
 
-FreeCAD's New Sketch skips its attachment dialog for one preselected
-face or plane. Given three points, or a straight edge and a point, it
-fills the dialog in with them and waits to be told the mode. Those
-selections say "plane by 3 points" as plainly as a face says "on this
-face", so this answers the dialog for the user: it sets that mode and
-presses the dialog's own OK, which is what commits the sketch and opens
-it for editing.
-
-The dialog is left up, as FreeCAD leaves it for a face, when Shift is
-held or PartDesign's "NewSketchUseAttachmentDialog" preference is on -
-and whenever the mode would not work: a curved edge, or points in line.
+Sets "plane by 3 points" and presses the dialog's own OK, which is what
+commits the sketch. Shift or the PartDesign preference keeps the dialog.
 """
 
 from __future__ import annotations
@@ -26,21 +17,18 @@ from ..core.qt import QtCore, QtWidgets
 from .float_input import task_ok_button
 
 SKETCH = "Sketcher::SketchObject"
-#: The attachment mode FreeCAD lists as "Plane by 3 points".
 MODE = "ThreePointsPlane"
-#: In the class or object name of the attachment task's panel, however
-#: this build spells the namespace ("PartGui::" or "PartGui__").
+#: Matched by substring: builds spell "PartGui::" or "PartGui__".
 ATTACHER_PANEL = "TaskAttacher"
-#: The dialog's OK button can take a moment to be on screen: how often to
-#: look for it, in milliseconds, and how many times.
+#: The dialog's OK can take a moment to appear.
 RETRY_MS = 50
 RETRIES = 20
 PARTDESIGN_PREFERENCES = "User parameter:BaseApp/Preferences/Mod/PartDesign"
 
-#: Datum objects picked whole, with no sub-element to name their kind.
+#: Datums picked whole, with no sub-element name.
 POINTS = ("App::Point", "PartDesign::Point")
 LINES = ("App::Line", "PartDesign::Line")
-#: The selections answered for: (points, edges).
+#: (points, edges) selections answered for.
 PLANES = frozenset({(3, 0), (1, 1)})
 
 
@@ -49,7 +37,7 @@ def _derived(obj: Any, bases: tuple[str, ...]) -> bool:
 
 
 def _picked(support: Any) -> tuple[int, int] | None:
-    """(points, edges) in an attachment support; None with anything else."""
+    """(points, edges) in the support; None for anything else."""
     points = edges = 0
     for obj, subs in support or ():
         for sub in subs or ("",):
@@ -66,7 +54,6 @@ def _picked(support: Any) -> tuple[int, int] | None:
 
 
 def _dialog_asked_for() -> bool:
-    """Whether the user wants the attachment dialog whatever is selected."""
     shift = QtCore.Qt.KeyboardModifier.ShiftModifier
     return bool(QtWidgets.QApplication.queryKeyboardModifiers() & shift) \
         or bool(App.ParamGet(PARTDESIGN_PREFERENCES).GetBool(
@@ -74,12 +61,10 @@ def _dialog_asked_for() -> bool:
 
 
 def _log(why: str) -> None:
-    """Why the dialog was left up. Report view, with log messages on."""
     App.Console.PrintLog("Nxt new sketch: %s\n" % why)
 
 
 def _attacher_ok() -> Any:
-    """The open attachment dialog's OK button, or None."""
     for widget in Gui.getMainWindow().findChildren(QtWidgets.QWidget):
         if widget.isVisible() and (
                 ATTACHER_PANEL in widget.metaObject().className()
@@ -89,7 +74,7 @@ def _attacher_ok() -> Any:
 
 
 def _set_mode(sketch: Any) -> bool:
-    """Attach the sketch as a plane by 3 points. False, undone, if it fails."""
+    """Set the 3-point mode; False (reverted) if it does not fit."""
     before = sketch.MapMode
     if before == MODE:
         return True
@@ -119,10 +104,9 @@ class SketchAttach(QtCore.QObject):
     def __init__(self, parent: QtCore.QObject | None = None) -> None:
         super().__init__(parent)
         self._observer = _Observer(self)
-        #: The sketch just created: (document, sketch), by name.
         self._created: tuple[str, str] | None = None
         self._tries = 0
-        # After the command that made the sketch: its dialog is up by then.
+        # Fire after the creating command, once its dialog is up.
         self._timer = QtCore.QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._answer)

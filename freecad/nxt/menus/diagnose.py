@@ -1,12 +1,7 @@
-"""Find which step of building the context menu takes FreeCAD down.
+"""Find which menu-building step crashes FreeCAD.
 
-A crash in FreeCAD's C++ leaves no Python traceback, so this writes each
-step to a log file - flushed to disk before the step runs - and the last
-line in the file is the step that crashed:
-
-    from freecad.nxt.menus import diagnose; diagnose.run()
-
-The log is `nxt-diagnose.log` in the addon's folder.
+Each step is fsynced to `nxt-diagnose.log` before it runs; the last line
+is the culprit. Run `diagnose.run()`.
 """
 
 from __future__ import annotations

@@ -120,6 +120,8 @@ Rectangle {
             boundsBehavior: Flickable.StopAtBounds
             flickableDirection: Flickable.VerticalFlick
             cacheBuffer: 400
+            // Rows are recycled while scrolling, not rebuilt.
+            reuseItems: true
             focus: true
             keyNavigationEnabled: false
             // In the overlay, empty-space presses belong to the model behind.

@@ -185,6 +185,23 @@ class FieldTests(unittest.TestCase):
         self.assertEqual(self.field.text, self.spin.text())
 
 
+class MovedBoxTests(unittest.TestCase):
+    """After a handle drag, the box whose value moved takes the keyboard."""
+
+    def test_the_changed_value_names_its_box(self) -> None:
+        self.assertEqual(float_input.moved_box(
+            {"lengthEdit": "10 mm", "lengthEdit2": "5 mm"},
+            {"lengthEdit": "10 mm", "lengthEdit2": "7 mm"}), "lengthEdit2")
+
+    def test_a_click_that_moved_nothing_names_none(self) -> None:
+        self.assertIsNone(float_input.moved_box(
+            {"lengthEdit": "10 mm"}, {"lengthEdit": "10 mm"}))
+
+    def test_a_box_that_appeared_meanwhile_is_not_a_drag(self) -> None:
+        self.assertIsNone(float_input.moved_box(
+            {}, {"lengthEdit": "10 mm"}))
+
+
 class FocusClaimTests(unittest.TestCase):
     """The box asks for the keyboard until it has it, briefly."""
 

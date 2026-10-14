@@ -105,6 +105,19 @@ Item {
         nxt.rename(row.name, renameInput.text);
     }
 
+    // A recycled row starts clean: nothing it was doing follows it to
+    // another object.
+    ListView.onPooled: {
+        renameDelay.stop();
+        row.cancelRename();
+        row.dropTarget = false;
+        springOpen.stop();
+        flashAnimation.stop();
+        flash.opacity = 0;
+        press.armed = false;
+        press.held = false;
+    }
+
     function cancelRename() {
         // Clear first so the following focus loss commits nothing.
         row.renaming = false;
@@ -143,8 +156,15 @@ Item {
         return 0;
     }
 
-    // Asked of the strip so the mark never promises an empty strip.
-    readonly property bool hasDetail: content.hasContent
+    // Matches DetailStrip.hasContent, so the mark never promises an
+    // empty strip.
+    readonly property bool hasDetail:
+        (row.notes && row.notes.length > 0)
+        || (row.refs && row.refs.length > 0)
+        || (row.consumers && row.consumers.length > 0)
+        || row.isProfile || row.isLifted
+        || (row.keyProps && row.keyProps.length > 0)
+        || row.propertyCount > 0
     readonly property bool showDetail: row.detailOpen && row.hasDetail
 
     // A failure owned by a profile reddens the chip, not the label.
@@ -703,6 +723,7 @@ Item {
 
         // z: -1 so this grabbing MouseArea sits under the controls' TapHandlers.
         MouseArea {
+            id: press
             // In the 3D view only the pill takes presses (view_overlay.py).
             x: host.viewOverlay ? row.pillLeft : 0
             width: host.viewOverlay ? row.pillRight - row.pillLeft
@@ -818,149 +839,165 @@ Item {
         objectName: "detail"
         anchors.top: head.bottom
         width: Math.min(parent.width, row.detailCap)
-        height: row.showDetail ? content.implicitHeight : 0
+        height: row.showDetail && detailLoader.item
+                ? detailLoader.item.implicitHeight : 0
         visible: row.showDetail
         clip: true
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.leftMargin: row.detailLeft
-            anchors.rightMargin: 8
-            anchors.bottomMargin: 3
-            radius: 4
-            color: theme.chip
-            opacity: theme.overlay ? 0.0 : 0.55
-        }
+        // Built only while open: a strip per row made long trees slow to
+        // scroll.
+        Loader {
+            id: detailLoader
+            width: parent.width
+            active: row.showDetail
+            sourceComponent: Component {
+                Item {
+                    width: detailLoader.width
+                    height: implicitHeight
+                    implicitHeight: content.implicitHeight
 
-        Rectangle {
-            visible: theme.overlay
-            anchors.fill: parent
-            anchors.leftMargin: row.detailLeft
-            anchors.rightMargin: 8
-            anchors.bottomMargin: 3
-            radius: 4
-            color: theme.pill
-            border.width: 1
-            border.color: theme.pillBorder
-        }
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.leftMargin: row.detailLeft
+                    anchors.rightMargin: 8
+                    anchors.bottomMargin: 3
+                    radius: 4
+                    color: theme.chip
+                    opacity: theme.overlay ? 0.0 : 0.55
+                }
 
-        Rectangle {
-            visible: row.detailLeft < row.pillLeft - 1
-            x: row.pillLeft
-            y: 0
-            width: 14
-            height: 2
-            radius: 1
-            color: theme.accent
-        }
+                Rectangle {
+                    visible: theme.overlay
+                    anchors.fill: parent
+                    anchors.leftMargin: row.detailLeft
+                    anchors.rightMargin: 8
+                    anchors.bottomMargin: 3
+                    radius: 4
+                    color: theme.pill
+                    border.width: 1
+                    border.color: theme.pillBorder
+                }
 
-        Item {
-            id: closeButton
-            z: 2
-            anchors.right: parent.right
-            anchors.rightMargin: 10
-            y: 2
-            width: 18
-            height: 18
+                Rectangle {
+                    visible: row.detailLeft < row.pillLeft - 1
+                    x: row.pillLeft
+                    y: 0
+                    width: 14
+                    height: 2
+                    radius: 1
+                    color: theme.accent
+                }
 
-            Rectangle {
-                anchors.fill: parent
-                radius: 3
-                color: theme.hover
-                visible: closeMouse.containsMouse
-            }
-            Text {
-                anchors.centerIn: parent
-                text: "\u00d7"
-                font.pixelSize: theme.fontRow
-                color: closeMouse.containsMouse ? theme.text : theme.textDim
-            }
-            MouseArea {
-                id: closeMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: nxt.toggleDetail(row.name)
-            }
-            Accessible.role: Accessible.Button
-            Accessible.name: qsTr("Close details")
-        }
+                Item {
+                    id: closeButton
+                    z: 2
+                    anchors.right: parent.right
+                    anchors.rightMargin: 10
+                    y: 2
+                    width: 18
+                    height: 18
 
-        Item {
-            id: pinButton
-            objectName: "detailPin"
-            readonly property bool pinned:
-                nxt.pinnedDetails.indexOf(row.name) >= 0
-            visible: nxt.detailAutoShow
-            z: 2
-            anchors.right: closeButton.left
-            anchors.rightMargin: 2
-            y: 2
-            width: visible ? 18 : 0
-            height: 18
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 3
+                        color: theme.hover
+                        visible: closeMouse.containsMouse
+                    }
+                    Text {
+                        anchors.centerIn: parent
+                        text: "\u00d7"
+                        font.pixelSize: theme.fontRow
+                        color: closeMouse.containsMouse ? theme.text : theme.textDim
+                    }
+                    MouseArea {
+                        id: closeMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: nxt.toggleDetail(row.name)
+                    }
+                    Accessible.role: Accessible.Button
+                    Accessible.name: qsTr("Close details")
+                }
 
-            Rectangle {
-                anchors.fill: parent
-                radius: 3
-                color: pinButton.pinned ? theme.accent : theme.hover
-                visible: pinButton.pinned || pinMouse.containsMouse
-            }
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 4
-                width: 8
-                height: 5
-                radius: 1.5
-                color: pinButton.pinned ? theme.accentText
-                     : pinMouse.containsMouse ? theme.text : theme.textDim
-            }
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 9
-                width: 2
-                height: 5
-                color: pinButton.pinned ? theme.accentText
-                     : pinMouse.containsMouse ? theme.text : theme.textDim
-            }
-            MouseArea {
-                id: pinMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: nxt.toggleDetailPin(row.name)
-            }
-            NxtToolTip {
-                shown: pinMouse.containsMouse
-                text: pinButton.pinned ? qsTr("Unpin")
-                                       : qsTr("Keep these details open")
-            }
-            Accessible.role: Accessible.Button
-            Accessible.name: qsTr("Keep these details open")
-        }
+                Item {
+                    id: pinButton
+                    objectName: "detailPin"
+                    readonly property bool pinned:
+                        nxt.pinnedDetails.indexOf(row.name) >= 0
+                    visible: nxt.detailAutoShow
+                    z: 2
+                    anchors.right: closeButton.left
+                    anchors.rightMargin: 2
+                    y: 2
+                    width: visible ? 18 : 0
+                    height: 18
 
-        DetailStrip {
-            id: content
-            owner: row.name             // in the active document
-            x: row.detailLeft + 8
-            width: Math.max(40, parent.width - x - 14 - closeButton.width
-                                - pinButton.width)
-            level: row.markLevel
-            notes: row.notes
-            dof: row.dof
-            constrained: row.constrained
-            consumers: row.consumers
-            refs: row.refs
-            isProfile: row.isProfile
-            isLifted: row.isLifted
-            keyProps: row.keyProps
-            propertyCount: row.propertyCount
-            onKeyEdited: function (prop, value) {
-                nxt.setKeyProperty(row.name, prop, value);
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 3
+                        color: pinButton.pinned ? theme.accent : theme.hover
+                        visible: pinButton.pinned || pinMouse.containsMouse
+                    }
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        y: 4
+                        width: 8
+                        height: 5
+                        radius: 1.5
+                        color: pinButton.pinned ? theme.accentText
+                             : pinMouse.containsMouse ? theme.text : theme.textDim
+                    }
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        y: 9
+                        width: 2
+                        height: 5
+                        color: pinButton.pinned ? theme.accentText
+                             : pinMouse.containsMouse ? theme.text : theme.textDim
+                    }
+                    MouseArea {
+                        id: pinMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: nxt.toggleDetailPin(row.name)
+                    }
+                    NxtToolTip {
+                        shown: pinMouse.containsMouse
+                        text: pinButton.pinned ? qsTr("Unpin")
+                                               : qsTr("Keep these details open")
+                    }
+                    Accessible.role: Accessible.Button
+                    Accessible.name: qsTr("Keep these details open")
+                }
+
+                DetailStrip {
+                    id: content
+                    owner: row.name             // in the active document
+                    x: row.detailLeft + 8
+                    width: Math.max(40, parent.width - x - 14 - closeButton.width
+                                        - pinButton.width)
+                    level: row.markLevel
+                    notes: row.notes
+                    dof: row.dof
+                    constrained: row.constrained
+                    consumers: row.consumers
+                    refs: row.refs
+                    isProfile: row.isProfile
+                    isLifted: row.isLifted
+                    keyProps: row.keyProps
+                    propertyCount: row.propertyCount
+                    onKeyEdited: function (prop, value) {
+                        nxt.setKeyProperty(row.name, prop, value);
+                    }
+                    onAllPropertiesRequested: row.openInspector()
+                    onConsumerClicked: function (name) { nxt.revealObjectRow(name); }
+                    onReferenceClicked: function (name) { nxt.revealObjectRow(name); }
+                    onChipActivated: function (name) { nxt.activate(name); }
+                }
+                }
             }
-            onAllPropertiesRequested: row.openInspector()
-            onConsumerClicked: function (name) { nxt.revealObjectRow(name); }
-            onReferenceClicked: function (name) { nxt.revealObjectRow(name); }
-            onChipActivated: function (name) { nxt.activate(name); }
         }
     }
 }

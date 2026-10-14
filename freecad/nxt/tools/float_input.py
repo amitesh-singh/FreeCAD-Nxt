@@ -159,6 +159,10 @@ def label_for(name: str) -> str:
         else translate("Nxt", "Length")
 
 
+#: How long after a release the dragged handle's box takes the keyboard.
+DRAG_SETTLE_MS = 60
+
+
 class FocusClaim:
     """Repeatedly claims the keyboard for the box when an edit begins.
 
@@ -418,6 +422,14 @@ def next_box(order: list[str], name: str, backward: bool = False) -> str:
     return order[(order.index(name) + step) % len(order)]
 
 
+def moved_box(before: dict[str, str], after: dict[str, str]) -> str | None:
+    """The box whose value changed between press and release, if any."""
+    for name, text in after.items():
+        if name in before and before[name] != text:
+            return name
+    return None
+
+
 class _Box:
     """One floating box: its field, and the widget once it is built."""
 
@@ -439,6 +451,12 @@ class FloatingInput(QtCore.QObject):
         self._session: tuple[str, str] | None = None
         self._started: tuple[str, str] | None = None
         self._claim = FocusClaim()
+        # Values at a press in the 3D view: a handle dragged changes one.
+        self._pressed: dict[str, str] | None = None
+        self._drag_end = QtCore.QTimer(self)
+        self._drag_end.setSingleShot(True)
+        self._drag_end.setInterval(DRAG_SETTLE_MS)
+        self._drag_end.timeout.connect(self._focus_dragged)
 
     def install(self) -> None:
         self._timer.start(IDLE_MS)
@@ -470,6 +488,8 @@ class FloatingInput(QtCore.QObject):
             target.field.focusRequested.emit(True)
 
     def _drop_widgets(self) -> None:
+        if widgets.alive(self._viewport):
+            self._viewport.removeEventFilter(self)
         for box in self._boxes.values():
             if widgets.alive(box.widget):
                 box.widget.hide()
@@ -538,6 +558,7 @@ class FloatingInput(QtCore.QObject):
         if self._viewport is not viewport:
             self._drop_widgets()
             self._viewport = viewport
+            viewport.installEventFilter(self)
         placed: list[tuple[_Box, Any, placement.Rect]] = []
         for name, spin, corners in targets:
             box = self._box(name)
@@ -651,6 +672,30 @@ class FloatingInput(QtCore.QObject):
             except Exception:
                 pass
 
+    def _texts(self) -> dict[str, str]:
+        texts = {}
+        for name in self._order:
+            field = self._boxes[name].field
+            field.sync()
+            texts[name] = str(field.text)
+        return texts
+
+    def _focus_dragged(self) -> None:
+        """After a handle is let go, its box takes the keyboard."""
+        before, self._pressed = self._pressed, None
+        name = moved_box(before or {}, self._texts())
+        if name is not None:
+            self._boxes[name].field.focusRequested.emit(True)
+
+    def _watch_drag(self, event: Any) -> None:
+        if event.button() != QtCore.Qt.MouseButton.LeftButton:
+            return
+        if event.type() == QtCore.QEvent.Type.MouseButtonPress:
+            self._pressed = self._texts()
+        elif self._pressed is not None:
+            # FreeCAD finishes the drag after the release reaches it.
+            self._drag_end.start()
+
     def _take_keyboard(self, name: str) -> None:
         box = self._boxes.get(name)
         widget: Any = box.widget if box is not None else None
@@ -659,8 +704,13 @@ class FloatingInput(QtCore.QObject):
             widget.setFocus(QtCore.Qt.FocusReason.MouseFocusReason)
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
-        """Block FreeCAD shortcuts (via ShortcutOverride) while focused."""
+        """Block FreeCAD shortcuts while focused; watch handle drags."""
         kind = event.type()
+        if watched is self._viewport:
+            if kind in (QtCore.QEvent.Type.MouseButtonPress,
+                        QtCore.QEvent.Type.MouseButtonRelease):
+                self._watch_drag(event)
+            return False
         if kind not in (QtCore.QEvent.Type.ShortcutOverride,
                         QtCore.QEvent.Type.KeyPress,
                         QtCore.QEvent.Type.Wheel):

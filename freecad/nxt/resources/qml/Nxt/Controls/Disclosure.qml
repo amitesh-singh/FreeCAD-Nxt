@@ -14,50 +14,57 @@ Item {
     property color ink: theme.branchInk
 
     // Repaint from the owner: a same-named child property would shadow it.
-    onInkChanged: arrow.requestPaint()
-    onSpanChanged: arrow.requestPaint()
+    onInkChanged: arrow.item && arrow.item.requestPaint()
+    onSpanChanged: arrow.item && arrow.item.requestPaint()
 
     signal toggled()
 
     implicitWidth: theme.markSize
     implicitHeight: implicitWidth
 
-    Canvas {
+    // Painted only for rows that have children.
+    Loader {
         id: arrow
         anchors.fill: parent
-        antialiasing: true
-        visible: root.shown
-        opacity: hover.hovered ? 1.0 : 0.8
-        rotation: root.expanded ? 90 : 0
+        active: root.shown
+        sourceComponent: Component {
+            Canvas {
+                anchors.fill: parent
+                antialiasing: true
+                visible: root.shown
+                opacity: hover.hovered ? 1.0 : 0.8
+                rotation: root.expanded ? 90 : 0
 
-        Behavior on rotation { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
+                Behavior on rotation { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
 
 
-        onPaint: {
-            var ctx = getContext("2d");
-            ctx.reset();
+                onPaint: {
+                    var ctx = getContext("2d");
+                    ctx.reset();
 
-            // Proportions of branch_closed.svg (21-unit box).
-            var c = width / 2;
-            var unit = Math.max(0.4, root.span / 11);
-            var along = 4 * unit;
-            var across = 5 * unit;
-            var notch = 1.93 * unit;
+                    // Proportions of branch_closed.svg (21-unit box).
+                    var c = width / 2;
+                    var unit = Math.max(0.4, root.span / 11);
+                    var along = 4 * unit;
+                    var across = 5 * unit;
+                    var notch = 1.93 * unit;
 
-            ctx.beginPath();
-            ctx.moveTo(c + along, c);
-            ctx.lineTo(c - along, c + across);
-            ctx.lineTo(c - notch, c);
-            ctx.lineTo(c - along, c - across);
-            ctx.closePath();
+                    ctx.beginPath();
+                    ctx.moveTo(c + along, c);
+                    ctx.lineTo(c - along, c + across);
+                    ctx.lineTo(c - notch, c);
+                    ctx.lineTo(c - along, c - across);
+                    ctx.closePath();
 
-            ctx.fillStyle = root.ink;
-            ctx.strokeStyle = root.ink;
-            ctx.lineWidth = unit;
-            ctx.lineJoin = "round";
-            ctx.lineCap = "round";
-            ctx.fill();
-            ctx.stroke();
+                    ctx.fillStyle = root.ink;
+                    ctx.strokeStyle = root.ink;
+                    ctx.lineWidth = unit;
+                    ctx.lineJoin = "round";
+                    ctx.lineCap = "round";
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
         }
     }
 

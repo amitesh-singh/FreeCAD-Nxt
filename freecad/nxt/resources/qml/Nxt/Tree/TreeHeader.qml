@@ -53,7 +53,20 @@ Item {
         elide: Text.ElideMiddle
         font.pixelSize: theme.fontRow
         font.bold: true
-        color: nxt.hasDocument ? theme.text : theme.textDim
+        color: !nxt.hasDocument ? theme.textDim
+             : nxt.atRoot ? theme.accent : theme.text
+
+        HoverHandler { id: docHover }
+        TapHandler {
+            enabled: nxt.hasDocument
+            onDoubleTapped: nxt.activateRoot()
+        }
+        NxtToolTip {
+            shown: docHover.hovered && nxt.hasDocument
+            text: nxt.atRoot
+                  ? qsTr("New objects go in at the top level")
+                  : qsTr("Double-click: add new objects at the top level")
+        }
     }
 
     Row {
@@ -152,7 +165,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         anchors.right: parent.right
         anchors.rightMargin: 6
-        name: qsTr("Tree settings")
+        tip: qsTr("Tree settings")
         highlighted: header.settingsOpen
         iconScale: 0.7
         paint: function (ctx, w, h, ink) {

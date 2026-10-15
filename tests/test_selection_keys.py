@@ -352,7 +352,7 @@ class ActivateTests(unittest.TestCase):
 
 
 class TipBarTests(unittest.TestCase):
-    """Only the active Body has a rollback bar."""
+    """Every Body has a rollback bar, active or not."""
 
     def setUp(self) -> None:
         self.bridge = make_bridge()
@@ -374,16 +374,12 @@ class TipBarTests(unittest.TestCase):
     def bodies(self) -> list[str]:
         return [bar["body"] for bar in self.bridge.tipBars]
 
-    def test_none_without_an_active_body(self) -> None:
-        self.assertEqual(self.bodies(), [])
+    def test_every_body_without_an_active_one(self) -> None:
+        self.assertEqual(self.bodies(), ["A", "D"])
 
-    def test_the_active_body_has_the_only_bar(self) -> None:
+    def test_activating_a_body_keeps_the_others(self) -> None:
         self.bridge._active = "D"
-        self.assertEqual(self.bodies(), ["D"])
-
-    def test_a_part_model_keeps_its_bar(self) -> None:
-        self.bridge._snapshot.nodes["A"].is_model = True
-        self.assertEqual(self.bodies(), ["A"])
+        self.assertEqual(self.bodies(), ["A", "D"])
 
 
 class BreadcrumbTests(unittest.TestCase):

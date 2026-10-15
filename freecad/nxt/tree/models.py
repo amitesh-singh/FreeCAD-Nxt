@@ -84,6 +84,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
     PropertyCountRole = _ROLE + 29
     BranchesRole = _ROLE + 30
     ActiveFromRole = _ROLE + 31
+    ActivePartRole = _ROLE + 32
 
     _ROLE_NAMES = {
         NameRole: "name",
@@ -121,6 +122,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
         PropertyCountRole: "propertyCount",
         BranchesRole: "branches",
         ActiveFromRole: "activeFrom",
+        ActivePartRole: "isActivePart",
     }
 
     countChanged = QtCore.Signal()
@@ -141,6 +143,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
         self._highlight: set[str] = set()
         self._detail: set[str] = set()
         self._active = ""
+        self._active_part = ""
         self._lines: dict[str, tuple[tuple[int, ...], int]] = {}
         self._icon_rev = 0
         self._known: set[str] = set()
@@ -328,6 +331,15 @@ class TreeRowModel(QtCore.QAbstractListModel):
         self._active = name
         self._touch(changed | self._reline())
 
+    def set_active_part(self, name: str | None) -> None:
+        """Mark the active Part; it has its own mark, apart from a Body's."""
+        name = name or ""
+        if name == self._active_part:
+            return
+        changed = {n for n in (self._active_part, name) if n}
+        self._active_part = name
+        self._touch(changed)
+
     def toggle_detail(self, name: str,
                       open_it: bool | None = None) -> bool:
         """Open or close a row's detail strip (not persisted); new state."""
@@ -464,7 +476,9 @@ class TreeRowModel(QtCore.QAbstractListModel):
         if role == self.IsLiftedRole:
             return node.is_lifted
         if role == self.ActiveRole:
-            return name == self._active
+            return name == self._active and name != self._active_part
+        if role == self.ActivePartRole:
+            return name == self._active_part
         if role == self.BranchesRole:
             return list(self._lines.get(name, ((), -1))[0])
         if role == self.ActiveFromRole:

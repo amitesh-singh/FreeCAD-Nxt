@@ -11,7 +11,11 @@ Item {
     property bool highlighted: false
     property real iconScale: 0.62
     property real iconAspect: 1.0
-    readonly property bool hovered: mouse.containsMouse
+    // A HoverHandler, not containsMouse: a MouseArea's hover can stick
+    // when the click rebuilds the tree or opens a popup.
+    readonly property bool hovered: hover.hovered
+    // A click dismisses the tooltip until the pointer leaves and returns.
+    property bool tipDismissed: false
 
     signal clicked(var mouse)
 
@@ -43,16 +47,25 @@ Item {
 
     // A MouseArea, for the click's modifiers: a TapHandler's event point
     // does not carry them.
-    MouseArea {
-        id: mouse
-        anchors.fill: parent
-        hoverEnabled: true
+    HoverHandler {
+        id: hover
         cursorShape: Qt.PointingHandCursor
-        onClicked: function (event) { button.clicked(event); }
+        onHoveredChanged: if (!hovered) button.tipDismissed = false
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        onPressed: button.tipDismissed = true
+        // After the release: the action may rebuild the tree under the
+        // pointer, which must not happen inside the MouseArea's own event.
+        onClicked: function (event) {
+            var click = {modifiers: event.modifiers, button: event.button};
+            Qt.callLater(function () { button.clicked(click); });
+        }
     }
 
     NxtToolTip {
-        shown: button.hovered && button.tip !== ""
+        shown: button.hovered && !button.tipDismissed && button.tip !== ""
         text: button.tip
     }
 

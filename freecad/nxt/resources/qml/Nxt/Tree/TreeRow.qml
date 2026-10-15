@@ -25,6 +25,7 @@ Item {
     required property bool isProfile
     required property bool isLifted
     required property bool isActive
+    required property bool isActivePart
     required property int severity
     required property var notes
     required property int dof
@@ -328,6 +329,7 @@ Item {
                       || row.slideInto || row.pickOrigin) ? 1.0
                    : row.highlighted ? 0.5
                    : row.isActive ? 0.28
+                   : row.isActivePart ? 0.18
                    : 0.0
             border.width: row.pickOrigin && !row.selected ? 2
                         : theme.overlay && !row.selected ? 1 : 0
@@ -401,13 +403,14 @@ Item {
 
         Rectangle {
             objectName: "activeMark"
-            visible: row.isActive
+            visible: row.isActive || row.isActivePart
+            opacity: row.isActive || row.selected ? 1.0 : 0.7
             x: theme.overlay ? icon.x - 3 : Math.max(1, row.leftPad - 4)
             y: 2
             width: 3
             height: head.height - 4
             radius: 1.5
-            color: theme.accent
+            color: row.selected ? theme.accentText : theme.accent
         }
 
         // -- spine: solid where built, dashed past the rollback bar --

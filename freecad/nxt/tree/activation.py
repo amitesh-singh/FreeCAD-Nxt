@@ -31,8 +31,10 @@ class Activation:
             return
         node = self._snapshot.nodes.get(name)
         if node is not None and node.is_container and not node.is_lifted:
-            if name != self._bridge._active and self._active_key(
-                    doc.getObject(name)):
+            key = self._active_key(doc.getObject(name))
+            current = (self._bridge._active_part if key == "part"
+                       else self._bridge._active)
+            if key and name != current:
                 # Deferred: activating can switch workbench or open a task.
                 self._pending_active = name
                 self._activate_timer.start()
@@ -74,7 +76,8 @@ class Activation:
             pass
         try:
             view = fc.active_view()
-            if self._bridge._read_active() != name and view is not None:
+            if self._bridge._read_active((key,)) != name \
+                    and view is not None:
                 view.setActiveObject(key, obj)
         except Exception:
             log.error("could not make %s active" % name)

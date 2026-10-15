@@ -43,6 +43,7 @@ AUTO_DETAIL_MS = 300
 class TreeBridge(QtCore.QObject):
 
     documentChanged = QtCore.Signal()
+    activeChanged = QtCore.Signal()
     problemCountChanged = QtCore.Signal()
     revealTreeRow = QtCore.Signal(int)
     tipBarsChanged = QtCore.Signal()
@@ -103,6 +104,7 @@ class TreeBridge(QtCore.QObject):
 
         # Polled: activating a Body emits no document signal.
         self._active = ""
+        self._active_part = ""
         self._active_timer = QtCore.QTimer(self)
         self._active_timer.setInterval(ACTIVE_POLL_MS)
         self._active_timer.timeout.connect(self._sync_active)
@@ -117,14 +119,15 @@ class TreeBridge(QtCore.QObject):
         """The active Body or Part, as the panel currently sees it."""
         return self._active
 
-    def _read_active(self) -> str:
+    def _read_active(self, keys: tuple[str, ...] = ()) -> str:
+        """The active container under the first key that has one."""
         try:
             view = fc.active_view()
         except Exception:
             return ""
         if view is None:
             return ""
-        for key in self.ACTIVE_KEYS:
+        for key in keys or self.ACTIVE_KEYS:
             try:
                 obj = view.getActiveObject(key)
             except Exception:
@@ -191,15 +194,21 @@ class TreeBridge(QtCore.QObject):
                 pass
 
     def _sync_active(self) -> None:
+        part = self._read_active(("part",))
+        if part != self._active_part:
+            self._active_part = part
+            self._tree.set_active_part(part)
+            self.activeChanged.emit()
         name = self._read_active()
         if name == self._active:
             return
         self._active = name
         self._tree.set_active(name)
+        self.activeChanged.emit()
         if name:
             self._tree.reveal(name)
             self._tree.set_expanded(name, True)
-        self._rollback.publish()        # the bar goes with the active Body
+        self._rollback.publish()
 
     def _deferral(self, slot: Callable[[], Any]) -> QtCore.QTimer:
         timer = QtCore.QTimer(self)
@@ -224,6 +233,11 @@ class TreeBridge(QtCore.QObject):
     @QtCore.Property(bool, notify=documentChanged)
     def hasDocument(self) -> bool:
         return App.ActiveDocument is not None
+
+    @QtCore.Property(bool, notify=activeChanged)
+    def atRoot(self) -> bool:
+        """No Body or Part is active: new objects go in at the top."""
+        return not self._active
 
     @QtCore.Property(int, notify=problemCountChanged)
     def problemCount(self) -> int:
@@ -270,6 +284,9 @@ class TreeBridge(QtCore.QObject):
         self.sync_selection()
         self._active = self._read_active()
         self._tree.set_active(self._active)
+        self._active_part = self._read_active(("part",))
+        self._tree.set_active_part(self._active_part)
+        self.activeChanged.emit()
         if self._snapshot.doc_name != previous:
             self.documentChanged.emit()
         self.problemCountChanged.emit()
@@ -880,6 +897,18 @@ class TreeBridge(QtCore.QObject):
     @QtCore.Slot(str)
     def activate(self, name: str) -> None:
         self._activation.activate(name)
+
+    @QtCore.Slot()
+    def activateRoot(self) -> None:
+        """Deactivate the active Body and Part."""
+        view = fc.active_view()
+        for key in self.ACTIVE_KEYS:
+            try:
+                if view is not None:
+                    view.setActiveObject(key, None)
+            except Exception:
+                log.error("could not clear the active %s" % key)
+        self._sync_active()
 
     def edit_feature(self, doc_name: str, name: str) -> None:
         """Reveal a feature opened for editing from the 3D view."""

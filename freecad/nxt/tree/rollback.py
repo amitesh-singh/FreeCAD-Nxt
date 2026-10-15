@@ -36,10 +36,6 @@ class Rollback:
     def _tree(self) -> Any:
         return self._bridge._tree
 
-    @property
-    def _active(self) -> str:
-        return self._bridge._active
-
     def publish(self) -> None:
         """Announce new marker positions on the next event-loop turn.
 
@@ -49,7 +45,7 @@ class Rollback:
         self._bars_timer.start()
 
     def bars(self) -> list[dict[str, Any]]:
-        """The rollback bars: the active Body's, and each Part model's.
+        """The rollback bars: every Body's, and each Part model's.
 
         `pos` is the row the bar sits below.
         """
@@ -57,8 +53,6 @@ class Rollback:
         bars: list[dict[str, Any]] = []
         for name, node in self._snapshot.nodes.items():
             if not node.stack:
-                continue
-            if not node.is_model and name != self._active:
                 continue
             feature_rows = [index[f] for f in node.stack if f in index]
             if not feature_rows:

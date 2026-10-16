@@ -72,3 +72,8 @@ except Exception:
     App.Console.PrintError("Nxt: could not add the Preferences page\n")
     App.Console.PrintError(traceback.format_exc())
 QtCore.QTimer.singleShot(0, _restore_panel)
+try:
+    from .app import view_toolbar as _view_toolbar
+    _view_toolbar.install()
+except Exception:
+    App.Console.PrintError("Nxt: could not add the View toolbar button\n")

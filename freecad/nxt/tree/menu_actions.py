@@ -13,6 +13,7 @@ from ..app.i18n import translate
 from ..core import fc
 from ..core.transaction import transaction
 from ..menus import facts, present, runner
+from ..menus.definitions import Item
 
 if TYPE_CHECKING:
     from .bridge import TreeBridge
@@ -37,6 +38,24 @@ def build(bridge: TreeBridge, names: list[str]) -> dict[str, Any]:
         count=len(objects),
         any_shown=any("shown_in_3d" in f.flags for f in selection))
     return present.present(resolved, subject, runner.lookup)
+
+
+#: The header's menu: visibility for the whole document.
+HEADER_ITEMS = ("nxt:show_all", "Std_ToggleObjects", "Std_HideObjects")
+
+
+def build_header() -> dict[str, Any]:
+    """The tree header's menu, as QML draws it."""
+    doc = App.ActiveDocument
+    if doc is None:
+        return {}
+    subject = present.Subject(title=doc.Label,
+                              subtitle=translate(present.CONTEXT, "Document"))
+    items = [e for e in (present.entry(Item(c), subject, runner.lookup)
+                         for c in HEADER_ITEMS) if e is not None]
+    return {"title": subject.title, "subtitle": subject.subtitle,
+            "bar": [], "sections": [{"name": translate(
+                present.CONTEXT, "Visibility"), "items": items}]}
 
 
 def _kind(objects: list[Any]) -> str:
@@ -221,6 +240,11 @@ def _expand_all(bridge: TreeBridge, objects: list[Any]) -> None:
     bridge._tree.expand_all()
 
 
+def _show_all(bridge: TreeBridge, objects: list[Any]) -> None:
+    from ..tools import show_all
+    show_all.run()
+
+
 def _collapse_all(bridge: TreeBridge, objects: list[Any]) -> None:
     bridge._tree.collapse_all()
 
@@ -309,6 +333,7 @@ _ACTIONS: dict[str, Action] = {
     "select_same_type": _select_same_type,
     "expand_all": _expand_all,
     "collapse_all": _collapse_all,
+    "show_all": _show_all,
     "synchronize_binder": _synchronize,
     "select_bound": _select_bound,
     "edit_attachment": _edit_attachment,

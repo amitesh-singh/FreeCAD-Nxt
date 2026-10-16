@@ -200,6 +200,7 @@ Organize = [
     { command = "Std_Group", label = "New group inside" },
     "nxt:expand_all",
     "nxt:collapse_all",
+    "nxt:show_all",
 ]
 
 # ------------------------------------------------------------ Part primitives

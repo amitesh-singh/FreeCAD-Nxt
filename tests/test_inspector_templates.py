@@ -254,6 +254,46 @@ class ShowIfTests(unittest.TestCase):
         templates.invalidate()
         ids = [t.id for t in templates.loaded()]
         self.assertIn("pd-extrude", ids)
+        self.assertIn("pd-fillet", ids)
+
+
+class Fillet(Feature):
+    """A Fillet as FreeCAD gives one."""
+
+    def __init__(self, **values: Any) -> None:
+        super().__init__("PartDesign::Fillet")
+        self._props = {
+            "Label": ("Base", "App::PropertyString", "Fillet"),
+            "Base": ("Base", "App::PropertyLinkSub", None),
+            "SupportTransform": ("Base", "App::PropertyBool", False),
+            "Radius": ("Fillet", "App::PropertyQuantityConstraint",
+                       Quantity("1 mm")),
+            "UseAllEdges": ("Fillet", "App::PropertyBool", False),
+            "Refine": ("Part Design", "App::PropertyBool", False),
+        }
+        self.PropertiesList = list(self._props)
+        for name, (_g, _t, value) in self._props.items():
+            setattr(self, name, values.get(name, value))
+
+
+class FilletTests(unittest.TestCase):
+
+    def test_radius_and_edges_first(self) -> None:
+        groups = layout(Fillet())
+        self.assertEqual([g["name"] for g in groups[:2]],
+                         ["Fillet", "Result"])
+        self.assertEqual(names(groups[0]), ["Radius", "UseAllEdges", "Base"])
+        self.assertEqual(groups[0]["items"][1]["optionLabels"],
+                         ["Selected", "All"])
+
+    def test_all_edges_hides_the_selection(self) -> None:
+        self.assertEqual(names(layout(Fillet(UseAllEdges=True))[0]),
+                         ["Radius", "UseAllEdges"])
+
+    def test_result_switches(self) -> None:
+        result = layout(Fillet())[1]
+        self.assertEqual(names(result), ["Refine", "SupportTransform"])
+        self.assertEqual({i["editor"] for i in result["items"]}, {"switch"})
 
 
 if __name__ == "__main__":

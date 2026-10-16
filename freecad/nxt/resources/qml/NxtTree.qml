@@ -85,6 +85,10 @@ Rectangle {
         ghost: ghost
         settingsOpen: root.settingsOpen
         onSettingsClicked: root.toggleSettings()
+        onMenuRequested: function (x, y) {
+            var at = header.mapToItem(root, x, y);
+            root.openContextMenu(null, at.x, at.y, nxt.headerMenu());
+        }
     }
 
     // -- tree --
@@ -340,8 +344,8 @@ Rectangle {
         TreeSettings {}
     }
 
-    function openContextMenu(rowItem, x, y) {
-        var data = nxt.contextMenu();
+    function openContextMenu(rowItem, x, y, data) {
+        data = data || nxt.contextMenu();
         if (!data || !data.bar)
             return;
         var menu = contextMenuComponent.createObject(root);

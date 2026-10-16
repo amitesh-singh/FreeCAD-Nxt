@@ -624,6 +624,17 @@ class TreeBridge(QtCore.QObject):
             log.error("the context menu could not be built")
             return {}
 
+    @QtCore.Slot(result="QVariant")
+    def headerMenu(self) -> dict[str, Any]:
+        """The header's menu; its items act on the document."""
+        from . import menu_actions
+        self._menu_names = []
+        try:
+            return menu_actions.build_header()
+        except Exception:
+            log.error("the header menu could not be built")
+            return {}
+
     @QtCore.Slot(str)
     def runMenuItem(self, command: str) -> None:
         from . import menu_actions

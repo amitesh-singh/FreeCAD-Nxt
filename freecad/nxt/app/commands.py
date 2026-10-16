@@ -98,6 +98,121 @@ class Isolate(_Command):
         return isolation.active() or bool(Gui.Selection.getSelection())
 
 
+class ShowAll(_Command):
+    """Show everything but datums, coordinate systems and joints."""
+
+    menu_text = QT_TRANSLATE_NOOP("Nxt_ShowAll", "Show all")
+    tool_tip = QT_TRANSLATE_NOOP(
+        "Nxt_ShowAll",
+        "Show every object except datums, coordinate systems and "
+        "Assembly joints; inside a Body only its tip")
+    pixmap = "Std_ShowObjects"
+
+    def Activated(self) -> None:  # noqa: N802 - FreeCAD command API
+        from ..tools import show_all
+        show_all.run()
+
+    def IsActive(self) -> bool:  # noqa: N802 - FreeCAD command API
+        return Gui.ActiveDocument is not None
+
+
+class SectionView(_Command):
+    """Cut the 3D view with a plane; its cut faces are hatched."""
+
+    menu_text = QT_TRANSLATE_NOOP("Nxt_SectionView", "Section view")
+    tool_tip = QT_TRANSLATE_NOOP(
+        "Nxt_SectionView",
+        "Cut the view with a plane facing you, or on the selected face, "
+        "datum plane or three points; drag its frame to move it. Again "
+        "to finish editing; up to three sections can cut at once")
+    pixmap = "nxt_section"
+
+    def Activated(self) -> None:  # noqa: N802 - FreeCAD command API
+        from ..tools import section_view
+        section_view.toggle()
+
+    def IsActive(self) -> bool:  # noqa: N802 - FreeCAD command API
+        return Gui.ActiveDocument is not None
+
+
+class SectionFlip(_Command):
+    """Keep the other side of the section plane."""
+
+    menu_text = QT_TRANSLATE_NOOP("Nxt_SectionFlip", "Flip section")
+    tool_tip = QT_TRANSLATE_NOOP("Nxt_SectionFlip",
+                                 "Show the other side of the section plane")
+
+    def Activated(self) -> None:  # noqa: N802 - FreeCAD command API
+        from ..tools import section_view
+        section_view.flip()
+
+    def IsActive(self) -> bool:  # noqa: N802 - FreeCAD command API
+        return _section_open()
+
+
+def _section_open() -> bool:
+    import sys
+    module = sys.modules.get("freecad.nxt.tools.section_view")
+    return module is not None and module.current() is not None
+
+
+class SectionAlign(_Command):
+    """Re-aim the section at the selection, or square to the view."""
+
+    menu_text = QT_TRANSLATE_NOOP("Nxt_SectionAlign",
+                                  "Align section to selection")
+    tool_tip = QT_TRANSLATE_NOOP(
+        "Nxt_SectionAlign",
+        "Put the section plane on the selected face or datum plane, or "
+        "through three selected points; with nothing selected, square to "
+        "the view")
+
+    def Activated(self) -> None:  # noqa: N802 - FreeCAD command API
+        from ..tools import section_view
+        section_view.align_to_selection()
+
+    def IsActive(self) -> bool:  # noqa: N802 - FreeCAD command API
+        return _section_open()
+
+
+class _SectionAxis(_Command):
+    axis = "x"
+
+    def Activated(self) -> None:  # noqa: N802 - FreeCAD command API
+        from ..tools import section_view
+        section_view.set_axis(self.axis)
+
+    def IsActive(self) -> bool:  # noqa: N802 - FreeCAD command API
+        return _section_open()
+
+
+class SectionX(_SectionAxis):
+    """Cut across X."""
+
+    axis = "x"
+    menu_text = QT_TRANSLATE_NOOP("Nxt_SectionX", "Section across X")
+    tool_tip = QT_TRANSLATE_NOOP("Nxt_SectionX",
+                                 "Turn the section plane square to X")
+
+
+class SectionY(_SectionAxis):
+    """Cut across Y."""
+
+    axis = "y"
+    menu_text = QT_TRANSLATE_NOOP("Nxt_SectionY", "Section across Y")
+    tool_tip = QT_TRANSLATE_NOOP("Nxt_SectionY",
+                                 "Turn the section plane square to Y")
+
+
+class SectionZ(_SectionAxis):
+    """Cut across Z."""
+
+    axis = "z"
+    menu_text = QT_TRANSLATE_NOOP("Nxt_SectionZ", "Section across Z")
+    tool_tip = QT_TRANSLATE_NOOP("Nxt_SectionZ",
+                                 "Turn the section plane square to Z")
+
+
 class Reload(_Command):
     """Hot-reload the addon's Python modules during development."""
 
@@ -136,12 +251,23 @@ COMMANDS: dict[str, type[_Command]] = {
     "Nxt_ModelPanelOverlay": ModelPanelOverlay,
     "Nxt_PropertyInspector": PropertyInspector,
     "Nxt_Isolate": Isolate,
+    "Nxt_ShowAll": ShowAll,
+    "Nxt_SectionView": SectionView,
+    "Nxt_SectionFlip": SectionFlip,
+    "Nxt_SectionAlign": SectionAlign,
+    "Nxt_SectionX": SectionX,
+    "Nxt_SectionY": SectionY,
+    "Nxt_SectionZ": SectionZ,
     "Nxt_Reload": Reload,
 }
 
 #: Reload is listed only during development.
 MENU = ("Nxt_ModelPanel", "Nxt_ModelPanelOverlay", "Nxt_PropertyInspector",
-        "Nxt_Isolate", "Nxt_Reload")
+        "Nxt_Isolate", "Nxt_ShowAll",
+        "Nxt_SectionView", "Nxt_SectionFlip",
+        "Nxt_SectionAlign", "Nxt_SectionX",
+        "Nxt_SectionY", "Nxt_SectionZ",
+        "Nxt_Reload")
 
 GROUP = "Nxt_Menu"
 

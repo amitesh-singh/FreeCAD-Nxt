@@ -122,3 +122,24 @@ items = [
     { prop = "Refine", editor = "switch" },
     { prop = "AllowMultiFace", label = "Multiple faces", editor = "switch" },
 ]
+
+# Fillet: how round, and which edges; then what the result keeps.
+[[template]]
+id = "pd-fillet"
+types = ["PartDesign::Fillet"]
+
+[[template.card]]
+title = "Fillet"
+items = [
+    "Radius",
+    { prop = "UseAllEdges", label = "Edges", editor = "segmented", labels = ["Selected", "All"], wide = true },
+    { prop = "Base", label = "Selected edges", wide = true, show_if = { UseAllEdges = false } },
+]
+hint = "One edge of a tangent chain fillets the whole chain."
+
+[[template.card]]
+title = "Result"
+items = [
+    { prop = "Refine", editor = "switch" },
+    { prop = "SupportTransform", label = "Pattern with its base feature", editor = "switch", wide = true },
+]

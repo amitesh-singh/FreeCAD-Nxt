@@ -279,12 +279,13 @@ class TreeRowModel(QtCore.QAbstractListModel):
         self.refresh_rows()
 
     def expand_all(self) -> None:
-        """Expand everything except Origins and coordinate systems."""
+        """Expand everything except coordinate systems and joints."""
         if self._snapshot is None:
             return
         nodes = self._snapshot.nodes
         self._expanded |= {n for n, node in nodes.items()
-                           if not node.is_coordinate_system}
+                           if not (node.is_coordinate_system
+                                   or node.is_joint)}
         self.refresh_rows()
 
     def collapse_all(self) -> None:

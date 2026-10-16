@@ -12,6 +12,15 @@ Item {
     readonly property int searchFloor: 128
 
     signal settingsClicked()
+    signal menuRequested(real x, real y)
+
+    TapHandler {
+        acceptedButtons: Qt.RightButton
+        enabled: nxt.hasDocument
+        onTapped: function (point) {
+            header.menuRequested(point.position.x, point.position.y);
+        }
+    }
 
     Rectangle {
         anchors.fill: parent

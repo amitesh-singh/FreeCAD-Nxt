@@ -95,6 +95,15 @@ def _derived(obj: DocObject, bases: Iterable[str]) -> bool:
     return False
 
 
+def is_joint(obj: DocObject) -> bool:
+    """An Assembly joint; they carry no common type, only properties."""
+    return any(hasattr(obj, prop) for prop in JOINT_PROPERTIES)
+
+
+#: Joints have JointType; a grounding "joint" has ObjectToGround.
+JOINT_PROPERTIES = ("JointType", "ObjectToGround")
+
+
 COORDINATE_SYSTEM_BASES = ("App::LocalCoordinateSystem", "App::Origin")
 
 
@@ -336,6 +345,7 @@ class Node:
     is_datum: bool = False
     #: An Origin or local coordinate system: holds a point, axes, planes.
     is_coordinate_system: bool = False
+    is_joint: bool = False          # an Assembly joint, grounding too
     filed: bool = False             # lives in a Sketches/Datum compartment
     is_virtual: bool = False        # a panel-only group, not an object
     is_binder: bool = False
@@ -426,6 +436,7 @@ class Snapshot:
             node.is_binder = _derived(obj, BINDER_BASES)
             node.is_coordinate_system = _derived(
                 obj, COORDINATE_SYSTEM_BASES)
+            node.is_joint = is_joint(obj)
             node.is_datum = (_derived(obj, DATUM_BASES)
                              and not _derived(obj, ORIGIN_BASES)
                              and not _in_coordinate_system(obj))

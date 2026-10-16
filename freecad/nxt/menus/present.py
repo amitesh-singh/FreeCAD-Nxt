@@ -74,6 +74,12 @@ def present(menu: Resolved, subject: Subject,
     }
 
 
+def entry(item: Item, subject: Subject,
+          lookup: Lookup) -> dict[str, Any] | None:
+    """One item as QML reads it; None if its command is unregistered."""
+    return _entry(item, subject, lookup)
+
+
 def _entry(item: Item, subject: Subject,
            lookup: Lookup) -> dict[str, Any] | None:
     if item.items:

@@ -80,4 +80,5 @@ Clone or copy the repository directory directly into your local FreeCAD `Mod` di
 * **Windows**: `%APPDATA%\FreeCAD\Mod\FreeCAD-Nxt`
 
 ```bash
-git clone [https://github.com/obelisk79/FreeCAD-Nxt.git](https://github.com/obelisk79/FreeCAD-Nxt.git) ~/.local/share/FreeCAD/Mod/FreeCAD-Nxt
+git clone https://github.com/obelisk79/FreeCAD-Nxt.git <PATH TO YOUR OS Mod DIRECTORY>
+```

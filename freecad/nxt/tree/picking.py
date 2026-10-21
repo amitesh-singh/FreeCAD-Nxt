@@ -140,4 +140,52 @@ def target(doc: Any, top_name: str, subname: str) -> str | None:
         if leaf is not None:
             picked = leaf
     made_by = origin(picked, subname)
+    if made_by is not None:
+        made_by = _first_holding(picked, subname, made_by)
     return (made_by or picked).Name
+
+
+def _same_face(a: Any, b: Any) -> bool:
+    tolerance = max(a.Area * 1e-6, 1e-7)
+    return (type(a.Surface) is type(b.Surface)
+            and abs(a.Area - b.Area) < tolerance
+            and (a.CenterOfMass - b.CenterOfMass).Length < 1e-6)
+
+
+def _holds(feature: Any, face: Any) -> bool:
+    try:
+        return any(_same_face(face, f) for f in feature.Shape.Faces)
+    except Exception:
+        return False
+
+
+def _first_holding(picked: Any, subname: str, found: Any) -> Any:
+    """The earliest feature from `found` on whose shape has the face.
+
+    The element map can trace a face that a later feature made to an
+    earlier one: a cut's new faces keep its input's tags. The face's
+    geometry settles it.
+    """
+    element = element_of(subname)
+    if not element.startswith("Face"):
+        return found
+    try:
+        face = picked.getSubObject(subname)
+    except Exception:
+        return found
+    if face is None or getattr(face, "ShapeType", "") != "Face" \
+            or _holds(found, face):
+        return found
+    chain = []
+    current = getattr(picked, "Tip", None) or picked
+    for _step in range(_MAX_STEPS * 8):
+        if current is None or current is found:
+            break
+        chain.append(current)
+        current = getattr(current, "BaseFeature", None)
+    if current is not found:
+        return found
+    for feature in reversed(chain):
+        if _is_feature(feature) and _holds(feature, face):
+            return feature
+    return found

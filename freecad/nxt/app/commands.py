@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import FreeCADGui as Gui
 
+from ..resources import ICONS
 from .i18n import QT_TRANSLATE_NOOP
 
 ICON = "FreeCAD-Nxt.svg"
@@ -213,6 +214,44 @@ class SectionZ(_SectionAxis):
                                  "Turn the section plane square to Z")
 
 
+class BlendFillet(_Command):
+    """Rolling-ball fillet built from booleans, for testing."""
+
+    pixmap = str(ICONS / "NxtFillet.svg")
+    menu_text = QT_TRANSLATE_NOOP("Nxt_BlendFillet", "Nxt fillet")
+    tool_tip = QT_TRANSLATE_NOOP(
+        "Nxt_BlendFillet",
+        "Fillet the selected edges by cutting a rolling-ball blend, "
+        "instead of Part Design's fillet")
+    FLAT = False
+
+    def Activated(self) -> None:  # noqa: N802 - FreeCAD command API
+        from ..core.qt import QtWidgets
+        from ..tools import fillet_task
+        try:
+            fillet_task.start(self.FLAT)
+        except ValueError as exc:
+            QtWidgets.QMessageBox.information(Gui.getMainWindow(),
+                                              self.menu_text, str(exc))
+
+    def IsActive(self) -> bool:  # noqa: N802 - FreeCAD command API
+        if Gui.Control.activeDialog():
+            return False
+        return Gui.ActiveDocument is not None
+
+
+class BlendChamfer(BlendFillet):
+    """Equal-distance chamfer, built the same way as the Nxt fillet."""
+
+    pixmap = str(ICONS / "NxtChamfer.svg")
+    menu_text = QT_TRANSLATE_NOOP("Nxt_BlendChamfer", "Nxt chamfer")
+    tool_tip = QT_TRANSLATE_NOOP(
+        "Nxt_BlendChamfer",
+        "Chamfer the selected edges by booleans, instead of Part "
+        "Design's chamfer")
+    FLAT = True
+
+
 class Reload(_Command):
     """Hot-reload the addon's Python modules during development."""
 
@@ -258,6 +297,8 @@ COMMANDS: dict[str, type[_Command]] = {
     "Nxt_SectionX": SectionX,
     "Nxt_SectionY": SectionY,
     "Nxt_SectionZ": SectionZ,
+    "Nxt_BlendFillet": BlendFillet,
+    "Nxt_BlendChamfer": BlendChamfer,
     "Nxt_Reload": Reload,
 }
 

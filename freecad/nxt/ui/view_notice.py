@@ -28,6 +28,12 @@ class TopNotice(QtCore.QObject):
         self._widget: Any = None
         self._host: Any = None
         self._area: Any = None
+        # Resizing the view while it renders nests QQuickRenderControl
+        # frames, so a new size is applied after the frame.
+        self._resize = QtCore.QTimer(self)
+        self._resize.setSingleShot(True)
+        self._resize.setInterval(0)
+        self._resize.timeout.connect(self._place)
 
     def install(self) -> None:
         main = Gui.getMainWindow()
@@ -63,6 +69,10 @@ class TopNotice(QtCore.QObject):
     def _top(self) -> int:
         return TOP_MARGIN
 
+    def _y(self, _height: int) -> int:
+        """Where the notice's top goes, given its height."""
+        return self._top()
+
     def _view_changed(self, *_args: Any) -> None:
         self._sync()
 
@@ -96,7 +106,8 @@ class TopNotice(QtCore.QObject):
         # Recentre once QML has sized the new text.
         root = widget.rootObject()
         if root is not None:
-            root.widthChanged.connect(self._place)
+            root.widthChanged.connect(self._resize.start)
+            root.heightChanged.connect(self._resize.start)
         return widget
 
     def _place(self) -> None:
@@ -107,7 +118,7 @@ class TopNotice(QtCore.QObject):
                 if root is not None else self._widget.sizeHint())
         self._widget.resize(size)
         self._widget.move(max(0, (self._host.width() - size.width()) // 2),
-                          self._top())
+                          self._y(size.height()))
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
         if watched is self._host \
@@ -116,6 +127,7 @@ class TopNotice(QtCore.QObject):
         return False
 
     def _drop(self) -> None:
+        self._resize.stop()
         if widgets.alive(self._host):
             self._host.removeEventFilter(self)
         if widgets.alive(self._widget):

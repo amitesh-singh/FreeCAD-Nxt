@@ -41,15 +41,26 @@ DEFAULTS: dict[str, bool | int | float | str] = {
     "AttachSketchByPoints": True,
     "SnapToFaces": True,
     "RepairProfiles": True,
+    # Look for addon updates after startup (app/update_check.py).
+    "CheckAddonUpdates": True,
+    # JSON of the Report view pop-up settings the check turned off.
+    "QuietOriginals": "",
     "GizmoDefaultsApplied": False,
-    # JSON of the drag settings the defaults replaced (gizmos.py).
+    # Before 2026-10: JSON of the drag settings the defaults replaced.
     "GizmoOriginals": "",
+    # JSON of every FreeCAD value Nxt wrote and what it replaced
+    # (gizmos.py), put back when Nxt is disabled or removed.
+    "ForeignOriginals": "",
     "FloatingValues": True,
     "TreeEditHidesHandles": False,
     "TreeLines": False,
     "DetailAutoShow": False,
     "HighlightRelated": False,
     "DependencyArrows": False,
+    # Quick Mass at the bottom of the 3D view (ui/quick_mass.py).
+    "QuickMass": False,
+    "QuickMassMaterial": "Steel-Generic",
+    "QuickMassUnits": "Internal",
     # Strip width: percent of screen, floored at HeaderMinWidth pixels.
     "HeaderMaxPercent": 18,
     "HeaderMinWidth": 220,
@@ -94,7 +105,14 @@ def get(key: str) -> Any:
         return default
 
 
+#: Set once Nxt's settings are deleted at uninstall, so the still-running
+#: addon does not write them back.
+removed = False
+
+
 def put(key: str, value: object) -> None:
+    if removed:
+        return
     kind, _getter, setter = _accessor(DEFAULTS[key])
     try:
         getattr(_params(), setter)(key, kind(value))

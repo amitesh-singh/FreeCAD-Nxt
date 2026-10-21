@@ -591,8 +591,11 @@ def _cap_drawer(section: Any, cap: tuple[float, float, float],
         g.glEnd()
 
     def seam_lines(g: Any, edges: list[tuple[Vec3, Vec3]]) -> None:
-        """Outline where the cap was trimmed; the stencil keeps it on
-        the part, and the cap it meets draws the same line."""
+        """Outline where the cap was trimmed.
+
+        The stencil keeps it on the part, and the cap it meets draws the
+        same line.
+        """
         width = f(0.0)
         g.glGetFloatv(GL_LINE_WIDTH, ctypes.byref(width))
         g.glDisable(GL_LIGHTING)
@@ -1073,8 +1076,11 @@ class Section:
         return (n.x, n.y, n.z), n.dot(behind)
 
     def cap_shape(self) -> tuple[list[Vec3], list[tuple[Vec3, Vec3]]]:
-        """The cap's quad less what this view's other sections cut away,
-        and the edges where they cut it."""
+        """The cap's quad, less what other sections cut, and the cut edges.
+
+        The quad is trimmed by this view's other sections; the edges are
+        where they cut it.
+        """
         others = [s.keep_plane() for s in _sections.values()
                   if s is not self and self._clips.findChild(s._clip) >= 0]
         corners = clip_polygon(self.quad_corners, others)

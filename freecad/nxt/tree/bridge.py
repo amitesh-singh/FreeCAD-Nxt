@@ -637,8 +637,20 @@ class TreeBridge(QtCore.QObject):
 
     @QtCore.Slot(str)
     def runMenuItem(self, command: str) -> None:
+        # Outside QML's call stack: a command's dialog runs its own event
+        # loop, and the tree may rebuild under it.
         from . import menu_actions
-        menu_actions.run(self, command, list(self._menu_names))
+        QtCore.QTimer.singleShot(0, partial(
+            menu_actions.run, self, command, list(self._menu_names)))
+
+    @QtCore.Slot()
+    def deleteSelected(self) -> None:
+        """Delete the selection, as FreeCAD's Delete shortcut would."""
+        from . import menu_actions
+        names = self._selected_names()
+        if names:
+            QtCore.QTimer.singleShot(0, partial(
+                menu_actions.run, self, "Std_Delete", names))
 
     @QtCore.Slot(str, result=bool)
     def toggleDetail(self, name: str) -> bool:

@@ -1,14 +1,14 @@
 """Run by FreeCAD's Addon Manager when Nxt is uninstalled, if allowed.
 
-Puts back the drag-handle preferences Nxt changed on its first run
-(freecad/nxt/tools/gizmos.py). Without it, Nxt does the same at the quit
-after the uninstall.
+Puts back the FreeCAD preferences Nxt changed and deletes its own
+(freecad/nxt/app/cleanup.py). Nxt does the same at the next quit, in case
+this is not allowed to run.
 """
 
 try:
-    from freecad.nxt.tree import gizmos
-    gizmos.restore_freecads()
+    from freecad.nxt.app import cleanup
+    cleanup.remove_all()
 except Exception as exc:
     import FreeCAD
     FreeCAD.Console.PrintError(
-        "Nxt: could not restore the drag settings: %s\n" % exc)
+        "Nxt: could not clean up its settings: %s\n" % exc)

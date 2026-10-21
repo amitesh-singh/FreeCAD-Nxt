@@ -22,9 +22,10 @@ class Group:
     """One parameter group, kept in STORE."""
 
     def __init__(self, path: str) -> None:
+        self.path = path
         self.values = STORE.setdefault(path, {})
 
-    def _get(self, key: str, default: Any) -> Any:
+    def _get(self, key: str, default: Any = None) -> Any:
         return self.values.get(key, default)
 
     def _set(self, key: str, value: Any) -> None:
@@ -34,9 +35,19 @@ class Group:
         return [k for k, v in self.values.items()
                 if isinstance(v, int) and not isinstance(v, bool)]
 
-    def RemInt(self, key: str) -> None:
+    def GetBools(self) -> list[str]:
+        return [k for k, v in self.values.items() if isinstance(v, bool)]
+
+    def GetFloats(self) -> list[str]:
+        return [k for k, v in self.values.items() if isinstance(v, float)]
+
+    def _remove(self, key: str) -> None:
         del self.values[key]
 
+    def RemGroup(self, name: str) -> None:
+        STORE.pop("%s/%s" % (self.path, name), None)
+
+    RemInt = RemBool = RemFloat = _remove
     GetInt = GetBool = GetFloat = GetString = _get
     SetInt = SetBool = SetFloat = SetString = _set
 
@@ -46,6 +57,8 @@ App.ParamGet = Group
 App.Console = types.SimpleNamespace(PrintError=lambda _m: None)
 sys.modules["FreeCAD"] = App
 
+from freecad.nxt.app import cleanup  # noqa: E402
+from freecad.nxt.core import settings  # noqa: E402
 from freecad.nxt.tools import gizmos  # noqa: E402
 
 
@@ -53,6 +66,7 @@ class GizmoTests(unittest.TestCase):
 
     def setUp(self) -> None:
         STORE.clear()
+        settings.removed = False
 
     def gizmo(self, key: str) -> Any:
         return STORE[gizmos.GIZMOS][key]
@@ -116,6 +130,7 @@ class RestoreTests(unittest.TestCase):
 
     def setUp(self) -> None:
         STORE.clear()
+        settings.removed = False
 
     def values(self) -> dict[str, Any]:
         return {k: v for k, v in STORE[gizmos.GIZMOS].items()
@@ -128,14 +143,14 @@ class RestoreTests(unittest.TestCase):
         self.assertEqual(gizmos.read()["plain"], "coarse")
 
     def test_set_before_is_set_back(self) -> None:
-        gizmos.write({"key": "alt"})
+        Group(gizmos.GIZMOS).SetInt("FineSnapModifier", gizmos.ALT)
         gizmos.apply_defaults_once()
         gizmos.restore_freecads()
         self.assertEqual(self.values(), {"FineSnapModifier": gizmos.ALT})
 
     def test_a_value_changed_since_is_the_users(self) -> None:
         gizmos.apply_defaults_once()
-        gizmos.write({"key": "shift"})
+        Group(gizmos.GIZMOS).SetInt("FineSnapModifier", gizmos.SHIFT)
         gizmos.restore_freecads()
         self.assertEqual(self.values(), {"FineSnapModifier": gizmos.SHIFT})
 
@@ -147,18 +162,62 @@ class RestoreTests(unittest.TestCase):
         self.assertTrue(gizmos.apply_defaults_once())
         self.assertEqual(gizmos.read()["key"], "ctrl")
 
+    def test_values_set_on_nxts_page_are_put_back(self) -> None:
+        Group(gizmos.GIZMOS).SetInt("CoarseLinearSnapMultiplier", 3)
+        gizmos.write({"linear": 10, "coarse": False, "step": 0.5})
+        gizmos.restore_freecads()
+        self.assertEqual(STORE[gizmos.GIZMOS],
+                         {"CoarseLinearSnapMultiplier": 3})
+        self.assertEqual(STORE[gizmos.HISTORY], {})
+
+    def test_the_first_value_replaced_is_the_one_put_back(self) -> None:
+        gizmos.write({"linear": 10})
+        gizmos.write({"linear": 20})
+        gizmos.restore_freecads()
+        self.assertNotIn("CoarseLinearSnapMultiplier", STORE[gizmos.GIZMOS])
+
+    def test_older_records_are_still_put_back(self) -> None:
+        Group(gizmos.GIZMOS).SetInt("FineSnapModifier", gizmos.CTRL)
+        settings.put("GizmoDefaultsApplied", True)
+        settings.put("GizmoOriginals",
+                     '{"FineSnapModifier": null, '
+                     '"DefaultCoarseDragBehavior": null}')
+        self.assertTrue(gizmos.restore_freecads())
+        self.assertEqual(self.values(), {})
+
+
+class CleanupTests(unittest.TestCase):
+    """Leaving user.cfg as it was when Nxt is removed."""
+
+    def setUp(self) -> None:
+        STORE.clear()
+        settings.removed = False
+
+    def test_removal_deletes_nxts_group_and_keeps_it_deleted(self) -> None:
+        gizmos.apply_defaults_once()
+        cleanup.remove_all()
+        self.assertNotIn(settings.GROUP, STORE)
+        settings.put("Visible", False)
+        self.assertNotIn(settings.GROUP, STORE)
+        self.assertEqual(STORE[gizmos.GIZMOS], {})
+
     def test_only_when_nxt_is_disabled_or_gone(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root / gizmos.MANIFEST).write_text("")
             gizmos.apply_defaults_once()
-            self.assertFalse(gizmos.restore_if_leaving(root))
+            cleanup.at_quit(root)
+            self.assertEqual(gizmos.read()["key"], "ctrl")
             (root / gizmos.DISABLED).write_text("")
-            self.assertTrue(gizmos.restore_if_leaving(root))
+            cleanup.at_quit(root)
+            self.assertEqual(gizmos.read()["key"], "shift")
+            self.assertIn(settings.GROUP, STORE)
             gizmos.apply_defaults_once()
             (root / gizmos.DISABLED).unlink()
             (root / gizmos.MANIFEST).unlink()
-            self.assertTrue(gizmos.restore_if_leaving(root))
+            cleanup.at_quit(root)
+            self.assertEqual(gizmos.read()["key"], "shift")
+            self.assertNotIn(settings.GROUP, STORE)
 
 
 if __name__ == "__main__":

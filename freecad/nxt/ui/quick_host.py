@@ -14,7 +14,7 @@ class QmlLoadError(RuntimeError):
     """A QML file failed to load; the message lists QML's errors."""
 
 
-def make_view(parent: QtWidgets.QWidget, source: str,
+def make_view(parent: QtWidgets.QWidget | None, source: str,
               context: Mapping[str, Any], *, floating: bool = False,
               prepare: Callable[[Any], None] | None = None) -> Any:
     """A QQuickWidget showing `source` from the QML folder.

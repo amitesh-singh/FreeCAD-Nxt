@@ -49,12 +49,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _leaving() -> None:
-    """At quit, put FreeCAD's drag settings back if Nxt is going away."""
+    """At quit, undo Nxt's settings if it is disabled or removed."""
     try:
-        from .tools import gizmos
-        gizmos.restore_if_leaving(ROOT)
+        from .app import cleanup
+        cleanup.at_quit(ROOT)
     except Exception:
-        App.Console.PrintError("Nxt: could not restore the drag settings\n")
+        App.Console.PrintError("Nxt: could not clean up its settings\n")
 
 
 try:
@@ -77,3 +77,13 @@ try:
     _view_toolbar.install()
 except Exception:
     App.Console.PrintError("Nxt: could not add the View toolbar button\n")
+try:
+    from .app import test_toolbar as _test_toolbar
+    _test_toolbar.install()
+except Exception:
+    App.Console.PrintError("Nxt: could not add the Fillet/Chamfer toolbar\n")
+try:
+    from .app import update_check as _update_check
+    _update_check.install()
+except Exception:
+    App.Console.PrintError("Nxt: could not schedule the addon update check\n")

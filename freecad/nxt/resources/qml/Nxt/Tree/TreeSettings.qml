@@ -121,6 +121,10 @@ Popup {
             text: qsTr("Show details on click")
         }
         Setting {
+            key: "QuickMass"
+            text: qsTr("Show Quick Mass in the 3D view")
+        }
+        Setting {
             key: "RepairProfiles"
             text: qsTr("Auto repair 'Wire not closed' errors")
         }

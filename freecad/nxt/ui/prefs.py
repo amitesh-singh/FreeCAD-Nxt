@@ -19,7 +19,8 @@ GROUP = "FreeCAD-Nxt"
 #: What the quick panel offers. The page offers these and more.
 QUICK = ("PartLayout", "RowDensity", "ReferenceChips",
          "EditOnDoubleClick", "DependencyArrows", "HighlightRelated",
-         "DetailAutoShow", "TreeLines", "RepairProfiles", "OverlayMode")
+         "DetailAutoShow", "TreeLines", "RepairProfiles", "OverlayMode",
+         "QuickMass")
 
 #: Settings the theme reads: changing one restyles the panel.
 _VIEW = frozenset({"RowDensity", "ReferenceChips", "UnderConstrainedMarks",
@@ -60,6 +61,11 @@ def apply(keys: set[str] | frozenset[str]) -> None:
             bridge = panel.bridge()
             if bridge is not None:
                 bridge.refresh_auto_detail()
+    if "QuickMass" in keys:
+        from ..app import services
+        live = services.instance()
+        if live is not None:
+            live.quick_mass_changed()
     for prefs in list(_live):
         prefs.changed.emit()
 
@@ -204,6 +210,12 @@ class NxtPreferencesPage:
             translate("Nxt", "Keep the Property Inspector open (pinned)"),
             panel)
         layout.addRow(self._pinned)
+        self._updates = QtWidgets.QCheckBox(translate(
+            "Nxt", "Check installed addons for updates at startup"), panel)
+        self._updates.setToolTip(translate(
+            "Nxt", "Uses the Addon Manager's check, once per session, and "
+                   "lists any updates to review and apply."))
+        layout.addRow(self._updates)
         outer.addWidget(panel)
 
         # FreeCAD's own gizmo preferences, which no FreeCAD page shows.
@@ -293,6 +305,7 @@ class NxtPreferencesPage:
         self._percent.setValue(int(settings.get("HeaderMaxPercent")))
         self._min_width.setValue(int(settings.get("HeaderMinWidth")))
         self._pinned.setChecked(bool(settings.get("InspectorPinned")))
+        self._updates.setChecked(bool(settings.get("CheckAddonUpdates")))
         self._show_drag(gizmos.read())
         self._floating.setChecked(bool(settings.get("FloatingValues")))
         self._no_handles.setChecked(
@@ -316,6 +329,7 @@ class NxtPreferencesPage:
         settings.put("HeaderMaxPercent", self._percent.value())
         settings.put("HeaderMinWidth", self._min_width.value())
         settings.put("InspectorPinned", self._pinned.isChecked())
+        settings.put("CheckAddonUpdates", self._updates.isChecked())
         settings.put("FloatingValues", self._floating.isChecked())
         settings.put("TreeEditHidesHandles", self._no_handles.isChecked())
         settings.put("SnapToFaces", self._snap.isChecked())
@@ -355,6 +369,8 @@ class NxtPreferencesPage:
         self._percent.setValue(int(settings.DEFAULTS["HeaderMaxPercent"]))
         self._min_width.setValue(int(settings.DEFAULTS["HeaderMinWidth"]))
         self._pinned.setChecked(bool(settings.DEFAULTS["InspectorPinned"]))
+        self._updates.setChecked(
+            bool(settings.DEFAULTS["CheckAddonUpdates"]))
         self._show_drag(gizmos.DEFAULTS)
         self._floating.setChecked(bool(settings.DEFAULTS["FloatingValues"]))
         self._no_handles.setChecked(

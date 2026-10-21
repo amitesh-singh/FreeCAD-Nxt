@@ -751,6 +751,9 @@ Item {
                 origin = mapToItem(head, mouse.x, mouse.y);
                 armed = true;
                 var wasSelected = row.selected;
+                // The click that brings focus back to the tree only focuses.
+                var wasFocused = row.ListView.view
+                    && row.ListView.view.activeFocus;
                 if (row.ListView.view) {
                     row.ListView.view.currentIndex = row.index;
                     row.ListView.view.forceActiveFocus();
@@ -763,7 +766,8 @@ Item {
                     nxt.selectRange(row.name);
                 else if (!held)
                     nxt.select(row.name, additive);
-                if (wasSelected && !additive && !held && !row.renaming
+                if (wasSelected && wasFocused && !additive && !held
+                        && !row.renaming
                         && row.overGlyphs(origin.x, origin.y))
                     row.armRename();
             }

@@ -1,8 +1,9 @@
 """Step behaviour of FreeCAD's 3D drag handles ("gizmos").
 
 Driven by hidden preferences in Gui/Gizmos and History/Dragger. Nxt sets
-fine-on-plain-drag with Ctrl for coarse once, and restores FreeCAD's
-values when it is disabled or removed.
+fine-on-plain-drag with Ctrl for coarse once. Every value Nxt writes here
+is recorded with what it replaced, and put back when Nxt is disabled or
+removed unless the user has changed it since.
 """
 
 from __future__ import annotations
@@ -10,7 +11,6 @@ from __future__ import annotations
 import contextlib
 import json
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
 import FreeCAD as App
@@ -33,8 +33,15 @@ COARSE_FIRST = 0
 
 OURS = {"DefaultCoarseDragBehavior": FINE_FIRST, "FineSnapModifier": CTRL}
 
-#: Addon Manager markers: DISABLED present or MANIFEST gone means Nxt
-#: will not run at the next start.
+#: Parameter getter, setter, lister and remover for each value type.
+KINDS = {
+    "Int": ("GetInt", "SetInt", "GetInts", "RemInt"),
+    "Bool": ("GetBool", "SetBool", "GetBools", "RemBool"),
+    "Float": ("GetFloat", "SetFloat", "GetFloats", "RemFloat"),
+}
+
+#: Addon Manager markers: DISABLED present means Nxt is disabled,
+#: MANIFEST gone means it was removed (app/cleanup.py).
 DISABLED = "ADDON_DISABLED"
 MANIFEST = "package.xml"
 
@@ -67,24 +74,54 @@ def read() -> dict[str, Any]:
 
 def write(values: dict[str, Any]) -> None:
     """Store settings given in Nxt's terms; missing keys are left alone."""
-    gizmos = App.ParamGet(GIZMOS)
     if "plain" in values:
-        gizmos.SetInt("DefaultCoarseDragBehavior",
-                      FINE_FIRST if values["plain"] == "fine"
-                      else COARSE_FIRST)
+        _set(GIZMOS, "Int", "DefaultCoarseDragBehavior",
+             FINE_FIRST if values["plain"] == "fine" else COARSE_FIRST)
     if "key" in values and values["key"] in KEYS:
-        gizmos.SetInt("FineSnapModifier", KEYS[values["key"]])
+        _set(GIZMOS, "Int", "FineSnapModifier", KEYS[values["key"]])
     if "coarse" in values:
-        gizmos.SetBool("EnableCoarseSnap", bool(values["coarse"]))
+        _set(GIZMOS, "Bool", "EnableCoarseSnap", bool(values["coarse"]))
     if "linear" in values:
-        gizmos.SetInt("CoarseLinearSnapMultiplier",
-                      max(1, int(values["linear"])))
+        _set(GIZMOS, "Int", "CoarseLinearSnapMultiplier",
+             max(1, int(values["linear"])))
     if "rotation" in values:
-        gizmos.SetInt("CoarseRotationSnapMultiplier",
-                      max(1, int(values["rotation"])))
+        _set(GIZMOS, "Int", "CoarseRotationSnapMultiplier",
+             max(1, int(values["rotation"])))
     if "step" in values:
-        App.ParamGet(HISTORY).SetFloat(
-            "LastTranslationIncrement", max(0.001, float(values["step"])))
+        _set(HISTORY, "Float", "LastTranslationIncrement",
+             max(0.001, float(values["step"])))
+
+
+def _ledger() -> dict[str, list[Any]]:
+    """"group|kind|name" -> [value before Nxt or None if unset, Nxt's]."""
+    try:
+        ledger = json.loads(settings.get("ForeignOriginals") or "{}")
+    except ValueError:
+        ledger = {}
+    try:
+        legacy = json.loads(settings.get("GizmoOriginals") or "{}")
+    except ValueError:
+        legacy = {}
+    for name, before in legacy.items():
+        if name in OURS:
+            ledger.setdefault("%s|Int|%s" % (GIZMOS, name),
+                              [before, OURS[name]])
+    return ledger
+
+
+def _set(path: str, kind: str, name: str, value: Any) -> None:
+    getter, setter, lister, _remover = KINDS[kind]
+    group = App.ParamGet(path)
+    ledger = _ledger()
+    key = "%s|%s|%s" % (path, kind, name)
+    if key not in ledger:
+        present = name in getattr(group, lister)()
+        ledger[key] = [getattr(group, getter)(name) if present else None,
+                       None]
+    getattr(group, setter)(name, value)
+    ledger[key][1] = value
+    settings.put("ForeignOriginals", json.dumps(ledger))
+    settings.put("GizmoOriginals", "")
 
 
 @contextlib.contextmanager
@@ -110,13 +147,8 @@ def apply_defaults_once() -> bool:
     if settings.get("GizmoDefaultsApplied"):
         return False
     try:
-        group = App.ParamGet(GIZMOS)
-        present = set(group.GetInts())
-        settings.put("GizmoOriginals", json.dumps({
-            name: group.GetInt(name, 0) if name in present else None
-            for name in OURS}))
         for name, value in OURS.items():
-            group.SetInt(name, value)
+            _set(GIZMOS, "Int", name, value)
     except Exception:
         App.Console.PrintError("Nxt: could not set the drag defaults\n")
         return False
@@ -125,30 +157,22 @@ def apply_defaults_once() -> bool:
 
 
 def restore_freecads() -> bool:
-    """Restore values Nxt replaced, unless the user changed them since."""
-    if not settings.get("GizmoDefaultsApplied"):
+    """Put back every value Nxt wrote, unless the user changed it since."""
+    ledger = _ledger()
+    if not ledger and not settings.get("GizmoDefaultsApplied"):
         return False
-    try:
-        originals = json.loads(settings.get("GizmoOriginals") or "{}")
-    except ValueError:
-        originals = {}
-    group = App.ParamGet(GIZMOS)
-    present = set(group.GetInts())
-    for name, value in OURS.items():
-        if name not in present or group.GetInt(name, 0) != value:
+    for key, (before, ours) in ledger.items():
+        path, kind, name = key.split("|")
+        getter, setter, lister, remover = KINDS[kind]
+        group = App.ParamGet(path)
+        if name not in getattr(group, lister)() \
+                or getattr(group, getter)(name) != ours:
             continue
-        before = originals.get(name)
         if before is None:
-            group.RemInt(name)
+            getattr(group, remover)(name)
         else:
-            group.SetInt(name, int(before))
+            getattr(group, setter)(name, before)
+    settings.put("ForeignOriginals", "")
     settings.put("GizmoOriginals", "")
     settings.put("GizmoDefaultsApplied", False)
     return True
-
-
-def restore_if_leaving(root: Path) -> bool:
-    """At quit: restore_freecads if Nxt will not run at the next start."""
-    if (root / DISABLED).exists() or not (root / MANIFEST).exists():
-        return restore_freecads()
-    return False

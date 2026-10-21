@@ -352,7 +352,7 @@ Rectangle {
         menu.load(data);
         // After the menu closes, so a dialog does not open beneath it.
         menu.chosen.connect(function (command) {
-            Qt.callLater(function () { nxt.runMenuItem(command); });
+            nxt.runMenuItem(command);
         });
         menu.closed.connect(function () { treeList.forceActiveFocus(); });
         var at = rowItem
@@ -377,15 +377,17 @@ Rectangle {
 
     // -- keyboard --
 
-    // Space/Home/End are FreeCAD shortcuts, offered the key before the panel;
-    // claim them in shortcutOverride (a focused TextInput still gets them first).
+    // Space/Home/End/Delete are FreeCAD shortcuts, offered the key before
+    // the panel; claim them in shortcutOverride (a focused TextInput still
+    // gets them first).
     Keys.onShortcutOverride: function (event) {
         if (event.key === Qt.Key_Escape && ghost.Drag.active) {
             event.accepted = true;
             return;
         }
         if ((event.key === Qt.Key_Space || event.key === Qt.Key_Home
-             || event.key === Qt.Key_End)
+             || event.key === Qt.Key_End || event.key === Qt.Key_Delete
+             || event.key === Qt.Key_Backspace)
                 && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier
                                         | Qt.MetaModifier)))
             event.accepted = true;
@@ -415,6 +417,10 @@ Rectangle {
         } else if (event.key === Qt.Key_Escape) {
             // Unaccepted otherwise, so FreeCAD can clear the selection.
             event.accepted = nxt.closeDetail() || isolation.leave();
+        } else if (event.key === Qt.Key_Delete
+                   || event.key === Qt.Key_Backspace) {
+            nxt.deleteSelected();
+            event.accepted = true;
         } else if (event.key === Qt.Key_Space) {
             nxt.toggleSelectedVisibility();
             event.accepted = true;

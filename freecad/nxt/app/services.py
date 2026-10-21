@@ -40,6 +40,7 @@ class Services(QtCore.QObject):
         self._notice: Any = None
         self._toasts: Any = None
         self._escape: Any = None
+        self._mass_bar: Any = None
         self._pending_edit: tuple[str, str] | None = None
         self._edit_timer = self._deferral(self._enter_pending_edit)
         self._restyle_timer = self._deferral(self._restyle)
@@ -97,9 +98,16 @@ class Services(QtCore.QObject):
         except Exception:
             log.error("could not install Space in the 3D view")
             self._space = None
+        self.quick_mass_changed()
 
     def remove(self) -> None:
         self._remove_isolation()
+        if self._mass_bar is not None:
+            try:
+                self._mass_bar.remove()
+            except Exception:
+                log.error("could not remove Quick Mass")
+            self._mass_bar = None
         if self._toasts is not None:
             try:
                 self._toasts.remove()
@@ -176,6 +184,27 @@ class Services(QtCore.QObject):
         except Exception:
             pass
         self._isolation = self._isolation_observer = self._notice = None
+
+    # -- quick mass -- #
+
+    def quick_mass_changed(self) -> None:
+        """Show or hide Quick Mass (quick_mass.py) to match its setting."""
+        from ..core import settings
+        if self._mass_bar is None:
+            if not settings.get("QuickMass"):
+                return
+            try:
+                from ..ui import quick_mass
+                self._mass_bar = quick_mass.MassBar(self.theme(), self)
+                self._mass_bar.install()
+            except Exception:
+                log.error("could not set up Quick Mass")
+                self._mass_bar = None
+            return
+        try:
+            self._mass_bar.sync()
+        except Exception:
+            log.error("could not update Quick Mass")
 
     # -- undo toast -- #
 

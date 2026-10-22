@@ -88,6 +88,8 @@ def _faces_of(shape: Any, edge: Any) -> list[Any]:
 _solid: list[Any] = []
 #: Set while chamfering: the ball's arc is replaced by its chord.
 _flat: list[bool] = []
+#: Set while a held handle previews: booleans' results are not checked.
+_held: list[bool] = []
 #: While chamfering an edge, its distance per unit of ball radius.
 _scale: list[float] = []
 
@@ -1665,13 +1667,15 @@ def _ball_for(shape: Any, edge: Any, distance: float) -> float:
 
 def fillet(shape: Any, edges: list[Any], radius: float | list[float],
            flat: bool = False, refine: bool = True,
-           limits: dict[int, float] | None = None) -> tuple[Any, list[str]]:
+           limits: dict[int, float] | None = None,
+           mended: bool = True) -> tuple[Any, list[str]]:
     """The shape with every edge it can fillet rounded, and what failed.
 
     With `flat`, a chamfer instead, `radius` being its distance; one
     for all edges, or one per edge. Each edge that failed for want of
     room gets, in `limits`, the largest size that stays on its own
-    faces, 0 where none does.
+    faces, 0 where none does. Without `mended`, a quick preview: the
+    finished faces' tolerances are not mended.
     """
     sizes = (list(radius) if isinstance(radius, (list, tuple))
              else [radius] * len(edges))
@@ -1680,6 +1684,7 @@ def fillet(shape: Any, edges: list[Any], radius: float | list[float],
               if not flat and fade.fades(shape, e)]
     kept = [i for i in range(len(edges)) if i not in fading]
     _flat.append(flat)
+    _held.append(not mended)
     _joints.append(_chain_joints(shape, edges))
     fade.begin(edges)
     _oriented_seen.clear()
@@ -1696,6 +1701,7 @@ def fillet(shape: Any, edges: list[Any], radius: float | list[float],
                 break
     finally:
         _flat.pop()
+        _held.pop()
         _joints.pop()
         fade.end()
     if result is None:
@@ -1707,7 +1713,7 @@ def fillet(shape: Any, edges: list[Any], radius: float | list[float],
         found: dict[int, float] = {}
         result, problems = fillet(
             shape, [edges[i] for i in rest], [sizes[i] for i in rest],
-            flat, refine, found if limits is not None else None)
+            flat, refine, found if limits is not None else None, mended)
         if limits is not None:
             limits.update({rest[i]: v for i, v in found.items()})
         return result, [_renumbered(p, rest) for p in problems] + [
@@ -1725,8 +1731,10 @@ def fillet(shape: Any, edges: list[Any], radius: float | list[float],
     # Only the faces this feature made or changed: the rest of the part
     # was checked by the features that made it, so a long tree is not
     # checked over again at every fillet in it.
-    with timed("checked"):
-        result, sound = _tolerant_sound(result, kept=shape)
+    sound = True
+    if mended:
+        with timed("checked"):
+            result, sound = _tolerant_sound(result, kept=shape)
     if refine:
         with timed("refined"):
             refined = _cones_joined(result.removeSplitter())
@@ -2571,6 +2579,8 @@ def _applied(shape: Any, tool: Any, cutting: bool) -> Any:
             if (len(result.Solids) == len(shape.Solids)
                     and result.isValid()
                     and -slack <= change <= tool.Volume + slack):
+                if _held and _held[-1]:
+                    return result
                 # Only where the tool reached can a face have gone wrong;
                 # the rest is the shape's as it was (and the whole is made
                 # tolerant once the rounds are done).
@@ -2653,16 +2663,21 @@ class BlendFillet:
             sizes = [self.size(obj)] * len(edges)
         # While its task panel is open: no refining (on OK instead), and
         # the size limits the panel shows.
+        # While a handle is held: no size limits, nor mending, until it
+        # is let go.
         editing = getattr(self, "editing", False)
+        dragging = editing and getattr(self, "dragging", False)
         found: dict[int, float] = {}
         with timed("%s: all" % obj.Label):
             result, problems = fillet(
                 shape, edges, sizes, self.FLAT,
                 getattr(obj, "Refine", True) and not editing,
-                found if editing else None)
+                found if editing and not dragging else None,
+                mended=not dragging)
         self.problems = problems
-        #: Edges left sharp: the largest size that fits each, 0 if none.
-        self.limits = {names[i]: value for i, value in found.items()}
+        if not dragging:
+            #: Edges left sharp: the largest size that fits each, 0 if none.
+            self.limits = {names[i]: value for i, value in found.items()}
         for problem in problems:
             App.Console.PrintWarning("%s: skipped %s\n" % (obj.Label, problem))
         if not result.isValid():
@@ -2822,9 +2837,13 @@ def generated_faces(result: Any, base: Any) -> Any:
         box = old.BoundBox
         box.enlarge(tolerance)
         boxes.append((box, old))
+    kept = _faces_by_hash(base)
     faces = []
     for face in result.Faces:
-        point = _point_on(face, tolerance)
+        if any(face.isSame(old) for old in kept.get(face.hashCode(), ())):
+            continue
+        # One point inside the face: a coarse mesh finds it as surely.
+        point = _point_on(face, face.BoundBox.DiagonalLength * 1e-4)
         if point is None:
             continue
         inside = Part.Vertex(point)

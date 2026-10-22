@@ -9,6 +9,7 @@ the live preview, and refreshes each edge's fit.
 
 from __future__ import annotations
 
+import time
 from typing import Any, NamedTuple
 
 import FreeCAD as App
@@ -321,6 +322,20 @@ class FilletBridge(QtCore.QObject):
         self.changed.emit()
 
 
+class MouseRelease(QtCore.QObject):
+    """Calls `released` once a mouse button is let go, anywhere."""
+
+    def __init__(self, released: Any) -> None:
+        super().__init__()
+        self._released = released
+
+    def eventFilter(self, _obj: Any, event: Any) -> bool:  # noqa: N802
+        if event.type() == QtCore.QEvent.Type.MouseButtonRelease:
+            # After the dragger has had the release too.
+            QtCore.QTimer.singleShot(0, self._released)
+        return False
+
+
 class FilletTask:
     """FreeCAD's task dialog for one Nxt fillet or chamfer."""
 
@@ -339,6 +354,7 @@ class FilletTask:
         self._timer.setSingleShot(True)
         self._timer.setInterval(SETTLE_MS)
         self._timer.timeout.connect(self._recompute)
+        self._release = MouseRelease(lambda: self._held(False))
         self.bridge = FilletBridge(self)
         from ..app import services
         from ..ui.theme import Theme
@@ -373,6 +389,7 @@ class FilletTask:
         self._apply()
         self._finish()
         self.obj.Proxy.editing = False
+        self.obj.Proxy.dragging = False
         self.obj.touch()
         self.doc.recompute()
         self.doc.commitTransaction()
@@ -384,6 +401,7 @@ class FilletTask:
         self._timer.stop()
         self._finish()
         self.obj.Proxy.editing = False
+        self.obj.Proxy.dragging = False
         self.doc.abortTransaction()
         self.doc.recompute()
         if not self.created:
@@ -447,6 +465,8 @@ class FilletTask:
         if abs(value - self.radius) <= 1e-5 * max(1.0, value):
             return
         self.radius = value
+        if dragged:
+            self._held(True)
         if self._handles is not None and not dragged:
             self._handles.set_radius(value)
         self._changed()
@@ -489,6 +509,23 @@ class FilletTask:
         if not self._timer.isActive():
             self._timer.start()
 
+    def _held(self, holding: bool) -> None:
+        """While a handle is held, previews skip what only matters at rest.
+
+        Told from the mouse, not the dragger: pivy crashes calling Python
+        from a dragger's start and finish callbacks.
+        """
+        if holding == bool(getattr(self.obj.Proxy, "dragging", False)):
+            return
+        self.obj.Proxy.dragging = holding
+        app: Any = QtWidgets.QApplication.instance()
+        if holding:
+            app.installEventFilter(self._release)
+            return
+        app.removeEventFilter(self._release)
+        self._timer.stop()
+        self._recompute()
+
     def _apply(self) -> None:
         if abs(float(getattr(self.obj, self.kind.size))
                - self.radius) > 1e-9:
@@ -498,8 +535,14 @@ class FilletTask:
         self._apply()
         # The fillet alone; features after it catch up on OK.
         self.obj.Proxy.editing = True
+        started = time.perf_counter()
         self.obj.recompute()
-        self.limits = dict(getattr(self.obj.Proxy, "limits", {}) or {})
+        took_ms = int((time.perf_counter() - started) * 1000)
+        # The view gets at least as long as the preview took before the
+        # next one starts, so a slow part still turns and drags smoothly.
+        self._timer.setInterval(max(SETTLE_MS, took_ms))
+        if not getattr(self.obj.Proxy, "dragging", False):
+            self.limits = dict(getattr(self.obj.Proxy, "limits", {}) or {})
         self._refresh_view()
         self.bridge.refresh()
 
@@ -551,6 +594,8 @@ class FilletTask:
         self._show_preview(False)
 
     def _finish(self) -> None:
+        app: Any = QtWidgets.QApplication.instance()
+        app.removeEventFilter(self._release)
         self._stop_view()
         try:
             Gui.Selection.removeObserver(self)

@@ -145,22 +145,46 @@ def target(doc: Any, top_name: str, subname: str) -> str | None:
     return (made_by or picked).Name
 
 
-def _same_face(a: Any, b: Any) -> bool:
-    tolerance = max(a.Area * 1e-6, 1e-7)
-    return (type(a.Surface) is type(b.Surface)
-            and abs(a.Area - b.Area) < tolerance
-            and (a.CenterOfMass - b.CenterOfMass).Length < 1e-6)
+#: How far a point may sit off a surface and still lie on it.
+_ON_SURFACE = 1e-6
+
+
+def _surface_points(face: Any) -> list[Any]:
+    """Points on `face`'s surface: its vertices and its middle."""
+    u0, u1, v0, v1 = face.ParameterRange
+    points = [v.Point for v in face.Vertexes]
+    points.append(face.Surface.value((u0 + u1) / 2, (v0 + v1) / 2))
+    return points
+
+
+def _on_surface_of(face: Any, part: Any, points: list[Any]) -> bool:
+    """Whether `face` is a piece of `part`: on its surface, touching it.
+
+    A later feature may trim a face it did not make; the piece left keeps
+    its maker's surface.
+    """
+    if type(face.Surface) is not type(part.Surface):
+        return False
+    try:
+        if any(part.Surface.projectPoint(p, "LowerDistance") > _ON_SURFACE
+               for p in points):
+            return False
+        return bool(part.distToShape(face)[0] < _ON_SURFACE)
+    except Exception:
+        return False
 
 
 def _holds(feature: Any, face: Any) -> bool:
     try:
-        return any(_same_face(face, f) for f in feature.Shape.Faces)
+        points = _surface_points(face)
+        return any(_on_surface_of(face, f, points)
+                   for f in feature.Shape.Faces)
     except Exception:
         return False
 
 
 def _first_holding(picked: Any, subname: str, found: Any) -> Any:
-    """The earliest feature from `found` on whose shape has the face.
+    """The earliest feature from `found` that has the face, or a piece of it.
 
     The element map can trace a face that a later feature made to an
     earlier one: a cut's new faces keep its input's tags. The face's

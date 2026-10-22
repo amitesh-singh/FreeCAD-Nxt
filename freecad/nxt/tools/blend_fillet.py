@@ -2731,6 +2731,11 @@ class ViewProviderBlendFillet:
     def attach(self, vobj: Any) -> None:
         self.Object = vobj.Object
 
+    def updateData(self, obj: Any, prop: str) -> None:  # noqa: N802
+        if prop == "Shape":
+            from . import feature_colors
+            feature_colors.carry_face_colors(obj)
+
     def claimChildren(self) -> list[Any]:  # noqa: N802 - FreeCAD API
         return []
 
@@ -2873,6 +2878,8 @@ def new_fillet(base: Any, names: list[str], size: float,
     (BlendChamfer if flat else BlendFillet)(obj)
     _attach_view_provider(obj, flat)
     obj.BaseFeature = base
+    from . import feature_colors
+    feature_colors.copy_visuals(base, obj)
     obj.Edges = [(base, names)] if names else []
     setattr(obj, "Size" if flat else "Radius", size)
     return obj

@@ -51,7 +51,10 @@ def _per_face(vobj: Any, shape: Any) -> list[Any] | None:
 
 
 def _base_face_index(base_faces: list[Any], face: Any) -> int | None:
-    point = bf._point_on(face, _ON_FACE)
+    for index, base_face in enumerate(base_faces):
+        if face.isSame(base_face):
+            return index
+    point = bf._point_on(face, face.BoundBox.DiagonalLength * 1e-4)
     if point is None:
         return None
     vertex = Part.Vertex(point)

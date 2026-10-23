@@ -18,6 +18,7 @@ from ..inspector import properties
 from ..tools import editing, visibility
 from . import (
     activation,
+    cycle_time,
     drag_drop,
     icons,
     links,
@@ -400,6 +401,8 @@ class TreeBridge(QtCore.QObject):
         doc = App.ActiveDocument
         if doc is None:
             return
+        # A "Total Cycle Time:" row is no object: it is never selected.
+        names = [n for n in names if not cycle_time.is_total(n)]
         self._pushing_selection = True
         try:
             if not additive:

@@ -10,7 +10,7 @@ import FreeCAD as App
 
 from ..core.qt import QtCore
 from ..inspector import properties
-from . import icons
+from . import cycle_time, icons
 
 _ROLE: int = QtCore.Qt.ItemDataRole.UserRole
 
@@ -85,6 +85,8 @@ class TreeRowModel(QtCore.QAbstractListModel):
     BranchesRole = _ROLE + 30
     ActiveFromRole = _ROLE + 31
     ActivePartRole = _ROLE + 32
+    CycleTimeRole = _ROLE + 33
+    IsTotalRole = _ROLE + 34
 
     _ROLE_NAMES = {
         NameRole: "name",
@@ -123,6 +125,9 @@ class TreeRowModel(QtCore.QAbstractListModel):
         BranchesRole: "branches",
         ActiveFromRole: "activeFrom",
         ActivePartRole: "isActivePart",
+        # CAM: an operation's estimate; a total row's sum.
+        CycleTimeRole: "cycleTime",
+        IsTotalRole: "isTotal",
     }
 
     countChanged = QtCore.Signal()
@@ -147,6 +152,8 @@ class TreeRowModel(QtCore.QAbstractListModel):
         self._lines: dict[str, tuple[tuple[int, ...], int]] = {}
         self._icon_rev = 0
         self._known: set[str] = set()
+        #: CAM Jobs' Operations groups with operations in them.
+        self._cycle_groups: set[str] = set()
 
     #: Node fields a row draws; if unchanged, the row needs no redraw.
     _DISPLAYED = ("label", "visible", "in_error", "touched", "is_container",
@@ -194,13 +201,21 @@ class TreeRowModel(QtCore.QAbstractListModel):
             self._expanded |= (snapshot.default_expansion() & fresh)
         self._known = set(snapshot.nodes)
         self._detail &= set(snapshot.nodes)
+        self._cycle_groups = {
+            group for group in cycle_time.operation_groups(
+                self._document())
+            if group in snapshot.nodes and snapshot.nodes[group].children}
         self.refresh_rows(changed)
 
     def refresh_rows(self, changed: Iterable[str] | None = None) -> None:
         if self._snapshot is None:
             self._apply_rows([])
             return
-        self._apply_rows(self._snapshot.flatten(self._expanded), changed)
+        rows = self._snapshot.flatten(self._expanded)
+        if self._cycle_groups:
+            rows = cycle_time.with_totals(rows, self._cycle_groups,
+                                          self._expanded)
+        self._apply_rows(rows, changed)
 
     def icon_revision(self) -> int:
         return self._icon_rev
@@ -256,6 +271,12 @@ class TreeRowModel(QtCore.QAbstractListModel):
 
     def _touch(self, names: Iterable[str]) -> None:
         wanted = set(names)
+        if self._cycle_groups and self._snapshot is not None:
+            # An operation's new estimate changes its group's total.
+            nodes = self._snapshot.nodes
+            wanted |= {cycle_time.total_name(nodes[n].parent)
+                       for n in list(wanted)
+                       if n in nodes and nodes[n].parent in self._cycle_groups}
         for row, (name, _depth) in enumerate(self._rows):
             if name in wanted:
                 idx = self.index(row, 0)
@@ -417,6 +438,12 @@ class TreeRowModel(QtCore.QAbstractListModel):
             return 0
         return len(self._rows)
 
+    def _document(self) -> Any:
+        try:
+            return App.getDocument(self._snapshot.doc_name)
+        except Exception:
+            return None
+
     def _object(self, name: str) -> Any:
         try:
             doc = App.getDocument(self._snapshot.doc_name)
@@ -432,9 +459,18 @@ class TreeRowModel(QtCore.QAbstractListModel):
         if row < 0 or row >= len(self._rows):
             return None
         name, depth = self._rows[row]
+        if cycle_time.is_total(name):
+            return self._total_data(role, name, depth)
         node = self._snapshot.nodes.get(name)
         if node is None:
             return None
+        if role == self.CycleTimeRole:
+            if node.parent not in self._cycle_groups:
+                return ""
+            obj = self._object(name)
+            return cycle_time.of(obj) if obj is not None else ""
+        if role == self.IsTotalRole:
+            return False
 
         if role == self.NameRole:
             return name
@@ -514,3 +550,35 @@ class TreeRowModel(QtCore.QAbstractListModel):
             return [{"name": n, "label": lbl, "props": list(props)}
                     for n, lbl, props in node.consumers]
         return None
+
+    #: A total row's values for roles that describe an object.
+    _TOTAL_DEFAULTS: dict[int, Any] = {
+        HasChildrenRole: False, ExpandedRole: False, VisibleRole: True,
+        SelectedRole: False, IconRole: "", TypeRole: "", RefsRole: [],
+        IsContainerRole: False, ErrorRole: False, TouchedRole: False,
+        HighlightRole: False, IsFeatureRole: False, AfterTipRole: False,
+        IsProfileRole: False, SeverityRole: 0, NotesRole: [], DofRole: -1,
+        ConstrainedRole: -1, DetailRole: False, TimelineRole: -1,
+        BodyRole: "", ConsumersRole: [], IsLiftedRole: False,
+        ActiveRole: False, ActivePartRole: False, KeyPropsRole: [],
+        PropertyCountRole: 0, IsTotalRole: True,
+    }
+
+    def _total_data(self, role: int, name: str, depth: int) -> Any:
+        """A "Total Cycle Time:" row: not an object, only a sum."""
+        if role == self.NameRole:
+            return name
+        if role == self.LabelRole:
+            return cycle_time.TOTAL_LABEL
+        if role == self.DepthRole:
+            return depth
+        if role == self.CycleTimeRole:
+            group = cycle_time.group_of_total(name)
+            node = self._snapshot.nodes.get(group)
+            return cycle_time.total(
+                self._document(), node.children if node else ())
+        if role == self.BranchesRole:
+            return list(self._lines.get(name, ((), -1))[0])
+        if role == self.ActiveFromRole:
+            return self._lines.get(name, ((), -1))[1]
+        return self._TOTAL_DEFAULTS.get(role)

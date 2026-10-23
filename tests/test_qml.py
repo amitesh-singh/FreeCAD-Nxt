@@ -197,7 +197,7 @@ DEFAULTS = dict(name="", label="", depth=0, hasChildren=False, expanded=False,
                 detailOpen=False, timeline=0, bodyName="", consumers=[],
                 isLifted=False, isActive=False, keyProps=[],
                 propertyCount=0, branches=[], activeFrom=-1,
-                isActivePart=False)
+                isActivePart=False, cycleTime="", isTotal=False)
 # refs entries must carry every key the delegate reads; a missing one shows
 # up as undefined rather than as an error, so it is worth being strict.
 REF_KEYS = {"name", "label", "severity", "sub", "iconUrl"}

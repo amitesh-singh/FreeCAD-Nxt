@@ -14,7 +14,6 @@ neighbours read apart. Nxt keeps the cap lighter and its lines 2 px.
 from __future__ import annotations
 
 import ctypes
-import ctypes.util
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -23,7 +22,7 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from ..core import log
+from ..core import log, opengl
 from ..core.qt import QtCore, QtWidgets
 from . import section_aim
 
@@ -322,17 +321,7 @@ def gl() -> Any:
     """The process's OpenGL entry points, loaded once."""
     global _gl
     if _gl is None:
-        for name in ("libOpenGL.so.0", "libGL.so.1",
-                     ctypes.util.find_library("GL") or ""):
-            if not name:
-                continue
-            try:
-                _gl = ctypes.CDLL(name)
-                break
-            except OSError:
-                continue
-        else:
-            raise OSError("no OpenGL library found")
+        _gl = opengl.library()
     return _gl
 
 

@@ -18,6 +18,11 @@ _PRESSES = (QtCore.QEvent.Type.MouseButtonPress,
             QtCore.QEvent.Type.MouseButtonDblClick)
 _FOLLOWERS = (QtCore.QEvent.Type.MouseMove,
               QtCore.QEvent.Type.MouseButtonRelease)
+#: What FreeCAD's overlay panels do that moves their edge.
+_OVERLAY_MOVES = (QtCore.QEvent.Type.Show, QtCore.QEvent.Type.Hide,
+                  QtCore.QEvent.Type.Resize, QtCore.QEvent.Type.Move)
+#: The class of FreeCAD's overlay panels (docks drawn over the 3D view).
+_OVERLAY_CLASS = "OverlayTabWidget"
 #: What a 3D view window does on its way to being destroyed.
 _GOING = (QtCore.QEvent.Type.Close, QtCore.QEvent.Type.DeferredDelete,
           QtCore.QEvent.Type.Hide)
@@ -42,6 +47,12 @@ class ViewOverlay(QtCore.QObject):
         #: so a workbench switch showing the dock cannot reveal it.
         self._shelf = QtWidgets.QWidget(dock)
         self._shelf.hide()
+        #: FreeCAD's overlay panels, watched so the panel keeps clear.
+        self._overlays: list[Any] = []
+        self._replace = QtCore.QTimer(self)
+        self._replace.setSingleShot(True)
+        self._replace.setInterval(0)
+        self._replace.timeout.connect(self._place)
 
     def attached(self) -> bool:
         return self._attached
@@ -77,9 +88,10 @@ class ViewOverlay(QtCore.QObject):
                 area.subWindowActivated.disconnect(self._follow)
             except (RuntimeError, TypeError):
                 pass
-        for old in (self._host, self._holder):
+        for old in (self._host, self._holder, *self._overlays):
             if widgets.alive(old):
                 old.removeEventFilter(self)
+        self._overlays = []
         self._host = self._holder = None
         self._passing = False
         self._owning = False
@@ -150,6 +162,7 @@ class ViewOverlay(QtCore.QObject):
                           True)
         host.installEventFilter(self)
         view.installEventFilter(self)
+        self._watch_overlays()
         self._passing = False
         self._owning = False
         self._place()
@@ -166,7 +179,45 @@ class ViewOverlay(QtCore.QObject):
         if (not widgets.alive(view) or not widgets.alive(self._host)
                 or self._parked):
             return
-        view.setGeometry(0, 0, self._host.width(), self._host.height())
+        view.setGeometry(self._clear_of_overlays())
+
+    def _watch_overlays(self) -> None:
+        """Watch FreeCAD's overlay panels: their edges bound the panel."""
+        for old in self._overlays:
+            if widgets.alive(old):
+                old.removeEventFilter(self)
+        self._overlays = [
+            w for w in QtWidgets.QApplication.allWidgets()
+            if _OVERLAY_CLASS in w.metaObject().className()]
+        for overlay in self._overlays:
+            overlay.installEventFilter(self)
+
+    def _clear_of_overlays(self) -> QtCore.QRect:
+        """The 3D view's area less the overlay panels along its sides."""
+        host = self._host
+        left, top = 0, 0
+        right, bottom = host.width(), host.height()
+        whole = QtCore.QRect(0, 0, right, bottom)
+        for overlay in self._overlays:
+            if not widgets.alive(overlay) or not overlay.isVisible():
+                continue
+            corner = host.mapFromGlobal(
+                overlay.mapToGlobal(QtCore.QPoint(0, 0)))
+            box = QtCore.QRect(corner, overlay.size()).intersected(whole)
+            if box.isEmpty():
+                continue
+            side = _side_of(overlay, box, whole)
+            if side == "left":
+                left = max(left, box.right() + 1)
+            elif side == "right":
+                right = min(right, box.left())
+            elif side == "top":
+                top = max(top, box.bottom() + 1)
+            elif side == "bottom":
+                bottom = min(bottom, box.top())
+        if right - left < 1 or bottom - top < 1:
+            return whole
+        return QtCore.QRect(left, top, right - left, bottom - top)
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
         kind = event.type()
@@ -175,6 +226,10 @@ class ViewOverlay(QtCore.QObject):
                 if kind == QtCore.QEvent.Type.Show:
                     # Workbench switches re-show remembered docks.
                     QtCore.QTimer.singleShot(0, self._keep_dock_hidden)
+                return False
+            if watched in self._overlays:
+                if kind in _OVERLAY_MOVES:
+                    self._replace.start()
                 return False
             if watched is self._holder and kind in _GOING:
                 self._park()
@@ -340,3 +395,17 @@ class ViewOverlay(QtCore.QObject):
             event.type(), local, event.globalPosition(), event.button(),
             event.buttons(), event.modifiers())
         QtWidgets.QApplication.sendEvent(host, forwarded)
+
+
+def _side_of(overlay: Any, box: QtCore.QRect, whole: QtCore.QRect) -> str:
+    """Which side of the 3D view an overlay panel stands along."""
+    name = overlay.objectName().lower()
+    for side in ("left", "right", "top", "bottom"):
+        if side in name:
+            return side
+    # By the edge it is nearest, for a name that does not tell.
+    gaps = {"left": box.left() - whole.left(),
+            "right": whole.right() - box.right(),
+            "top": box.top() - whole.top(),
+            "bottom": whole.bottom() - box.bottom()}
+    return min(gaps, key=lambda k: gaps[k])

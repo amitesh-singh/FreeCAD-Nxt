@@ -128,8 +128,24 @@ def _inside(at: App.Vector) -> bool | None:
         return None
     shape = _solid[-1]
     step = _step()
+    if _far_from(shape, at, step / 10):
+        return False
     return any(s.isInside(at, step / 10, False)
                for s in (list(shape.Solids) or [shape]))
+
+
+def _far_from(shape: Any, point: App.Vector, gap: float) -> bool:
+    """Whether `point` is surely more than `gap` from `shape`: its box."""
+    box = shape.BoundBox
+    box.enlarge(gap)
+    return not box.isInside(point)
+
+
+def _apart(a: Any, b: Any, gap: float) -> bool:
+    """Whether two shapes are surely more than `gap` apart: their boxes."""
+    box = a.BoundBox
+    box.enlarge(gap)
+    return not box.intersect(b.BoundBox)
 
 
 def _step() -> float:
@@ -1350,7 +1366,8 @@ def _clipped_by(shape: Any, edge: Any, tool: Any, say: Any = None,
                 continue
             # A rim the blend never reaches bounds none of it: extended,
             # its face could still cut the blend away elsewhere.
-            if rim.distToShape(tool)[0] > reach:
+            if _apart(rim, tool, reach) or \
+                    rim.distToShape(tool)[0] > reach:
                 continue
             middle = (rim.FirstParameter + rim.LastParameter) / 2
             point = rim.valueAt(middle)
@@ -1683,11 +1700,16 @@ def fillet(shape: Any, edges: list[Any], radius: float | list[float],
     fading = [i for i, e in enumerate(edges)
               if not flat and fade.fades(shape, e)]
     kept = [i for i in range(len(edges)) if i not in fading]
+    if "occt_first" in SPEED and not fading:
+        quick = _occt_made(shape, edges, sizes, flat, refine)
+        if quick is not None:
+            return quick, []
     _flat.append(flat)
     _held.append(not mended)
     _joints.append(_chain_joints(shape, edges))
     fade.begin(edges)
     _oriented_seen.clear()
+    _faulty_seen.clear()
     reason, dropped = "", -1
     try:
         result, problems, failed = _joined_up(
@@ -1731,6 +1753,22 @@ def fillet(shape: Any, edges: list[Any], radius: float | list[float],
     # Only the faces this feature made or changed: the rest of the part
     # was checked by the features that made it, so a long tree is not
     # checked over again at every fillet in it.
+    if refine and mended:
+        # The refined part is checked anyway: the unrefined one only
+        # when the refined one will not do.
+        with timed("refined"):
+            refined = _cones_joined(result.removeSplitter())
+        with timed("edges joined"):
+            refined, refined_sound = _tolerant_sound(
+                _edges_joined(refined), kept=shape)
+        if refined_sound and refined.isValid():
+            return refined, problems
+        with timed("checked"):
+            result, sound = _tolerant_sound(result, kept=shape)
+        if (refined.isValid() or not result.isValid()) and (
+                refined_sound or not sound):
+            result = refined
+        return result, problems
     sound = True
     if mended:
         with timed("checked"):
@@ -1746,6 +1784,34 @@ def fillet(shape: Any, edges: list[Any], radius: float | list[float],
                 refined_sound or not sound):
             result = refined
     return result, problems
+
+
+def _occt_made(shape: Any, edges: list[Any], sizes: list[float],
+               flat: bool, refine: bool) -> Any:
+    """OCCT's own fillet or chamfer where likely to match ours; else None.
+
+    Used only when it comes out sound. Likely: one size, no fades, and
+    every edge of one kind (all outer or all inner), so no corner mixes
+    the two.
+    """
+    if len(set(sizes)) != 1 or not edges:
+        return None
+    kinds = {_convex_edge(shape, e) for e in edges}
+    if len(kinds) != 1 or None in kinds:
+        return None
+    try:
+        made = (shape.makeChamfer(sizes[0], edges) if flat
+                else shape.makeFillet(sizes[0], edges))
+    except Exception:  # noqa: BLE001 - ours then
+        return None
+    if not made.isValid() or len(made.Solids) != len(shape.Solids):
+        return None
+    if refine:
+        made = _edges_joined(_cones_joined(made.removeSplitter()))
+    made, sound = _tolerant_sound(made, kept=shape)
+    if not sound or not made.isValid():
+        return None
+    return made
 
 
 def _renumbered(problem: str, kept: list[int]) -> str:
@@ -1823,12 +1889,26 @@ def _tetrahedron(apex: App.Vector, base: list[App.Vector]) -> Any:
 TOLERANCES = (1e-5, 1e-4, 1e-3, 1e-2)
 
 
+#: Speed experiments switched on, by name: occt_first. Off by default.
+SPEED: set[str] = set()
+
+#: Faces already checked, by hash: the same face is not checked twice.
+_faulty_seen: dict[tuple[int, float], list[tuple[Any, bool]]] = {}
+
+
 def _faulty(face: Any) -> bool:
+    # Mending widens edge tolerances in place: a mended face is new.
+    key = (face.hashCode(), sum(e.Tolerance for e in face.Edges))
+    for seen, faulty in _faulty_seen.get(key, ()):
+        if seen.isSame(face):
+            return faulty
     try:
         face.check(True)
+        faulty = False
     except Exception:  # noqa: BLE001 - any fault the check reports
-        return True
-    return False
+        faulty = True
+    _faulty_seen.setdefault(key, []).append((face, faulty))
+    return faulty
 
 
 def _sound(shape: Any, whole: bool = False) -> bool:
@@ -1862,6 +1942,18 @@ def _faces_by_hash(shape: Any) -> dict[int, list[Any]]:
     return found
 
 
+def _plain(face: Any) -> bool:
+    """Whether no boolean can leave the face faulty.
+
+    A plane or cylinder bounded only by lines and circles: its edges lie
+    exactly on it.
+    """
+    if not isinstance(face.Surface, (Part.Plane, Part.Cylinder)):
+        return False
+    return all(isinstance(e.Curve, (Part.Line, Part.Circle))
+               for e in face.Edges if not e.Degenerated)
+
+
 def _tolerant(shape: Any, near: Any = None) -> Any:
     """The shape with each straying edge's tolerance widened to cover it.
 
@@ -1886,6 +1978,8 @@ def _tolerant_sound(shape: Any, near: Any = None,
               if (near is None or near.intersect(f.BoundBox))
               and not any(f.isSame(g) for g in
                           untouched.get(f.hashCode(), ()))]
+    faces = shape.Faces
+    looked = [i for i in looked if not _plain(faces[i])]
     faulty = [i for i in looked if _faulty(shape.Faces[i])]
     if not faulty:
         return shape, True
@@ -2417,6 +2511,8 @@ def _capped(shape: Any, edge: Any, tool: Any, radius: float) -> Any:
             mitres.append(plane)
             continue
         for face in shape.Faces:
+            if _far_from(face, vertex.Point, tolerance):
+                continue
             if face.distToShape(vertex)[0] <= tolerance:
                 add(face, vertex.Point)
     partners = [f for _p, _n, faces in mitres for f in faces]

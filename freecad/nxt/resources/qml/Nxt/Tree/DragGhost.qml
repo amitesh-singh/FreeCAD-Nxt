@@ -238,6 +238,21 @@ Item {
             : qsTr("After %1").arg(item.label), ok);
     }
 
+    // A drag whose release never came back (the press was taken away,
+    // or its row went with a model reset) ends once no button is down,
+    // rather than leaving the ghost behind.
+    Timer {
+        interval: 250
+        repeat: true
+        running: ghost.Drag.active
+        onTriggered: {
+            if (nxt.mouseHeld())
+                return;
+            ghost.cancel();
+            ghost.cancelled = false;    // no release left to swallow
+        }
+    }
+
     Timer {
         id: edgeScroll
         interval: 16

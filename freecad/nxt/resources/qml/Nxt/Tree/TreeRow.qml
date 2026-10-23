@@ -831,6 +831,16 @@ Item {
                 held = false;
             }
 
+            // The press was taken away (a dialog, another grab): no drop.
+            onCanceled: {
+                armed = false;
+                held = false;
+                if (row.dragGhost && row.dragGhost.Drag.active)
+                    row.dragGhost.cancel();
+                if (row.dragGhost)
+                    row.dragGhost.cancelled = false;
+            }
+
             // Opens the object anywhere on the row; cancels a pending rename.
             onDoubleClicked: function (mouse) {
                 row.disarmRename();

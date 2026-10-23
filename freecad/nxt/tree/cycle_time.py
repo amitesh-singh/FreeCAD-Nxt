@@ -1,7 +1,8 @@
 """CAM cycle times: each operation's, and an Operations group's total.
 
-The tree shows an operation's estimate as a chip, and under each expanded
-Operations group a "Total Cycle Time:" row adding up its operations.
+The tree shows an operation's estimate as a chip, a dressup's as the sum
+of the operations nested in it, and under each expanded Operations group
+a "Total Cycle Time:" row adding up its entries.
 """
 
 from __future__ import annotations
@@ -48,10 +49,32 @@ def formatted(total: float) -> str:
     return "%d:%02d:%02d" % (hours, minutes, secs)
 
 
-def of(obj: Any) -> str:
-    """The object's cycle time for its chip, or "" when it has none."""
-    found = seconds(getattr(obj, "CycleTime", None))
-    return formatted(found) if found is not None else ""
+def own(obj: Any) -> float | None:
+    """The object's own estimate in seconds, or None."""
+    return seconds(getattr(obj, "CycleTime", None))
+
+
+def nested(name: str, children: Any, lookup: Any,
+           seen: set[str] | None = None) -> float | None:
+    """An entry's time in seconds, or None if it has none.
+
+    A dressup's is that of the operations nested in it (its own estimate
+    does not count them); an operation's is its own.
+
+    `children(name)` lists what the tree nests under an entry and
+    `lookup(name)` gives its object.
+    """
+    seen = set() if seen is None else seen
+    if name in seen:
+        return None
+    seen.add(name)
+    inner = [nested(child, children, lookup, seen)
+             for child in children(name)]
+    inner_found = [t for t in inner if t is not None]
+    if inner_found:
+        return sum(inner_found)
+    obj = lookup(name)
+    return own(obj) if obj is not None else None
 
 
 def operation_groups(doc: Any) -> set[str]:
@@ -66,14 +89,14 @@ def operation_groups(doc: Any) -> set[str]:
     return groups
 
 
-def total(doc: Any, operations: Iterable[str]) -> str:
-    """The summed estimate of the active operations, or "" if none has one."""
+def total(operations: Iterable[str], children: Any, lookup: Any) -> str:
+    """The summed time of the group's active entries, or "" if none."""
     found = []
     for name in operations:
-        obj = doc.getObject(name) if doc is not None else None
+        obj = lookup(name)
         if obj is None or not getattr(obj, "Active", True):
             continue
-        value = seconds(getattr(obj, "CycleTime", None))
+        value = nested(name, children, lookup)
         if value is not None:
             found.append(value)
     return formatted(sum(found)) if found else ""

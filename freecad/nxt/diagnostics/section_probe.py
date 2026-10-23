@@ -19,12 +19,13 @@ Only GL render passes touch GL; picking and bounding boxes skip it.
 from __future__ import annotations
 
 import ctypes
-import ctypes.util
 import math
 from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
+
+from ..core import opengl
 
 GL_DEPTH_TEST = 0x0B71
 GL_STENCIL_TEST = 0x0B90
@@ -50,15 +51,7 @@ def _say(text: str) -> None:
 
 
 def _gl() -> Any:
-    for name in ("libOpenGL.so.0", "libGL.so.1",
-                 ctypes.util.find_library("GL") or ""):
-        if not name:
-            continue
-        try:
-            return ctypes.CDLL(name)
-        except OSError:
-            continue
-    raise OSError("no OpenGL library found")
+    return opengl.library()
 
 
 def _is_render(action: Any) -> bool:

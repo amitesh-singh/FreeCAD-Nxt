@@ -506,6 +506,9 @@ class TreeRowModel(QtCore.QAbstractListModel):
             obj = self._object(name) if name in self._detail else None
             if role == self.KeyPropsRole:
                 return properties.describe(obj) if obj is not None else []
+            if obj is None and node.type_id == properties.VARSET:
+                # Nothing else offers a VarSet a strip: its variables do.
+                obj = self._object(name)
             return properties.visible_count(obj) if obj is not None else 0
         if role == self.ConsumersRole:
             return [{"name": n, "label": lbl, "props": list(props)}

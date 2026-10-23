@@ -11,6 +11,7 @@ by the rounds' end sections and by curves on the faces they share.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -657,22 +658,88 @@ def _sphere_corner(shape: Any, junction: Junction) -> Any:
     tolerance = max(shape.BoundBox.DiagonalLength * 1e-7, 1e-7)
     corner: Any = Part.makeBox(size, size, size, junction.point
                                - App.Vector(size, size, size) * 0.5)
+    beyond: list[tuple[App.Vector, App.Vector]] = []
     for side in junction.shared:
         face = side[0]
         normal = App.Vector(face.Surface.Axis)
         if not _inside_of(shape,
                           junction.point - normal * tolerance * 100):
             normal = -normal
-        corner = corner.cut(bf._half_space(junction.point, normal, size))
+        beyond.append((junction.point, normal))
     for arm in junction.arms:
-        corner = corner.cut(bf._half_space(arm.station.point, arm.away,
-                                           size))
+        beyond.append((arm.station.point, App.Vector(arm.away)))
+    cell = _cell(junction.point, size, beyond)
+    if cell is not None:
+        corner = cell
+    else:
+        for point, away in beyond:
+            corner = corner.cut(bf._half_space(point, away, size))
     radius = junction.arms[0].radius
     tool = corner.cut(Part.makeSphere(radius, junction.centre))
     done = shape.cut(tool, tolerance * 10)
     if len(done.Solids) != 1:
         raise ValueError("the corner did not cut cleanly")
     return done.Solids[0]
+
+
+def _cell(centre: App.Vector, size: float,
+          beyond: list[tuple[App.Vector, App.Vector]]) -> Any:
+    """The box about `centre` less each half space in `beyond`, or None.
+
+    Built directly as a convex polyhedron: no boolean per plane. None if
+    the planes leave no solid. Each half space is (a point on its plane,
+    the way it extends).
+    """
+    half = size / 2
+    planes: list[tuple[App.Vector, float]] = []
+    for axis in (App.Vector(1, 0, 0), App.Vector(0, 1, 0),
+                 App.Vector(0, 0, 1)):
+        planes.append((axis, axis.dot(centre) + half))
+        planes.append((-axis, -axis.dot(centre) + half))
+    for point, away in beyond:
+        normal = App.Vector(away)
+        normal.normalize()
+        planes.append((normal, normal.dot(point)))
+    eps = size * 1e-9
+    corners: list[App.Vector] = []
+    for i in range(len(planes)):
+        for j in range(i + 1, len(planes)):
+            for k in range(j + 1, len(planes)):
+                at = _meet(planes[i], planes[j], planes[k])
+                if at is None or any(n.dot(at) > d + eps
+                                     for n, d in planes):
+                    continue
+                if not any((at - c).Length < eps * 10 for c in corners):
+                    corners.append(at)
+    faces = []
+    for normal, d in planes:
+        on = [c for c in corners if abs(normal.dot(c) - d) < eps * 10]
+        if len(on) < 3:
+            continue
+        middle = sum(on, App.Vector()) * (1.0 / len(on))
+        across = on[0] - middle
+        across.normalize()
+        upward = normal.cross(across)
+        on.sort(key=lambda c: math.atan2((c - middle).dot(upward),
+                                         (c - middle).dot(across)))
+        faces.append(Part.Face(Part.makePolygon(on + [on[0]])))
+    if len(faces) < 4:
+        return None
+    solid = Part.Solid(Part.Shell(faces))
+    if solid.Volume < 0:
+        solid.reverse()
+    return solid if solid.isValid() else None
+
+
+def _meet(a: tuple[App.Vector, float], b: tuple[App.Vector, float],
+          c: tuple[App.Vector, float]) -> App.Vector | None:
+    """Where three planes (normal, offset) meet; None if they do not."""
+    (na, da), (nb, db), (nc, dc) = a, b, c
+    cross = nb.cross(nc)
+    det = na.dot(cross)
+    if abs(det) < 1e-12:
+        return None
+    return (cross * da + nc.cross(na) * db + na.cross(nb) * dc) * (1 / det)
 
 
 def _inside_of(shape: Any, point: App.Vector) -> bool:

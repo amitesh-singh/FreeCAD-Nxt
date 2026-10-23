@@ -87,6 +87,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
     ActivePartRole = _ROLE + 32
     CycleTimeRole = _ROLE + 33
     IsTotalRole = _ROLE + 34
+    IsCamRole = _ROLE + 35
 
     _ROLE_NAMES = {
         NameRole: "name",
@@ -128,6 +129,8 @@ class TreeRowModel(QtCore.QAbstractListModel):
         # CAM: an operation's estimate; a total row's sum.
         CycleTimeRole: "cycleTime",
         IsTotalRole: "isTotal",
+        # In a CAM Operations group: references there are icon chips.
+        IsCamRole: "isCam",
     }
 
     countChanged = QtCore.Signal()
@@ -274,9 +277,17 @@ class TreeRowModel(QtCore.QAbstractListModel):
         if self._cycle_groups and self._snapshot is not None:
             # An operation's new estimate changes its group's total.
             nodes = self._snapshot.nodes
-            wanted |= {cycle_time.total_name(nodes[n].parent)
-                       for n in list(wanted)
-                       if n in nodes and nodes[n].parent in self._cycle_groups}
+            for n in list(wanted):
+                # Up through dressups: each shows what it nests.
+                seen = set()
+                parent = nodes[n].parent if n in nodes else None
+                while parent and parent not in seen and parent in nodes:
+                    seen.add(parent)
+                    if parent in self._cycle_groups:
+                        wanted.add(cycle_time.total_name(parent))
+                        break
+                    wanted.add(parent)
+                    parent = nodes[parent].parent
         for row, (name, _depth) in enumerate(self._rows):
             if name in wanted:
                 idx = self.index(row, 0)
@@ -438,6 +449,22 @@ class TreeRowModel(QtCore.QAbstractListModel):
             return 0
         return len(self._rows)
 
+    def _children_of(self, name: str) -> list[str]:
+        node = self._snapshot.nodes.get(name)
+        return list(node.children) if node is not None else []
+
+    def _in_cycle_group(self, node: Any) -> bool:
+        """Whether the node sits anywhere inside a CAM Operations group."""
+        seen = set()
+        parent = node.parent
+        while parent and parent not in seen:
+            if parent in self._cycle_groups:
+                return True
+            seen.add(parent)
+            above = self._snapshot.nodes.get(parent)
+            parent = above.parent if above is not None else None
+        return False
+
     def _document(self) -> Any:
         try:
             return App.getDocument(self._snapshot.doc_name)
@@ -465,12 +492,14 @@ class TreeRowModel(QtCore.QAbstractListModel):
         if node is None:
             return None
         if role == self.CycleTimeRole:
-            if node.parent not in self._cycle_groups:
+            if not self._in_cycle_group(node):
                 return ""
-            obj = self._object(name)
-            return cycle_time.of(obj) if obj is not None else ""
+            value = cycle_time.nested(name, self._children_of, self._object)
+            return cycle_time.formatted(value) if value is not None else ""
         if role == self.IsTotalRole:
             return False
+        if role == self.IsCamRole:
+            return self._in_cycle_group(node)
 
         if role == self.NameRole:
             return name
@@ -561,7 +590,7 @@ class TreeRowModel(QtCore.QAbstractListModel):
         ConstrainedRole: -1, DetailRole: False, TimelineRole: -1,
         BodyRole: "", ConsumersRole: [], IsLiftedRole: False,
         ActiveRole: False, ActivePartRole: False, KeyPropsRole: [],
-        PropertyCountRole: 0, IsTotalRole: True,
+        PropertyCountRole: 0, IsTotalRole: True, IsCamRole: True,
     }
 
     def _total_data(self, role: int, name: str, depth: int) -> Any:
@@ -575,8 +604,8 @@ class TreeRowModel(QtCore.QAbstractListModel):
         if role == self.CycleTimeRole:
             group = cycle_time.group_of_total(name)
             node = self._snapshot.nodes.get(group)
-            return cycle_time.total(
-                self._document(), node.children if node else ())
+            return cycle_time.total(node.children if node else (),
+                                    self._children_of, self._object)
         if role == self.BranchesRole:
             return list(self._lines.get(name, ((), -1))[0])
         if role == self.ActiveFromRole:

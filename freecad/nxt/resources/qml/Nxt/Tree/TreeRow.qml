@@ -41,6 +41,7 @@ Item {
     required property string cycleTime
     //: "Total Cycle Time:" under an Operations group: no object behind it.
     required property bool isTotal
+    required property bool isCam
 
     // Feature that made the face picked in the 3D view; outlined, not selected.
     readonly property bool pickOrigin: nxt.pickOrigins.indexOf(row.name) >= 0
@@ -279,6 +280,9 @@ Item {
     readonly property int chipTextFloor: 240
 
     readonly property bool compactChips: {
+        // CAM: only the cycle time is written out; references are icons.
+        if (row.isCam)
+            return row.shownRefs.length > 0;
         if (row.shownRefs.length > 1)
             return true;
         if (row.shownRefs.length === 1)
@@ -762,6 +766,7 @@ Item {
             onPressed: function (mouse) {
                 if (mouse.button === Qt.RightButton) {
                     var at = mapToItem(null, mouse.x, mouse.y);
+                    host.takeKeyboard();
                     if (row.ListView.view)
                         row.ListView.view.forceActiveFocus();
                     nxt.requestContextMenu(row.name, at.x, at.y);
@@ -773,6 +778,11 @@ Item {
                 // The click that brings focus back to the tree only focuses.
                 var wasFocused = row.ListView.view
                     && row.ListView.view.activeFocus;
+                // The panel itself must hold the keyboard, not just this
+                // list inside it: else Space, Delete and the arrows go to
+                // whatever widget had focus before (a text field, the
+                // console) and act there, or not at all.
+                host.takeKeyboard();
                 if (row.ListView.view) {
                     row.ListView.view.currentIndex = row.index;
                     row.ListView.view.forceActiveFocus();

@@ -37,6 +37,10 @@ Item {
     required property int propertyCount
     required property var branches
     required property int activeFrom
+    //: CAM: the operation's cycle time, or a total row's sum ("" if none).
+    required property string cycleTime
+    //: "Total Cycle Time:" under an Operations group: no object behind it.
+    required property bool isTotal
 
     // Feature that made the face picked in the 3D view; outlined, not selected.
     readonly property bool pickOrigin: nxt.pickOrigins.indexOf(row.name) >= 0
@@ -463,6 +467,7 @@ Item {
 
         Image {
             id: icon
+            visible: !row.isTotal
             x: expander.x + expander.width + 2
             anchors.verticalCenter: parent.verticalCenter
             width: theme.iconSize
@@ -505,7 +510,8 @@ Item {
             elide: Text.ElideMiddle
             font.pixelSize: theme.fontRow
             font.bold: row.isContainer
-            font.italic: !row.objectVisible && !row.isProfile
+            font.italic: row.isTotal
+                         || (!row.objectVisible && !row.isProfile)
             color: row.selected ? theme.accentText
                  : (row.inError && !row.blamedOnProfile) ? theme.danger
                  : row.afterTip ? theme.textDim
@@ -588,6 +594,16 @@ Item {
                     }
                 }
 
+                Chip {
+                    objectName: "cycleChip"
+                    visible: !!row.cycleTime
+                    interactive: false
+                    active: row.isTotal
+                    text: row.cycleTime
+                    tip: row.isTotal ? qsTr("Total cycle time of the active operations")
+                                     : qsTr("Estimated cycle time")
+                }
+
                 // Shown on the consumer only; the read object lists them in its strip.
                 Repeater {
                     model: row.shownRefs.slice(0, row.chipLimit)
@@ -614,6 +630,7 @@ Item {
 
             Row {
                 id: state
+                visible: !row.isTotal
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: chips.right
                 anchors.leftMargin: 6
@@ -727,6 +744,8 @@ Item {
         // z: -1 so this grabbing MouseArea sits under the controls' TapHandlers.
         MouseArea {
             id: press
+            // A total row is a sum, not an object: nothing to select or drag.
+            enabled: !row.isTotal
             // In the 3D view only the pill takes presses (view_overlay.py).
             x: host.viewOverlay ? row.pillLeft : 0
             width: host.viewOverlay ? row.pillRight - row.pillLeft

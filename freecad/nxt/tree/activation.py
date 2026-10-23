@@ -19,6 +19,8 @@ class Activation:
         self._pending_edit: tuple[str, str] | None = None
         self._activate_timer = bridge._deferral(self._activate_pending)
         self._edit_timer = bridge._deferral(self._enter_pending_edit)
+        self._pending_inspect = ""
+        self._inspect_timer = bridge._deferral(self._inspect_pending)
 
     @property
     def _snapshot(self) -> Any:
@@ -41,12 +43,26 @@ class Activation:
                 return
             self._bridge.toggleExpanded(name)
             return
-        if doc.getObject(name) is None:
+        obj = doc.getObject(name)
+        if obj is None:
+            return
+        if getattr(obj, "TypeId", "") == "App::VarSet":
+            # Its variables are its content: show them in the inspector.
+            self._pending_inspect = name
+            self._inspect_timer.start()
             return
         # Deferred: setEdit nests an event loop and can destroy the
         # delegate inside its own onDoubleClicked, which aborts QML.
         self._pending_edit = (doc.Name, name)
         self._edit_timer.start()
+
+    def _inspect_pending(self) -> None:
+        """Open the Property Inspector on the double-clicked VarSet."""
+        name, self._pending_inspect = self._pending_inspect, ""
+        if not name:
+            return
+        self._bridge._push_selection([name], False)
+        self._bridge.request_property_inspector()
 
     @staticmethod
     def _active_key(obj: Any) -> str:

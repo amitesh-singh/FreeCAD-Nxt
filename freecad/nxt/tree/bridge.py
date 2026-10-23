@@ -12,7 +12,7 @@ import FreeCADGui as Gui
 from ..app import services
 from ..app.i18n import translate
 from ..core import fc, log, settings
-from ..core.qt import QtCore
+from ..core.qt import QtCore, QtGui
 from ..core.transaction import transaction
 from ..inspector import properties
 from ..tools import editing, visibility
@@ -700,6 +700,12 @@ class TreeBridge(QtCore.QObject):
         """Toggle whether auto-show leaves this strip open."""
         self._pinned ^= {name}
         self.pinnedDetailsChanged.emit()
+
+    @QtCore.Slot(result=bool)
+    def mouseHeld(self) -> bool:  # noqa: N802 - QML API
+        """Whether any mouse button is down: a drag without one is over."""
+        return QtGui.QGuiApplication.mouseButtons() \
+            != QtCore.Qt.MouseButton.NoButton
 
     @QtCore.Slot(result=bool)
     def closeDetail(self) -> bool:

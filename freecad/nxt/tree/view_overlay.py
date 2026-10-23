@@ -21,6 +21,10 @@ _FOLLOWERS = (QtCore.QEvent.Type.MouseMove,
 #: What FreeCAD's overlay panels do that moves their edge.
 _OVERLAY_MOVES = (QtCore.QEvent.Type.Show, QtCore.QEvent.Type.Hide,
                   QtCore.QEvent.Type.Resize, QtCore.QEvent.Type.Move)
+#: Height of the strip docked under the toolbars while the panel is in
+#: the 3D view: a dragged toolbar reaching it opens a new toolbar row, as
+#: it does over a docked panel's header (the 3D view never offers one).
+DROP_STRIP_HEIGHT = 10
 #: The class of FreeCAD's overlay panels (docks drawn over the 3D view).
 _OVERLAY_CLASS = "OverlayTabWidget"
 #: What a 3D view window does on its way to being destroyed.
@@ -47,6 +51,7 @@ class ViewOverlay(QtCore.QObject):
         #: so a workbench switch showing the dock cannot reveal it.
         self._shelf = QtWidgets.QWidget(dock)
         self._shelf.hide()
+        self._strip: Any = None
         #: FreeCAD's overlay panels, watched so the panel keeps clear.
         self._overlays: list[Any] = []
         self._replace = QtCore.QTimer(self)
@@ -71,6 +76,7 @@ class ViewOverlay(QtCore.QObject):
             self._park()        # no 3D view yet: into the first one
         self._dock.hide()
         self._dock.installEventFilter(self)
+        self._add_strip()
         area = view3d.mdi_area()
         if area is not None:
             area.subWindowActivated.connect(self._follow)
@@ -82,6 +88,7 @@ class ViewOverlay(QtCore.QObject):
             return
         self._attached = False
         self._dock.removeEventFilter(self)
+        self._remove_strip()
         area = view3d.mdi_area()
         if area is not None:
             try:
@@ -105,6 +112,45 @@ class ViewOverlay(QtCore.QObject):
             view.show()
         self._dock.show()
         self._dock._release_timer.start()
+
+    def _add_strip(self) -> None:
+        """Dock an empty, header-high strip along the top, under the toolbars.
+
+        Qt opens a new toolbar row for a toolbar dragged onto a docked
+        widget there, which the 3D view does not do.
+        """
+        main = self._dock.parentWidget()
+        if not isinstance(main, QtWidgets.QMainWindow) \
+                or widgets.alive(self._strip):
+            return
+        strip = QtWidgets.QDockWidget(main)
+        strip.setObjectName("NxtToolbarDropStrip")
+        strip.setWindowTitle("Nxt")
+        strip.setFeatures(
+            QtWidgets.QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
+        bar = QtWidgets.QWidget(strip)
+        bar.setFixedHeight(DROP_STRIP_HEIGHT)
+        strip.setTitleBarWidget(bar)
+        body = QtWidgets.QWidget(strip)
+        body.setFixedHeight(0)
+        strip.setWidget(body)
+        # Nothing drawn: the window shows through, as if no dock were there.
+        for part in (strip, bar, body):
+            part.setAutoFillBackground(False)
+        strip.setStyleSheet("background: transparent; border: none;")
+        main.addDockWidget(QtCore.Qt.DockWidgetArea.TopDockWidgetArea,
+                           strip)
+        strip.show()
+        self._strip = strip
+
+    def _remove_strip(self) -> None:
+        strip, self._strip = self._strip, None
+        if not widgets.alive(strip):
+            return
+        main = strip.parentWidget()
+        if isinstance(main, QtWidgets.QMainWindow):
+            main.removeDockWidget(strip)
+        strip.deleteLater()
 
     def _follow(self, *_args: Any) -> None:
         """Another MDI window became active: go with it, if it is 3D."""

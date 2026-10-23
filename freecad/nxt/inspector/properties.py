@@ -33,7 +33,23 @@ KEY_PROPERTIES: dict[str, tuple[str, ...]] = {
 }
 
 #: The kinds the strip edits in place; any other is the inspector's.
-STRIP_KINDS = frozenset({"quantity", "number", "bool", "enum"})
+STRIP_KINDS = frozenset({"quantity", "number", "bool", "enum", "text"})
+#: A variable set: its key properties are the variables added to it.
+VARSET = "App::VarSet"
+#: In getPropertyStatus: a property added to the object, not built in.
+DYNAMIC_STATUS = 21
+
+
+def _added(obj: Any) -> tuple[str, ...]:
+    """The properties added to an object (a VarSet's variables)."""
+    found = []
+    for prop in getattr(obj, "PropertiesList", ()) or ():
+        try:
+            if DYNAMIC_STATUS in obj.getPropertyStatus(prop):
+                found.append(prop)
+        except Exception:
+            continue
+    return tuple(found)
 
 
 def _expression(obj: Any, prop: str) -> str | None:
@@ -51,7 +67,9 @@ def _strip_kind(type_id: str) -> str | None:
 def describe(obj: Any) -> list[dict[str, Any]]:
     """The object's key properties, shaped for QML."""
     out: list[dict[str, Any]] = []
-    names = KEY_PROPERTIES.get(getattr(obj, "TypeId", ""), ())
+    type_id = getattr(obj, "TypeId", "")
+    varset = type_id == VARSET
+    names = _added(obj) if varset else KEY_PROPERTIES.get(type_id, ())
     present = set(getattr(obj, "PropertiesList", ()) or ())
     for prop in names:
         if prop not in present or property_kinds.is_hidden(obj, prop):
@@ -67,10 +85,12 @@ def describe(obj: Any) -> list[dict[str, Any]]:
             "name": prop, "kind": kind, "text": "", "checked": False,
             "options": [], "expression": _expression(obj, prop) or "",
             "readOnly": property_kinds.is_read_only(obj, prop),
+            # Variables: two columns, each name over its value.
+            "stacked": varset,
         }
         if kind == "quantity":
             entry["text"] = getattr(value, "UserString", str(value))
-        elif kind == "number":
+        elif kind in ("number", "text"):
             entry["text"] = str(value)
         elif kind == "bool":
             entry["checked"] = bool(value)

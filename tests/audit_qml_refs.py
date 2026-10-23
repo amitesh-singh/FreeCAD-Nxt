@@ -92,7 +92,8 @@ for qmldir in sorted((QML / "Nxt").glob("*/qmldir")):
     present |= {path.stem for path in qmldir.parent.glob("*.qml")}
 registered = set(module_of)
 builtin = {"Item", "Rectangle", "Text", "TextInput", "Image", "Row", "Column",
-           "Flow", "Canvas", "ListView", "Repeater", "MouseArea", "DropArea",
+           "Flow", "Grid", "Canvas", "ListView", "Repeater", "MouseArea",
+           "DropArea",
            "HoverHandler", "TapHandler", "WheelHandler", "DragHandler",
            "Connections", "Gradient", "GradientStop",
            "NumberAnimation",

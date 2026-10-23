@@ -42,14 +42,42 @@ Column {
                                     || hasValues || strip.propertyCount > 0
 
 
+    //: Variables (a VarSet's): two columns, each name over its value.
+    readonly property bool stackedValues: strip.hasValues
+                                          && !!strip.keyProps[0].stacked
+
+    Grid {
+        visible: strip.stackedValues
+        width: parent.width
+        columns: 2
+        columnSpacing: 10
+        rowSpacing: 4
+
+        Repeater {
+            model: strip.stackedValues ? strip.keyProps.length : 0
+
+            KeyValue {
+                required property int index
+                spec: strip.keyProps[index]
+                owner: strip.owner
+                cellWidth: Math.max(60, (strip.width - 10) / 2)
+                onEdited: function (value) {
+                    strip.keyEdited(spec.name, value);
+                }
+            }
+        }
+    }
+
     Flow {
-        visible: strip.hasValues || strip.propertyCount > 0
+        visible: (strip.hasValues && !strip.stackedValues)
+                 || strip.propertyCount > 0
         width: parent.width
         spacing: 10
 
         // Counted, not the list: a new list would recreate delegates and drop focus.
         Repeater {
-            model: strip.keyProps ? strip.keyProps.length : 0
+            model: strip.keyProps && !strip.stackedValues
+                   ? strip.keyProps.length : 0
 
             KeyValue {
                 required property int index

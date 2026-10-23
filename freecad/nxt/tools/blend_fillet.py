@@ -2526,21 +2526,52 @@ def _capped(shape: Any, edge: Any, tool: Any, radius: float) -> Any:
                 continue
             if not any(beyond[0].isSame(f) for f in partners):
                 add(beyond[0], rim.valueAt(_middle(rim)))
+    # A curved edge can wrap round past a plane through its end, which
+    # would then cut away its blend on the far side: such a plane cuts
+    # only within a ball about that end, and sides are judged there.
+    curved = not isinstance(edge.Curve, Part.Line)
+
+    def keep_side(point: App.Vector) -> App.Vector:
+        return _inside_near(edge, point, radius) if curved else middle
+
+    def cap(tool: Any, point: App.Vector, away: App.Vector) -> Any:
+        block = _half_space(point, away, size)
+        if curved:
+            block = block.common(Part.makeSphere(radius * CAP_REACH, point))
+        return tool.cut(block)
+
     for point, normal, _faces in mitres:
-        side = (middle - point).dot(normal)
+        side = (keep_side(point) - point).dot(normal)
         away = normal * (-1 if side > 0 else 1)
-        tool = tool.cut(_half_space(point, away, size))
+        tool = cap(tool, point, away)
     for face, near in stops:
         if not isinstance(face.Surface, Part.Plane):
             tool = _on_side_of(tool, face, near, middle, size)
             continue
         normal = App.Vector(face.Surface.Axis)
-        side = (middle - near).dot(normal)
+        side = (keep_side(near) - near).dot(normal)
         if abs(side) < tolerance:
             continue
         away = normal * (-1 if side > 0 else 1)
-        tool = tool.cut(_half_space(near, away, size))
+        tool = cap(tool, near, away)
     return tool
+
+
+#: How far, in radii, a cap across a curved edge's end reaches.
+CAP_REACH = 2
+
+
+def _inside_near(edge: Any, point: App.Vector, radius: float) -> App.Vector:
+    """A point on the edge near `point`, a little in from it.
+
+    Where a stop is met; the side of it the edge runs on.
+    """
+    at = edge.Curve.parameter(point)
+    first, last = edge.FirstParameter, edge.LastParameter
+    at = min(max(at, first), last)
+    step = (last - first) * min(0.25, radius / max(edge.Length, 1e-9))
+    inward = at + step if at - first < last - at else at - step
+    return edge.valueAt(inward)
 
 
 def _mitre(shape: Any, edge: Any, at: App.Vector

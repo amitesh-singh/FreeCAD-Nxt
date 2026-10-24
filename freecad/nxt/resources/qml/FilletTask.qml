@@ -40,66 +40,66 @@ Item {
                     font.pixelSize: theme.fontSmall
                 }
             }
-            Row {
+            TextField {
+                id: radiusField
                 width: parent.width
-                spacing: root.gap
+                height: theme.fieldHeight
+                suffix: task.radiusUnit
+                Component.onCompleted: text = task.radiusNumber
 
-                TextField {
-                    id: radiusField
-                    width: 104
-                    height: theme.fieldHeight
-                    text: task.radiusText
-                    onAccepted: if (!task.setRadiusText(text)) text = task.radiusText
-                    input.onActiveFocusChanged: if (!input.activeFocus) task.setRadiusText(text)
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: 3
-                        color: "transparent"
-                        border.width: 1
-                        border.color: root.amber
-                        visible: task.failing > 0
-                    }
+                // Typed and not yet applied: kept over outside changes.
+                property bool typed: false
+
+                function revert() {
+                    text = task.radiusNumber
+                    typed = false
+                }
+                function apply() {
+                    if (typed && !task.setRadiusText(text))
+                        revert()
+                    typed = false
                 }
 
-                // Slider with a marker where the radius stops fitting.
-                Item {
-                    id: slider
-                    width: parent.width - radiusField.width - root.gap
-                    height: theme.fieldHeight
-                    readonly property real span: task.sliderMax
-                    function at(value) { return Math.max(0, Math.min(1, value / span)) * width }
+                onEdited: if (input.activeFocus) typed = text !== task.radiusNumber
 
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width; height: 4; radius: 2
-                        color: theme.border
+                onAccepted: { apply(); input.selectAll() }
+                onDismissed: { revert(); input.focus = false }
+                onUpPressed: { apply(); task.step(1, false) }
+                onDownPressed: { apply(); task.step(-1, false) }
+                input.onActiveFocusChanged: {
+                    if (input.activeFocus)
+                        Qt.callLater(input.selectAll)
+                    else
+                        apply()
+                }
+
+                Connections {
+                    target: task
+                    function onChanged() {
+                        if (radiusField.typed)
+                            return
+                        radiusField.revert()
+                        if (radiusField.input.activeFocus)
+                            radiusField.input.selectAll()
                     }
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: slider.at(task.radius); height: 4; radius: 2
-                        color: theme.accent
+                }
+                WheelHandler {
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    onWheel: function (event) {
+                        var steps = event.angleDelta.y > 0 ? 1 : event.angleDelta.y < 0 ? -1 : 0
+                        if (steps === 0)
+                            return
+                        radiusField.apply()
+                        task.step(steps, (event.modifiers & Qt.ShiftModifier) !== 0)
                     }
-                    Rectangle {
-                        visible: task.fits >= 0
-                        x: slider.at(task.fits) - 1
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 2; height: 14
-                        color: root.amber
-                    }
-                    Rectangle {
-                        x: slider.at(task.radius) - width / 2
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 14; height: 14; radius: 7
-                        color: theme.text
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        function pick(mouse) {
-                            task.setRadius(Math.max(0.01, mouse.x / width * slider.span))
-                        }
-                        onPressed: function (mouse) { pick(mouse) }
-                        onPositionChanged: function (mouse) { if (pressed) pick(mouse) }
-                    }
+                }
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 3
+                    color: "transparent"
+                    border.width: 1
+                    border.color: root.amber
+                    visible: task.failing > 0
                 }
             }
         }

@@ -56,7 +56,8 @@ changed = QtCore.Signal()
 Stub = type("Stub", (QtCore.QObject,), {
     "changed": changed,
     "radiusText": _value(str, "3 mm"), "radius": _value(float, 3.0),
-    "sliderMax": _value(float, 6.0), "fits": _value(float, 2.53),
+    "radiusNumber": _value(str, "3"), "radiusUnit": _value(str, "mm"),
+    "fits": _value(float, 2.53),
     "fitsText": _value(str, "2.53 mm"), "failing": _value(int, 1),
     "source": _value(str, "Pad004"), "useAllEdges": _value(bool, False),
     "refine": _value(bool, True), "edges": _value(list, EDGES),
@@ -67,7 +68,7 @@ Stub = type("Stub", (QtCore.QObject,), {
     "setTriangleCorners": _slot("setTriangleCorners", bool),
     "setPreview": _slot("setPreview", bool),
     "setRadiusText": _slot("setRadiusText", str),
-    "setRadius": _slot("setRadius", float), "useFits": _slot("useFits"),
+    "step": _slot("step", int, bool), "useFits": _slot("useFits"),
     "remove": _slot("remove", str), "clear": _slot("clear"),
     "setUseAllEdges": _slot("setUseAllEdges", bool),
     "setRefine": _slot("setRefine", bool), "hover": _slot("hover", str),

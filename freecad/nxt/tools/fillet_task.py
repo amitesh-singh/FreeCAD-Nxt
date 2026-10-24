@@ -204,14 +204,17 @@ class FilletBridge(QtCore.QObject):
     def radiusText(self) -> str:  # noqa: N802 - QML API
         return self._radius_text
 
+    @QtCore.Property(str, notify=changed)
+    def radiusNumber(self) -> str:  # noqa: N802 - QML API
+        return units.split_number_and_unit(self._radius_text)[0]
+
+    @QtCore.Property(str, notify=changed)
+    def radiusUnit(self) -> str:  # noqa: N802 - QML API
+        return units.split_number_and_unit(self._radius_text)[1]
+
     @QtCore.Property(float, notify=changed)
     def radius(self) -> float:
         return self._task.radius
-
-    @QtCore.Property(float, notify=changed)
-    def sliderMax(self) -> float:  # noqa: N802 - QML API
-        top = max([self._task.radius] + list(self._task.limits.values()))
-        return max(top * 2.0, 1.0)
 
     @QtCore.Property(float, notify=changed)
     def fits(self) -> float:
@@ -279,16 +282,22 @@ class FilletBridge(QtCore.QObject):
 
     @QtCore.Slot(str, result=bool)
     def setRadiusText(self, text: str) -> bool:  # noqa: N802 - QML API
-        value = units.internal_value(text, "mm")
+        value = units.internal_value(
+            text, units.split_number_and_unit(self._radius_text)[1])
         if value is None or value <= 0:
             return False
         self._task.set_radius(value)
         return True
 
-    @QtCore.Slot(float)
-    def setRadius(self, value: float) -> None:  # noqa: N802 - QML API
+    @QtCore.Slot(int, bool)
+    def step(self, steps: int, fine: bool) -> None:
+        """Up or down by a whole unit, or a tenth with `fine`."""
+        unit = units.split_number_and_unit(self._radius_text)[1]
+        one = units.internal_value("1", unit) or 1.0
+        size = one * (0.1 if fine else 1.0)
+        value = round((self._task.radius + steps * size) / size) * size
         if value > 0:
-            self._task.set_radius(round(value, 2))
+            self._task.set_radius(round(value, 6))
 
     @QtCore.Slot()
     def useFits(self) -> None:  # noqa: N802 - QML API

@@ -42,6 +42,7 @@ Item {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         placeholder: box.placeholder
+        clearable: true
 
         onEdited: function (value) {
             box.queryChanged(value);

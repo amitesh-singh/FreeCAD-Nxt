@@ -87,24 +87,24 @@ after = [
 [[template.card.column]]
 title = "First side"
 items = [
-    { prop = "Type", editor = "dropdown", omit_if = { TwoLengths = "SideType" } },
+    { prop = "Type", editor = "dropdown", wide = true, omit_if = { TwoLengths = "SideType" } },
     { prop = "Length", show_if = { Type = ["Length", "TwoLengths"] } },
+    { prop = "TaperAngle", label = "Taper angle", show_if = { Type = ["Length", "TwoLengths"] } },
     { prop = "UpToFace", label = "Up to face", show_if = { Type = "UpToFace" } },
     { prop = "UpToShape", label = "Up to shape", show_if = { Type = "UpToShape" } },
     { prop = "Offset", show_if = { Type = ["UpToLast", "UpToFirst", "UpToFace", "UpToShape"] } },
-    { prop = "TaperAngle", label = "Taper angle", show_if = { Type = ["Length", "TwoLengths"] } },
 ]
 
 [[template.card.column]]
 title = "Second side"
 show_if = { SideType = "Two sides", Type = "TwoLengths" }
 items = [
-    { prop = "Type2", label = "Type", editor = "dropdown", omit_if = { TwoLengths = "SideType" } },
+    { prop = "Type2", label = "Type", editor = "dropdown", wide = true, omit_if = { TwoLengths = "SideType" } },
     { prop = "Length2", label = "Length", show_if = { Type2 = "Length" } },
+    { prop = "TaperAngle2", label = "Taper angle", show_if = { Type2 = "Length" } },
     { prop = "UpToFace2", label = "Up to face", show_if = { Type2 = "UpToFace" } },
     { prop = "UpToShape2", label = "Up to shape", show_if = { Type2 = "UpToShape" } },
     { prop = "Offset2", label = "Offset", show_if = { Type2 = ["UpToLast", "UpToFirst", "UpToFace", "UpToShape"] } },
-    { prop = "TaperAngle2", label = "Taper angle", show_if = { Type2 = "Length" } },
 ]
 
 [[template.card]]

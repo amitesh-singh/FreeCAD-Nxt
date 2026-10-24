@@ -2485,9 +2485,10 @@ def _finished_tool(shape: Any, edge: Any, size: float,
 def _capped(shape: Any, edge: Any, tool: Any, radius: float) -> Any:
     """A cut kept on the edge's side of the faces that stop it.
 
-    Those met at its ends, where the edge runs into more of the part,
-    and those rising from its faces within the ball's reach: past them
-    the ball's section would gouge, or undercut, what they bound.
+    Those met at its ends, where the edge runs into more of the part.
+    Walls rising nearby do not stop it: as in other CAD systems, the
+    blend runs the edge's whole length, and what stands on its faces
+    keeps its walls, carried straight down into the blend.
     """
     tolerance = max(edge.Length * 1e-6, 1e-7)
     middle = edge.valueAt(_middle(edge))
@@ -2515,17 +2516,7 @@ def _capped(shape: Any, edge: Any, tool: Any, radius: float) -> Any:
                 continue
             if face.distToShape(vertex)[0] <= tolerance:
                 add(face, vertex.Point)
-    partners = [f for _p, _n, faces in mitres for f in faces]
-    for face in own:
-        for rim in face.Edges:
-            if rim.isSame(edge) or \
-                    rim.distToShape(edge)[0] > 2 * radius:
-                continue
-            beyond = [f for f in _faces_of(shape, rim) if not f.isSame(face)]
-            if len(beyond) != 1 or not _rises_from(shape, face, rim):
-                continue
-            if not any(beyond[0].isSame(f) for f in partners):
-                add(beyond[0], rim.valueAt(_middle(rim)))
+    tool = _under_standing(shape, edge, own, tool, radius)
     # A curved edge can wrap round past a plane through its end, which
     # would then cut away its blend on the far side: such a plane cuts
     # only within a ball about that end, and sides are judged there.
@@ -2639,6 +2630,59 @@ def _rises_from(shape: Any, face: Any, rim: Any) -> bool | None:
         return None
     finally:
         _solid.pop()
+
+
+def _under_standing(shape: Any, edge: Any, own: list[Any], tool: Any,
+                    radius: float) -> Any:
+    """The tool less what lies under anything standing on its faces.
+
+    A post on one of the edge's flat faces keeps its walls, carried
+    straight down into the blend, rather than being undercut by it.
+    """
+    size = shape.BoundBox.DiagonalLength * 4
+    reach = tool.BoundBox
+    reach.enlarge(radius)
+    middle = edge.valueAt(_middle(edge))
+    for face in own:
+        if not isinstance(face.Surface, Part.Plane):
+            continue
+        if not any(reach.intersect(rim.BoundBox)
+                   and _rises_from(shape, face, rim)
+                   for rim in face.Edges):
+            continue
+        point = middle
+        normal = _normal(face, point)
+        step = max(shape.BoundBox.DiagonalLength * 1e-6, 1e-5)
+        # Cut just above the face, where the standing part begins.
+        level = normal.dot(point) + step * 100
+        try:
+            above = shape.common(_half_space(point + normal * step * 10,
+                                             normal, size))
+        except Exception:  # noqa: BLE001 - nothing to keep then
+            continue
+        for standing in above.Solids:
+            if not reach.intersect(standing.BoundBox):
+                continue
+            try:
+                wires = standing.slice(normal, level)
+                footprint = Part.Face(wires) if len(wires) > 1 \
+                    else Part.Face(wires[0])
+                if not _stands_within(face, footprint, normal, level):
+                    continue
+                column = footprint.extrude(-normal * size)
+                tool = tool.cut(column)
+            except Exception:  # noqa: BLE001 - leave it undercut
+                continue
+    return tool
+
+
+def _stands_within(face: Any, footprint: Any, normal: App.Vector,
+                   level: float) -> bool:
+    """Whether the footprint lies within the face's outline: on it."""
+    outline = Part.Face(face.OuterWire)
+    lowered = footprint.translated(
+        -normal * (level - normal.dot(face.Vertexes[0].Point)))
+    return outline.common(lowered).Area > lowered.Area * 0.999
 
 
 def _on_side_of(tool: Any, face: Any, near: App.Vector, towards: App.Vector,

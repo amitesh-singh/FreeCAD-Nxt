@@ -6,7 +6,7 @@ FreeCAD files a pick inside a Body under the Body ("Body", "Pad." or
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import FreeCAD as App
@@ -87,14 +87,51 @@ def toggle(doc: Any, objects: list[Any],
     if not views:
         return
     show = not any(bool(vo.Visibility) for _o, vo in views)
+    hidden = [o for o, _vo in views]
     try:
         with transaction(doc, "Toggle visibility"):
             for _obj, vo in views:
                 vo.Visibility = show
             if show and show_alone is not None:
                 show_alone(doc, [o.Name for o, _vo in views])
+            if not show:
+                # A Body's feature hidden hands the display back to the
+                # one before it; with none before, nothing is shown. The
+                # Body's own visibility is never touched.
+                for obj in hidden:
+                    before = previous_feature(obj, hidden)
+                    view = getattr(before, "ViewObject", None)
+                    if view is not None:
+                        view.Visibility = True
     except Exception:
         App.Console.PrintError("Nxt: visibility toggle failed\n")
+
+
+def previous_feature(obj: Any, skipping: Sequence[Any] = ()) -> Any:
+    """The Body feature `obj` was built on, past any in `skipping`.
+
+    None if `obj` is not a Body's feature or is its first.
+    """
+    if not _is(obj, FEATURE):
+        return None
+    body = _body_of(obj)
+    before = getattr(obj, "BaseFeature", None)
+    seen = set()
+    while before is not None and before in skipping \
+            and before.Name not in seen:
+        seen.add(before.Name)
+        before = getattr(before, "BaseFeature", None)
+    if (before is None or not _is(before, FEATURE) or body is None
+            or not body.hasObject(before)):
+        return None
+    return before
+
+
+def _body_of(obj: Any) -> Any:
+    for parent in getattr(obj, "InList", ()) or ():
+        if _is(parent, BODY):
+            return parent
+    return None
 
 
 def toggle_selected() -> None:

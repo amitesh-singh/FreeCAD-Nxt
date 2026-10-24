@@ -10,6 +10,10 @@ Item {
     property string placeholder: ""
     //: Enables "=" expression help.
     property string owner: ""
+    //: A clear (x) button while there is text: for searches and filters.
+    property bool clearable: false
+    //: Shown after the text inside the field, not editable (a unit).
+    property string suffix: ""
 
     signal edited(string value)
     signal accepted()
@@ -43,7 +47,9 @@ Item {
         id: input
         anchors.fill: parent
         anchors.leftMargin: 6
-        anchors.rightMargin: clearButton.visible ? 20 : 6
+        anchors.rightMargin: (clearButton.visible ? 20 : 6)
+                             + (suffixLabel.visible ? suffixLabel.width + 4
+                                                    : 0)
         verticalAlignment: TextInput.AlignVCenter
         font.pixelSize: theme.fontSmall
         color: theme.text
@@ -83,9 +89,20 @@ Item {
         owner: field.owner
     }
 
+    Text {
+        id: suffixLabel
+        visible: field.suffix.length > 0
+        anchors.right: parent.right
+        anchors.rightMargin: clearButton.visible ? 20 : 6
+        anchors.verticalCenter: parent.verticalCenter
+        text: field.suffix
+        font.pixelSize: theme.fontSmall
+        color: theme.textDim
+    }
+
     Item {
         id: clearButton
-        visible: input.text.length > 0
+        visible: field.clearable && input.text.length > 0
         width: 16
         height: 16
         anchors.right: parent.right

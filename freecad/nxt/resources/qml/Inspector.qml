@@ -26,6 +26,7 @@ Rectangle {
             id: filter
             width: parent.width - tabs.width - root.gap
             placeholder: qsTr("Filter")
+            clearable: true
             onEdited: function (value) { inspector.setFilter(value); }
             onDismissed: {
                 filter.text = "";
@@ -168,7 +169,12 @@ Rectangle {
                         Column {
                             id: column
                             required property var modelData
-                            width: (groupBody.width - root.gap) / 2
+                            //: The only column shown: it takes the card's
+                            //: width, its narrow fields two to a line.
+                            readonly property bool alone:
+                                group.modelData.columns.length === 1
+                            width: alone ? groupBody.width
+                                         : (groupBody.width - root.gap) / 2
                             spacing: root.gap
 
                             Text {
@@ -178,12 +184,19 @@ Rectangle {
                                 font.bold: true
                                 color: theme.textDim
                             }
-                            Repeater {
-                                model: column.modelData.items
-                                InspectorField {
-                                    required property var modelData
-                                    spec: modelData
-                                    width: column.width
+                            Flow {
+                                width: column.width
+                                spacing: root.gap
+
+                                Repeater {
+                                    model: column.modelData.items
+                                    InspectorField {
+                                        required property var modelData
+                                        spec: modelData
+                                        width: column.alone && !modelData.wide
+                                               ? (column.width - root.gap) / 2
+                                               : column.width
+                                    }
                                 }
                             }
                         }

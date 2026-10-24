@@ -91,8 +91,10 @@ Item {
             TextField {
                 id: field
                 owner: editor.kind === "text" ? "" : editor.owner
-                width: parent.width - (unitLabel.visible
-                                       ? unitLabel.width + 4 : 0)
+                width: parent.width
+                // The unit sits inside the field, after the number.
+                suffix: !!editor.spec.unit && !editor.hasExpression
+                        ? editor.spec.unit : ""
                 placeholder: editor.spec.mixed ? qsTr("— mixed") : ""
                 Component.onCompleted: field.text = editor.spec.mixed
                                                     ? "" : editor.shown
@@ -122,14 +124,6 @@ Item {
                 }
             }
 
-            Text {
-                id: unitLabel
-                anchors.verticalCenter: parent.verticalCenter
-                visible: !!editor.spec.unit && !editor.hasExpression
-                text: editor.spec.unit || ""
-                font.pixelSize: theme.fontSmall
-                color: theme.textDim
-            }
         }
 
         Row {

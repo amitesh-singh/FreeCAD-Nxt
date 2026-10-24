@@ -9,6 +9,9 @@ import FreeCAD as App
 from ..core import fc, log, settings
 from ..tools import editing
 
+#: Types whose task opens through FreeCAD's double-click, not an edit.
+DOUBLE_CLICKED = frozenset({"Image::ImagePlane"})
+
 
 class Activation:
     """Double-click handling for the tree; TreeBridge's slot calls this."""
@@ -20,6 +23,8 @@ class Activation:
         self._activate_timer = bridge._deferral(self._activate_pending)
         self._edit_timer = bridge._deferral(self._enter_pending_edit)
         self._pending_inspect = ""
+        self._pending_native = ""
+        self._native_timer = bridge._deferral(self._native_pending)
         self._inspect_timer = bridge._deferral(self._inspect_pending)
 
     @property
@@ -46,6 +51,12 @@ class Activation:
         obj = doc.getObject(name)
         if obj is None:
             return
+        if getattr(obj, "TypeId", "") in DOUBLE_CLICKED:
+            # Their view provider's own double-click opens their task;
+            # editing them instead opens a bare transform.
+            self._pending_native = name
+            self._native_timer.start()
+            return
         if getattr(obj, "TypeId", "") == "App::VarSet":
             # Its variables are its content: show them in the inspector.
             self._pending_inspect = name
@@ -55,6 +66,19 @@ class Activation:
         # delegate inside its own onDoubleClicked, which aborts QML.
         self._pending_edit = (doc.Name, name)
         self._edit_timer.start()
+
+    def _native_pending(self) -> None:
+        """Run FreeCAD's own double-click on the object."""
+        name, self._pending_native = self._pending_native, ""
+        doc = App.ActiveDocument
+        obj = doc.getObject(name) if doc is not None and name else None
+        view = getattr(obj, "ViewObject", None)
+        if view is None:
+            return
+        try:
+            view.doubleClicked()
+        except Exception:
+            log.error("could not open %s" % name)
 
     def _inspect_pending(self) -> None:
         """Open the Property Inspector on the double-clicked VarSet."""

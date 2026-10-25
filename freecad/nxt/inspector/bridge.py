@@ -17,14 +17,28 @@ from . import templates as inspector_templates
 POLL_MS = 250
 
 
+def _in_edit() -> Any:
+    """The document object open in a task dialog, if any."""
+    try:
+        doc = Gui.ActiveDocument
+        vp = doc.getInEdit() if doc is not None else None
+        return getattr(vp, "Object", None)
+    except Exception:
+        return None
+
+
 class InspectorBridge(QtCore.QObject):
     """Serves `inspector.describe` for the selection, and applies edits."""
 
     changed = QtCore.Signal()
     nativeRequested = QtCore.Signal(str)
 
-    def __init__(self, parent: QtCore.QObject | None = None) -> None:
+    def __init__(self, parent: QtCore.QObject | None = None,
+                 task: bool = False) -> None:
         super().__init__(parent)
+        #: Inside a task dialog (task_layout.py): the object it edits,
+        #: never the selection; the Data tab, a template's cards only.
+        self._task = task
         self._groups: list[dict[str, Any]] = []
         self._title = ""
         self._tab = inspector.DATA
@@ -42,6 +56,9 @@ class InspectorBridge(QtCore.QObject):
         self._edit_timer.setSingleShot(True)
         self._edit_timer.setInterval(0)
         self._edit_timer.timeout.connect(self._apply_edits)
+        #: While picking for a link: its property and whose it is.
+        self._picking = ""
+        self._pick_for: list[Any] = []
 
     # -- lifetime --
 
@@ -51,15 +68,23 @@ class InspectorBridge(QtCore.QObject):
         self._timer.start()
 
     def stop(self) -> None:
+        self._end_pick()
         self._timer.stop()
 
     def _objects(self) -> list[Any]:
+        if self._picking:
+            return list(self._pick_for)
+        if self._task:
+            editing = _in_edit()
+            return [] if editing is None else [editing]
         try:
             return list(Gui.Selection.getSelection())
         except Exception:
             return []
 
     def _poll(self) -> None:
+        if self._picking:
+            self._take_picks()
         objects = self._objects()
         doc = App.ActiveDocument
         signature = (tuple(o.Name for o in objects),
@@ -68,10 +93,21 @@ class InspectorBridge(QtCore.QObject):
         if signature != self._signature:
             self._signature = signature
             self.refresh(objects)
+        elif self._task:
+            # A task dialog changes the feature without an undo step.
+            self.refresh(objects, quiet=True)
 
-    def refresh(self, objects: list[Any] | None = None) -> None:
+    def refresh(self, objects: list[Any] | None = None,
+                quiet: bool = False) -> None:
+        """Lay the cards out again; `quiet`: only if something changed.
+
+        A rebuild while typing would take the field away.
+        """
         objects = self._objects() if objects is None else objects
+        before = self._groups
         self._groups = inspector.describe(objects, self._tab, self._filter)
+        if self._task:
+            self._groups = [g for g in self._groups if g.get("template")]
         for group in self._groups:
             if group["name"] in self._opened and not self._filter:
                 group["open"] = self._opened[group["name"]]
@@ -83,6 +119,8 @@ class InspectorBridge(QtCore.QObject):
         else:
             shown = ", ".join(names[:2])
             self._title = "%s · %d selected" % (shown, len(names))
+        if quiet and self._groups == before:
+            return
         self.changed.emit()
 
     # -- what QML reads --
@@ -107,6 +145,11 @@ class InspectorBridge(QtCore.QObject):
             return ""
         obj = objects[0]
         return "%s#%s" % (obj.Document.Name, obj.Name)
+
+    @QtCore.Property(str, notify=changed)
+    def picking(self) -> str:
+        """The link property picks in the tree or 3D view go to, if any."""
+        return self._picking
 
     @QtCore.Property(bool, notify=changed)
     def several(self) -> bool:
@@ -165,6 +208,61 @@ class InspectorBridge(QtCore.QObject):
                 objects, [(p, v, unit if p == prop else "")
                           for p, v in edits], self._tab):
             self.refresh()
+
+    @QtCore.Slot(str, str)
+    def removeLink(self, prop: str, key: str) -> None:
+        self._defer(lambda: self._remove_link(prop, key))
+
+    def _remove_link(self, prop: str, key: str) -> None:
+        if inspector.edit_links(self._objects(), prop, remove=key):
+            self.refresh()
+
+    @QtCore.Slot(str)
+    def pickLinks(self, prop: str) -> None:
+        """Start, or with the same property end, picking for a link."""
+        if self._picking:
+            done = self._picking == prop
+            self._end_pick()
+            if done:
+                return
+        objects = self._objects()
+        if not objects or self._tab != inspector.DATA:
+            return
+        self._picking, self._pick_for = prop, objects
+        Gui.Selection.clearSelection()
+        self.changed.emit()
+
+    def _take_picks(self) -> None:
+        try:
+            picked = list(Gui.Selection.getSelectionEx())
+        except Exception:
+            return
+        if not picked:
+            return
+        Gui.Selection.clearSelection()
+        mine = {o.Name for o in self._pick_for}
+        pairs = [(sel.Object, sub) for sel in picked
+                 if sel.Object.Name not in mine
+                 for sub in (list(sel.SubElementNames) or [""])]
+        if pairs and inspector.edit_links(self._pick_for, self._picking,
+                                          add=pairs):
+            self.refresh()
+
+    def _end_pick(self) -> None:
+        if not self._picking:
+            return
+        objects, self._picking, self._pick_for = self._pick_for, "", []
+        try:
+            Gui.Selection.clearSelection()
+            for obj in objects:
+                Gui.Selection.addSelection(obj)
+        except Exception:
+            pass
+        self.changed.emit()
+
+    @QtCore.Slot()
+    def endPick(self) -> None:  # noqa: N802 - QML API
+        self._end_pick()
 
     @QtCore.Slot(str, str, str)
     def setPart(self, prop: str, part: str, text: str) -> None:

@@ -6,6 +6,7 @@ FreeCAD files a pick inside a Body under the Body ("Body", "Pad." or
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable, Sequence
 from typing import Any
 
@@ -14,11 +15,17 @@ import FreeCADGui as Gui
 
 from ..core import view3d
 from ..core.events import ApplicationEventFilter
-from ..core.qt import QtCore
+from ..core.qt import QtCore, QtGui, QtWidgets
 from ..core.transaction import transaction
 
 BODY = "PartDesign::Body"
 FEATURE = "PartDesign::Feature"
+#: FreeCAD's own Space command.
+STOCK = "Std_ToggleVisibility"
+#: macOS gives a native menu bar's shortcut the key before Qt's
+#: ShortcutOverride, so there FreeCAD's command loses its Space and Nxt
+#: hands it the keys it does not take.
+NATIVE_MENU_BAR = sys.platform == "darwin"
 
 
 def _is(obj: Any, type_name: str) -> bool:
@@ -148,13 +155,75 @@ def _editing() -> bool:
         return False
 
 
+def _stock_actions() -> list[Any]:
+    try:
+        return list(Gui.Command.get(STOCK).getAction() or ())
+    except Exception:
+        return []
+
+
 class SpaceInView(ApplicationEventFilter):
     """Space in a 3D view, ahead of FreeCAD's shortcut; not during edits."""
 
     def __init__(self, parent: QtCore.QObject | None = None,
-                 action: Callable[[], None] = toggle_selected) -> None:
+                 action: Callable[[], None] = toggle_selected,
+                 native_menu_bar: bool = NATIVE_MENU_BAR) -> None:
         super().__init__(parent)
         self._action = action
+        self._native = native_menu_bar
+        #: FreeCAD's actions and the shortcuts taken from them (macOS).
+        self._taken: list[tuple[Any, Any]] = []
+        self._fallback: Any = None
+
+    def install(self) -> None:
+        super().install()
+        if self._native:
+            self._take_stock_shortcut()
+
+    def remove(self) -> None:
+        super().remove()
+        self._give_back_stock_shortcut()
+
+    def _take_stock_shortcut(self) -> None:
+        """Space off FreeCAD's menu item, and on an action of ours.
+
+        Ours is an ordinary Qt shortcut, so the 3D view's claim on Space
+        (ShortcutOverride, below) and the Nxt tree's and text fields' are
+        honoured; anywhere else it runs FreeCAD's command as before.
+        """
+        main = Gui.getMainWindow()
+        if main is None:
+            return
+        for action in _stock_actions():
+            if not action.shortcut().isEmpty():
+                self._taken.append((action, action.shortcut()))
+                action.setShortcut(QtGui.QKeySequence())
+        if not self._taken:
+            return
+        fallback = QtGui.QAction(main)
+        fallback.setShortcut(self._taken[0][1])
+        fallback.setShortcutContext(
+            QtCore.Qt.ShortcutContext.ApplicationShortcut)
+        fallback.triggered.connect(lambda: Gui.runCommand(STOCK, 0))
+        main.addAction(fallback)
+        self._fallback = fallback
+
+    def _give_back_stock_shortcut(self) -> None:
+        taken, self._taken = self._taken, []
+        for action, shortcut in taken:
+            try:
+                action.setShortcut(shortcut)
+            except RuntimeError:
+                pass
+        fallback, self._fallback = self._fallback, None
+        if fallback is not None:
+            try:
+                main = fallback.parent()
+                if isinstance(main, QtWidgets.QWidget):
+                    main.removeAction(fallback)
+                fallback.deleteLater()
+            except RuntimeError:
+                pass
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
         # Sees every application event: cheap test first.

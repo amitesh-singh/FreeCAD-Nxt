@@ -36,7 +36,8 @@ Rectangle {
                  : label.implicitWidth + glyph.width + 14
     implicitHeight: theme.chipHeight
     radius: height / 2
-    color: active ? theme.accent : theme.chip
+    color: active ? theme.accent
+         : hover.hovered && interactive ? theme.hover : theme.chip
     border.width: 1
     border.color: active ? theme.accent : Qt.rgba(theme.border.r, theme.border.g, theme.border.b, 0.8)
     opacity: hover.hovered && interactive ? 1.0 : 0.92

@@ -28,6 +28,15 @@ LENGTH_VECTORS = frozenset({
     "App::PropertyVectorDistance", "App::PropertyPosition",
 })
 LINK_PREFIX = "App::PropertyLink"
+#: Data with no editor and nothing readable to show: a shape, a mesh, a
+#: material's record. Left out of the inspector.
+UNSHOWN_TYPES = frozenset({
+    "Part::PropertyPartShape", "Part::PropertyShapeHistory",
+    "Part::PropertyGeometryList", "Part::PropertyFilletEdges",
+    "Mesh::PropertyMeshKernel", "Points::PropertyPointKernel",
+    "Fem::PropertyFemMesh", "Materials::PropertyMaterial",
+    "App::PropertyExpressionEngine",
+})
 OTHER_KINDS: dict[str, str] = {
     "App::PropertyBool": "bool",
     "App::PropertyEnumeration": "enum",

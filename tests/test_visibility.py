@@ -161,5 +161,30 @@ class SpaceTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
 
+class NativeMenuBarTests(unittest.TestCase):
+    """macOS: Space moves off FreeCAD's menu item to an action of ours."""
+
+    def test_taken_then_given_back(self) -> None:
+        main = QtWidgets.QMainWindow()
+        stock = QtGui.QAction(main)
+        stock.setShortcut(QtGui.QKeySequence("Space"))
+        ran: list[str] = []
+        Gui.Command = types.SimpleNamespace(
+            get=lambda _name: types.SimpleNamespace(
+                getAction=lambda: [stock]))
+        Gui.getMainWindow = lambda: main
+        Gui.runCommand = lambda name, _index=0: ran.append(name)
+        space = visibility.SpaceInView(native_menu_bar=True)
+        space.install()
+        self.assertTrue(stock.shortcut().isEmpty())
+        ours = space._fallback
+        self.assertEqual(ours.shortcut().toString(), "Space")
+        ours.trigger()
+        self.assertEqual(ran, [visibility.STOCK])
+        space.remove()
+        self.assertEqual(stock.shortcut().toString(), "Space")
+        self.assertNotIn(ours, main.actions())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

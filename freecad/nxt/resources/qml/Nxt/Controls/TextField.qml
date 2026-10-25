@@ -14,6 +14,8 @@ Item {
     property bool clearable: false
     //: Shown after the text inside the field, not editable (a unit).
     property string suffix: ""
+    //: Room kept at the start for something drawn over the field.
+    property real leading: 0
 
     signal edited(string value)
     signal accepted()
@@ -29,13 +31,19 @@ Item {
         color: theme.overlay ? theme.chip : theme.background
         border.width: 1
         border.color: input.activeFocus ? theme.accent
+                    : fieldHover.hovered ? theme.textDim
                     : theme.overlay ? theme.pillBorder
                     : theme.border
     }
 
+    HoverHandler {
+        id: fieldHover
+        cursorShape: Qt.IBeamCursor
+    }
+
     Text {
         anchors.verticalCenter: parent.verticalCenter
-        x: 6
+        x: 6 + field.leading
         visible: input.text.length === 0
         text: field.placeholder
         font.pixelSize: theme.fontSmall
@@ -46,7 +54,7 @@ Item {
     TextInput {
         id: input
         anchors.fill: parent
-        anchors.leftMargin: 6
+        anchors.leftMargin: 6 + field.leading
         anchors.rightMargin: (clearButton.visible ? 20 : 6)
                              + (suffixLabel.visible ? suffixLabel.width + 4
                                                     : 0)

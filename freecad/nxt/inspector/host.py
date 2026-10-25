@@ -599,6 +599,8 @@ class PropertyInspector(QtWidgets.QFrame):
             self._keep_inside()
         if (event.type() == QtCore.QEvent.Type.MouseButtonPress
                 and not self.pinned
+                and not (self._inspector_bridge is not None
+                         and self._inspector_bridge.picking)
                 and self._clicked_away(
                     obj, cast(QtGui.QMouseEvent, event)
                     .globalPosition().toPoint())):

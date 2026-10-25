@@ -91,6 +91,8 @@ for qmldir in sorted((QML / "Nxt").glob("*/qmldir")):
             module_of[parts[0]] = module
     present |= {path.stem for path in qmldir.parent.glob("*.qml")}
 registered = set(module_of)
+#: Root views, usable from their neighbours (TaskLayout uses Inspector).
+roots = {path.stem for path in QML.glob("*.qml")}
 builtin = {"Item", "Rectangle", "Text", "TextInput", "Image", "Row", "Column",
            "Flow", "Grid", "Canvas", "ListView", "Repeater", "MouseArea",
            "DropArea",
@@ -106,7 +108,7 @@ builtin = {"Item", "Rectangle", "Text", "TextInput", "Image", "Row", "Column",
            "FocusScope", "SequentialAnimation", "PauseAnimation"}
 unknown = sorted(c for c in components
                  if c not in registered and c not in builtin
-                 and c not in inline)
+                 and c not in inline and c not in roots)
 print("%-28s used %3d  unregistered: %s"
       % ("components -> qmldir", len(components), unknown or "none"))
 if unknown:

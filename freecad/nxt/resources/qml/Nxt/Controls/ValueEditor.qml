@@ -10,13 +10,23 @@ Item {
     //: "Document#Name" for expression help; empty for none.
     property string owner: ""
 
+    //: Names itself (a switch's text); off where a label column does.
+    property bool labelled: true
+    //: Links as removable chips and a + to pick more.
+    property bool editsLinks: false
+    property bool picking: false
+
     signal edited(var value)
+    signal leadEdited(var value)
+    signal linkRemoved(string key)
+    signal pickRequested()
     signal partEdited(string path, string text)
     signal colourRequested()
     signal nativeRequested()
 
     readonly property string kind: editor.spec.kind || ""
     readonly property bool locked: !!editor.spec.readOnly
+    readonly property var lead: editor.spec.lead || null
     readonly property bool hasExpression:
         !!editor.spec.expression && editor.spec.expression.length > 0
     readonly property string shown: editor.hasExpression
@@ -49,27 +59,30 @@ Item {
         ChoiceList {}
     }
 
-    function labelOf(value) {
-        var values = editor.spec.options || [];
-        var labels = editor.spec.optionLabels || [];
+    function labelOf(value, spec) {
+        spec = spec || editor.spec;
+        var values = spec.options || [];
+        var labels = spec.optionLabels || [];
         var i = values.indexOf(value);
         return (i >= 0 && labels[i]) || value;
     }
 
-    function openChoices(anchor) {
+    function openChoices(anchor, spec, done) {
+        spec = spec || editor.spec;
+        done = done || editor.edited;
         var root = anchor.Window.contentItem;
         var list = choices.createObject(root, {
-            options: editor.spec.options,
-            labels: editor.spec.optionLabels || [],
-            current: editor.spec.text,
+            options: spec.options,
+            labels: spec.optionLabels || [],
+            current: spec.text,
             below: anchor.mapToItem(root, 0, anchor.height),
             anchorHeight: anchor.height,
             minWidth: anchor.width
         });
         editor.choosing = true;
         list.chosen.connect(function (value) {
-            if (value !== editor.spec.text)
-                editor.edited(value);
+            if (value !== spec.text)
+                done(value);
         });
         list.Component.destruction.connect(function () {
             editor.choosing = false;
@@ -92,6 +105,7 @@ Item {
                 id: field
                 owner: editor.kind === "text" ? "" : editor.owner
                 width: parent.width
+                leading: leadBox.visible ? leadBox.width : 0
                 // The unit sits inside the field, after the number.
                 suffix: !!editor.spec.unit && !editor.hasExpression
                         ? editor.spec.unit : ""
@@ -113,6 +127,17 @@ Item {
                             field.text = editor.spec.mixed ? ""
                                                            : editor.shown;
                     }
+                }
+                // What the value means (Type before Length), inside the field.
+                DropBox {
+                    id: leadBox
+                    visible: !!editor.lead
+                    inset: true
+                    x: 1
+                    y: 1
+                    height: parent.height - 2
+                    text: editor.lead ? editor.labelOf(editor.lead.text, editor.lead) : ""
+                    onOpened: editor.openChoices(field, editor.lead, editor.leadEdited)
                 }
                 Connections {
                     target: field.input
@@ -140,8 +165,8 @@ Item {
                 color: editor.spec.checked && !editor.spec.mixed
                        ? theme.accent : "transparent"
                 border.width: 1
-                border.color: editor.spec.checked ? theme.accent
-                                                  : theme.border
+                border.color: editor.spec.checked || checkHover.hovered
+                              ? theme.accent : theme.border
 
                 Text {
                     anchors.centerIn: parent
@@ -163,6 +188,7 @@ Item {
             }
 
             HoverHandler {
+                id: checkHover
                 enabled: !editor.locked
                 cursorShape: Qt.PointingHandCursor
             }
@@ -203,9 +229,9 @@ Item {
             id: toggle
             visible: editor.kind === "bool" && editor.spec.editor === "switch"
             enabled: !editor.locked
-            width: parent.width
+            width: editor.labelled ? parent.width : implicitWidth
             height: theme.fieldHeight
-            text: editor.spec.label || ""
+            text: editor.labelled ? editor.spec.label || "" : ""
             checked: !!editor.spec.checked && !editor.spec.mixed
             onToggled: {
                 editor.edited(toggle.checked);
@@ -215,9 +241,20 @@ Item {
             }
         }
 
+        DropBox {
+            id: dropBox
+            visible: !editor.labelled && editor.kind === "enum"
+                     && editor.spec.editor !== "segmented" && !editor.locked
+            width: parent.width
+            text: editor.spec.mixed ? qsTr("— mixed") : editor.labelOf(editor.spec.text || "")
+            active: editor.choosing
+            onOpened: if (!editor.choosing) editor.openChoices(dropBox)
+        }
+
         Chip {
             id: choice
             visible: editor.kind === "enum" && editor.spec.editor !== "segmented"
+                     && !dropBox.visible
             text: (editor.spec.mixed ? qsTr("— mixed")
                    : editor.labelOf(editor.spec.text || ""))
                   + (editor.locked ? "" : "  ▾")
@@ -238,7 +275,7 @@ Item {
                 radius: 2
                 color: editor.spec.text || "transparent"
                 border.width: 1
-                border.color: theme.border
+                border.color: colourHover.hovered ? theme.accent : theme.border
             }
             Text {
                 anchors.verticalCenter: parent.verticalCenter
@@ -247,6 +284,7 @@ Item {
                 color: theme.text
             }
             HoverHandler {
+                id: colourHover
                 enabled: !editor.locked
                 cursorShape: Qt.PointingHandCursor
             }
@@ -328,8 +366,18 @@ Item {
             }
         }
 
+        LinkChips {
+            visible: editor.kind === "link" && editor.editsLinks
+            width: parent.width
+            items: editor.spec.chips || []
+            editable: !editor.locked
+            picking: editor.picking
+            onRemoved: function (key) { editor.linkRemoved(key); }
+            onPickRequested: editor.pickRequested()
+        }
+
         Flow {
-            visible: editor.kind === "link"
+            visible: editor.kind === "link" && !editor.editsLinks
             width: parent.width
             spacing: 3
 
@@ -355,7 +403,8 @@ Item {
         Row {
             visible: (editor.isField && editor.locked)
                      || editor.kind === "other"
-                     || (editor.kind === "link" && !editor.locked)
+                     || (editor.kind === "link" && !editor.locked
+                         && !editor.editsLinks)
             spacing: 6
             width: parent.width
 

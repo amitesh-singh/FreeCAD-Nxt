@@ -6,12 +6,23 @@ import Nxt.Inspector
 // in FreeCAD's groups on tinted cards; compact editors take half a row.
 Rectangle {
     id: root
-    color: theme.background
     implicitWidth: 330
     implicitHeight: 480
 
+    //: Inside a task dialog: no filter or tabs, no background of its own.
+    property bool bare: false
+    //: The cards, whose height the task dialog sizes itself to.
+    readonly property alias cards: groups
+    color: bare ? "transparent" : theme.background
+
     readonly property int pad: 8
     readonly property int gap: 8
+    //: "Everything else", behind a template's cards: closed until asked
+    //: for, or while filtering.
+    property bool restOpened: false
+    readonly property bool restShown: restOpened || filter.text.length > 0
+    //: Names on the left, editors beside them, alike down every card.
+    readonly property real labelWidth: Math.min(96, Math.round(width * 0.28))
 
 
     Row {
@@ -20,7 +31,8 @@ Rectangle {
         y: root.pad
         width: root.width - 2 * root.pad
         spacing: root.gap
-        height: theme.fieldHeight
+        height: root.bare ? 0 : theme.fieldHeight
+        visible: !root.bare
 
         TextField {
             id: filter
@@ -56,41 +68,68 @@ Rectangle {
     ListView {
         id: groups
         anchors.top: top.bottom
-        anchors.topMargin: root.gap
+        anchors.topMargin: root.bare ? 0 : root.gap
         anchors.bottom: parent.bottom
         width: root.width
         clip: true
         spacing: root.gap
         boundsBehavior: Flickable.StopAtBounds
         model: inspector.groups
+        // In a task dialog every card is made, so its height is known.
+        cacheBuffer: root.bare ? 100000 : 320
         bottomMargin: root.pad
 
         delegate: Item {
             id: slot
             required property var modelData
             readonly property bool rest: !!modelData.rest
+            readonly property bool tucked: !!modelData.behind && !root.restShown
 
             width: root.width
-            height: group.y + group.height
+            height: slot.tucked ? (slot.rest ? restHeading.height + 4 : 0)
+                                : group.y + group.height
+            visible: height > 0
 
             // Behind a template's cards, the generic groups it left.
-            Text {
+            Row {
                 id: restHeading
                 visible: slot.rest
                 x: root.pad + 2
                 y: 2
-                text: qsTr("Everything else")
-                font.pixelSize: theme.fontAside
-                font.capitalization: Font.AllUppercase
-                font.letterSpacing: 0.6
-                color: theme.textDim
+                spacing: 5
+                Disclosure {
+                    anchors.verticalCenter: parent.verticalCenter
+                    expanded: root.restShown
+                    onToggled: root.restOpened = !root.restOpened
+                }
+                Text {
+                    text: qsTr("Everything else")
+                    font.pixelSize: theme.fontAside
+                    font.capitalization: Font.AllUppercase
+                    font.letterSpacing: 0.6
+                    font.underline: restHover.hovered
+                    color: theme.textDim
+                    HoverHandler {
+                        id: restHover
+                        cursorShape: Qt.PointingHandCursor
+                    }
+                    TapHandler { onTapped: root.restOpened = !root.restOpened }
+                }
+                Text {
+                    visible: !root.restShown
+                    text: slot.modelData.restCount || ""
+                    font.pixelSize: theme.fontAside
+                    color: theme.textDim
+                }
             }
 
         Rectangle {
             id: group
             readonly property var modelData: slot.modelData
-            property bool opened: modelData.open
+            readonly property bool headed: modelData.heading !== false
+            property bool opened: modelData.open || !headed
 
+            visible: !slot.tucked
             x: root.pad
             y: slot.rest ? restHeading.height + 6 : 0
             width: root.width - 2 * root.pad
@@ -106,7 +145,9 @@ Rectangle {
                 spacing: root.gap
 
                 Row {
+                    visible: group.headed
                     spacing: 5
+                    width: parent.width
                     Disclosure {
                         anchors.verticalCenter: parent.verticalCenter
                         expanded: group.opened
@@ -120,7 +161,12 @@ Rectangle {
                         text: group.modelData.name
                         font.pixelSize: theme.fontSmall
                         font.bold: true
+                        font.underline: titleHover.hovered
                         color: theme.text
+                        HoverHandler {
+                            id: titleHover
+                            cursorShape: Qt.PointingHandCursor
+                        }
                         TapHandler {
                             onTapped: {
                                 group.opened = !group.opened;
@@ -131,14 +177,19 @@ Rectangle {
                     }
                     Text {
                         visible: !group.opened
-                        text: group.modelData.count
+                        width: parent.width - x
+                        horizontalAlignment: group.modelData.summary
+                                             ? Text.AlignRight : Text.AlignLeft
+                        elide: Text.ElideRight
+                        text: group.modelData.summary
+                              || group.modelData.count
                               || group.modelData.items.length
                         font.pixelSize: theme.fontSmall
                         color: theme.textDim
                     }
                 }
 
-                Flow {
+                Column {
                     visible: group.opened
                     width: parent.width
                     spacing: root.gap
@@ -148,62 +199,44 @@ Rectangle {
                         InspectorField {
                             required property var modelData
                             spec: modelData
-                            width: modelData.wide
-                                   ? groupBody.width
-                                   : (groupBody.width - root.gap) / 2
+                            width: groupBody.width
+                            labelWidth: root.labelWidth
                         }
                     }
                 }
 
-                // A template's columns, one per side of an extrusion.
-                Row {
-                    visible: group.opened && !!group.modelData.columns
-                             && group.modelData.columns.length > 0
-                    width: parent.width
-                    spacing: root.gap
+                // A template's columns, one per side of an extrusion,
+                // one under the other; headed when there are two.
+                Repeater {
+                    model: group.opened && group.modelData.columns
+                           ? group.modelData.columns : []
 
-                    Repeater {
-                        model: group.opened && group.modelData.columns
-                               ? group.modelData.columns : []
+                    Column {
+                        id: column
+                        required property var modelData
+                        width: groupBody.width
+                        spacing: root.gap
 
-                        Column {
-                            id: column
-                            required property var modelData
-                            //: The only column shown: it takes the card's
-                            //: width, its narrow fields two to a line.
-                            readonly property bool alone:
-                                group.modelData.columns.length === 1
-                            width: alone ? groupBody.width
-                                         : (groupBody.width - root.gap) / 2
-                            spacing: root.gap
-
-                            Text {
-                                visible: column.modelData.title.length > 0
-                                text: column.modelData.title
-                                font.pixelSize: theme.fontAside
-                                font.bold: true
-                                color: theme.textDim
-                            }
-                            Flow {
+                        Text {
+                            visible: column.modelData.title.length > 0
+                            text: column.modelData.title
+                            font.pixelSize: theme.fontAside
+                            font.bold: true
+                            color: theme.textDim
+                        }
+                        Repeater {
+                            model: column.modelData.items
+                            InspectorField {
+                                required property var modelData
+                                spec: modelData
                                 width: column.width
-                                spacing: root.gap
-
-                                Repeater {
-                                    model: column.modelData.items
-                                    InspectorField {
-                                        required property var modelData
-                                        spec: modelData
-                                        width: column.alone && !modelData.wide
-                                               ? (column.width - root.gap) / 2
-                                               : column.width
-                                    }
-                                }
+                                labelWidth: root.labelWidth
                             }
                         }
                     }
                 }
 
-                Flow {
+                Column {
                     visible: group.opened && !!group.modelData.after
                              && group.modelData.after.length > 0
                     width: parent.width
@@ -215,9 +248,8 @@ Rectangle {
                         InspectorField {
                             required property var modelData
                             spec: modelData
-                            width: modelData.wide
-                                   ? groupBody.width
-                                   : (groupBody.width - root.gap) / 2
+                            width: groupBody.width
+                            labelWidth: root.labelWidth
                         }
                     }
                 }
@@ -237,7 +269,7 @@ Rectangle {
 
     Text {
         anchors.centerIn: groups
-        visible: groups.count === 0
+        visible: groups.count === 0 && !root.bare
         text: inspector.title.length === 0 ? qsTr("Select an object")
                                       : qsTr("No matching properties")
         font.pixelSize: theme.fontSmall

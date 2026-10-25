@@ -101,6 +101,18 @@ class Bridge(QtCore.QObject):
     def editNative(self, prop: str) -> None:
         self.calls.append(("native", prop))
 
+    @QtCore.Property(str, notify=changed)
+    def picking(self) -> str:
+        return ""
+
+    @QtCore.Slot(str, str)
+    def removeLink(self, prop: str, key: str) -> None:
+        self.calls.append(("unlink", prop, key))
+
+    @QtCore.Slot(str)
+    def pickLinks(self, prop: str) -> None:
+        self.calls.append(("pick", prop))
+
 
 app = QtWidgets.QApplication(sys.argv)
 theme = Theme()
@@ -201,10 +213,9 @@ check("a collapsed group opens, and the bridge remembers it",
 parts = [i for i in items_of(root, "QQuickTextInput")
          if i.property("text") in ("1", "2", "3", "0", "90")]
 check("a placement shows its seven components", len(parts) == 7)
-editors = items_of(root, "ValueEditor")
-widths = sorted({round(e.property("width")) for e in editors})
-check("compact editors pair up, wide ones take a row", len(widths) == 2
-      and abs(widths[1] - 2 * widths[0]) < 20)
+starts = {round(e.mapToScene(QtCore.QPointF(0, 0)).x())
+          for e in items_of(root, "ValueEditor") if e.property("visible")}
+check("every editor starts after the same label column", len(starts) == 1)
 finish(view, bridge)
 
 # --- an addon object with no template ------------------------------------ #
@@ -226,12 +237,23 @@ check("a link shows what it points at", "Plate" in shown)
 check("an unknown kind shows as text", "<cache>" in shown)
 edits = [i for i in items_of(root, "QQuickText")
          if i.property("text") == "Edit…" and i.property("visible")]
-check("with Edit… for it and the link", len(edits) == 2)
+check("with Edit… for it", len(edits) == 1)
 for edit in edits:
     click(view, edit)
 check("Edit… hands the property to FreeCAD's editor",
-      {("native", "ThreadData"), ("native", "BaseObject")}
-      <= set(bridge.calls))
+      ("native", "ThreadData") in bridge.calls)
+check("a link is a chip naming its sub-element", "Plate.Face1" in shown)
+remove = next(i for i in items_of(root, "QQuickText")
+              if i.property("text") == "×" and i.property("visible"))
+click(view, remove)
+check("its × removes it", ("unlink", "BaseObject", "0") in bridge.calls)
+plus = next(i for i in items_of(root, "QQuickText")
+            if i.property("text") == "+" and i.property("visible"))
+click(view, plus)
+check("+ starts picking for it", ("pick", "BaseObject") in bridge.calls)
+check("a short choice is joined buttons, a yes/no a switch",
+      any(i.property("visible") for i in items_of(root, "Segmented"))
+      or any(i.property("visible") for i in items_of(root, "NxtSwitch")))
 finish(view, bridge)
 
 # --- two objects at once ------------------------------------------------- #
@@ -265,10 +287,10 @@ custom = next(i for i in items_of(root, "QQuickText")
 click(view, custom)
 check("a two-state choice sets the yes/no",
       ("value", "UseCustomVector", True, "") in bridge.calls)
-switches = [i for i in items_of(root, "NxtSwitch")
-            if i.property("visible")]
-click(view, next(i for i in switches if i.property("text") == "Reversed"))
-check("a switch sets its yes/no",
+toggles = [i for i in items_of(root, "GlyphToggle")
+           if i.property("visible")]
+click(view, next(i for i in toggles if i.property("tip") == "Reversed"))
+check("Reversed is a button after Direction",
       ("value", "Reversed", True, "") in bridge.calls)
 two = next(i for i in items_of(root, "QQuickText")
            if i.property("text") == "One side")
@@ -293,7 +315,7 @@ class Rebuilding(Bridge):
 
 bridge = Rebuilding(inspector.describe([pads.modern()]))
 view, root = load(bridge)
-kind = next(i for i in items_of(root, "Chip")
+kind = next(i for i in items_of(root, "DropBox")
             if "Dimension" in (i.property("text") or ""))
 click(view, kind)
 # The list opens on the window's content item, above the whole panel.

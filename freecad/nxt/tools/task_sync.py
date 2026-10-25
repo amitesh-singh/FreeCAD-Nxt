@@ -42,6 +42,24 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
 DEPRECATED_MODE = "TwoLengths"
 
 
+#: Set on a dialog box task_layout.py has swapped for the template's cards.
+SWAPPED = "nxtSwapped"
+
+
+def showing(widget: Any) -> bool:
+    """A task field is in use: on screen, or in a box swapped for cards."""
+    if widget.isVisible():
+        return True
+    box = widget.parentWidget()
+    while box is not None:
+        if box.property(SWAPPED):
+            holder = box.parentWidget()
+            return (widget.isVisibleTo(box) and holder is not None
+                    and holder.isVisible())
+        box = box.parentWidget()
+    return False
+
+
 def _in_edit(obj: Any) -> bool:
     """`obj` is being edited, with a task panel open."""
     try:

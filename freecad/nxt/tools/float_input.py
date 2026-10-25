@@ -69,7 +69,7 @@ def _task_field(type_id: str) -> Any:
     wanted = FIELDS.get(type_id)
     fallback = None
     for widget in main.findChildren(QtWidgets.QAbstractSpinBox):
-        if not widget.isVisible():
+        if not task_sync.showing(widget):
             continue
         if "QuantitySpinBox" not in widget.metaObject().className():
             continue
@@ -85,7 +85,7 @@ def _task_fields() -> dict[str, Any]:
     found: dict[str, Any] = {}
     for widget in Gui.getMainWindow().findChildren(
             QtWidgets.QAbstractSpinBox):
-        if widget.isVisible() and widget.objectName() \
+        if task_sync.showing(widget) and widget.objectName() \
                 and "QuantitySpinBox" in widget.metaObject().className():
             found.setdefault(widget.objectName(), widget)
     return found

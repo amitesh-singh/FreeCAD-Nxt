@@ -15,6 +15,8 @@
 #             and written as nonzero; typing the value writes it too.
 #   hide_if   { Property = "OtherProperty" }: never show Property while
 #             the object has OtherProperty (it supersedes it).
+#   group_as  { Property = "Group" }: a property the template leaves out,
+#             shown under another of FreeCAD's groups than its own.
 #   card      [[template.card]] tables, in order:
 #     title   the card's heading.
 #     hint    an optional line under the card.
@@ -22,11 +24,18 @@
 #             laid side by side under the card's items; a heading shows
 #             only when there are two. show_if as for an item.
 #     after   items laid out under the columns.
-#     items   a property name, or an inline table:
+#     heading = false  no heading: always open, the card's items say
+#             what it is.
+#     closed_when  { Prop = value or [values] }: the card starts closed,
+#             its values summed up in its heading, while every test holds.
+#     items   a property name, an inline table, or an array of them laid
+#             on one line (the first labelled, the rest after its editor):
 #               { prop = "...", label = "...", wide = true/false,
 #                 editor = "...", labels = ["no", "yes"],
 #                 show_if = { Prop = value or [values] },
-#                 omit_if = { value = "Property" } }
+#                 omit_if = { value = "Property" },
+#                 lead = "Property", trail = "Property", glyph = "...",
+#                 narrow = true/false, bare = true/false }
 #             editor: "dropdown" (an enumeration's default), "segmented"
 #             (every choice in view, joined: for a few choices that change
 #             the shape; on a yes/no, `labels` names its two states) or
@@ -37,6 +46,10 @@
 #             omit_if leaves an enumeration value out of the choices when
 #             the object has the named property (Type's TwoLengths,
 #             superseded by SideType in FreeCAD 27).
+#             lead shows an enumeration inside the field, before the value
+#             (what the value means); trail a yes/no as a glyph button
+#             after the editor. narrow takes half the editor column; bare
+#             drops the label.
 #
 # Names a FreeCAD version does not have are skipped, so one template covers
 # versions with Midplane/TwoLengths and those with SideType.
@@ -51,6 +64,10 @@ types = ["PartDesign::Pad", "PartDesign::Pocket"]
 # it); Symmetric is one of the Sides.
 [template.hide_if]
 Midplane = "SideType"
+
+# Rarely changed: with the result's other options, under Everything else.
+[template.group_as]
+AllowMultiFace = "Part Design"
 
 # A "Profile plane" start is an "Offset" start at zero, and is never
 # chosen here: an offset start shows its drag handle in the 3D view.
@@ -70,57 +87,64 @@ UpToFace = "Up to face"
 UpToShape = "Up to shape"
 
 [[template.card]]
-title = "Extent"
+title = "Profile"
+heading = false
 items = [
-    { prop = "SideType", label = "Sides", editor = "segmented", wide = true },
-]
-after = [
-    { prop = "UseCustomVector", label = "Direction", editor = "segmented", labels = ["Sketch normal", "Custom"], wide = true },
-    { prop = "Direction", show_if = { UseCustomVector = true } },
-    { prop = "ReferenceAxis", label = "Reference axis", show_if = { UseCustomVector = true } },
-    { prop = "AlongSketchNormal", label = "Measure length along sketch normal", editor = "switch", wide = true, show_if = { UseCustomVector = true } },
-    { prop = "Reversed", editor = "switch" },
+    { prop = "Profile", label = "Sketch" },
 ]
 
-# One column per side: what bounds it, how far, and its taper. The second
-# appears beside the first for two sides.
+[[template.card]]
+title = "Extent"
+heading = false
+items = [
+    { prop = "SideType", bare = true, editor = "segmented" },
+]
+after = [
+    { prop = "UseCustomVector", label = "Direction", editor = "segmented", labels = ["Sketch normal", "Custom"], trail = "Reversed" },
+    { prop = "Direction", show_if = { UseCustomVector = true } },
+    { prop = "ReferenceAxis", label = "Reference axis", show_if = { UseCustomVector = true } },
+    { prop = "AlongSketchNormal", label = "Along normal", editor = "switch", show_if = { UseCustomVector = true } },
+]
+
+# One column per side: how far, what that means (inside the field), and
+# its taper. The second appears under the first for two sides.
 [[template.card.column]]
 title = "First side"
 items = [
-    { prop = "Type", editor = "dropdown", wide = true, omit_if = { TwoLengths = "SideType" } },
-    { prop = "Length", show_if = { Type = ["Length", "TwoLengths"] } },
-    { prop = "TaperAngle", label = "Taper angle", show_if = { Type = ["Length", "TwoLengths"] } },
-    { prop = "UpToFace", label = "Up to face", show_if = { Type = "UpToFace" } },
-    { prop = "UpToShape", label = "Up to shape", show_if = { Type = "UpToShape" } },
-    { prop = "Offset", show_if = { Type = ["UpToLast", "UpToFirst", "UpToFace", "UpToShape"] } },
+    { prop = "Length", lead = "Type", show_if = { Type = ["Length", "TwoLengths"] } },
+    { prop = "UpToFace", label = "Up to", lead = "Type", show_if = { Type = "UpToFace" } },
+    { prop = "UpToShape", label = "Up to", lead = "Type", show_if = { Type = "UpToShape" } },
+    { prop = "Type", label = "Up to", editor = "dropdown", omit_if = { TwoLengths = "SideType" }, show_if = { Type = ["UpToLast", "UpToFirst", "ThroughAll"] } },
+    { prop = "TaperAngle", label = "Taper", narrow = true, show_if = { Type = ["Length", "TwoLengths"] } },
+    { prop = "Offset", narrow = true, show_if = { Type = ["UpToLast", "UpToFirst", "UpToFace", "UpToShape"] } },
 ]
 
 [[template.card.column]]
 title = "Second side"
 show_if = { SideType = "Two sides", Type = "TwoLengths" }
 items = [
-    { prop = "Type2", label = "Type", editor = "dropdown", wide = true, omit_if = { TwoLengths = "SideType" } },
-    { prop = "Length2", label = "Length", show_if = { Type2 = "Length" } },
-    { prop = "TaperAngle2", label = "Taper angle", show_if = { Type2 = "Length" } },
-    { prop = "UpToFace2", label = "Up to face", show_if = { Type2 = "UpToFace" } },
-    { prop = "UpToShape2", label = "Up to shape", show_if = { Type2 = "UpToShape" } },
-    { prop = "Offset2", label = "Offset", show_if = { Type2 = ["UpToLast", "UpToFirst", "UpToFace", "UpToShape"] } },
+    { prop = "Length2", label = "Length", lead = "Type2", show_if = { Type2 = "Length" } },
+    { prop = "UpToFace2", label = "Up to", lead = "Type2", show_if = { Type2 = "UpToFace" } },
+    { prop = "UpToShape2", label = "Up to", lead = "Type2", show_if = { Type2 = "UpToShape" } },
+    { prop = "Type2", label = "Up to", editor = "dropdown", omit_if = { TwoLengths = "SideType" }, show_if = { Type2 = ["UpToLast", "UpToFirst", "ThroughAll"] } },
+    { prop = "TaperAngle2", label = "Taper", narrow = true, show_if = { Type2 = "Length" } },
+    { prop = "Offset2", label = "Offset", narrow = true, show_if = { Type2 = ["UpToLast", "UpToFirst", "UpToFace", "UpToShape"] } },
 ]
 
 [[template.card]]
 title = "Start"
+heading = false
 items = [
-    { prop = "StartType", label = "From", editor = "segmented", labels = ["Profile", "Reference"] },
-    { prop = "StartOffset", label = "Offset" },
-    { prop = "StartReference", label = "Reference", wide = true, show_if = { StartType = "Reference" } },
+    [{ prop = "StartOffset", label = "Start offset" },
+     { prop = "StartType", bare = true, editor = "segmented", labels = ["Profile", "Reference"] }],
+    { prop = "StartReference", label = "Reference", show_if = { StartType = "Reference" } },
 ]
 
 [[template.card]]
-title = "Profile"
+title = "Result"
+heading = false
 items = [
-    { prop = "Profile", label = "Sketch", wide = true },
-    { prop = "Refine", editor = "switch" },
-    { prop = "AllowMultiFace", label = "Multiple faces", editor = "switch" },
+    { prop = "Refine", label = "Merge faces", editor = "switch" },
 ]
 
 # Fillet: how round, and which edges; then what the result keeps.

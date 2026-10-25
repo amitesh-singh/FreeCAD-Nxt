@@ -2,6 +2,24 @@
 
 Several objects show the properties they share; differing values are
 "mixed". Pure Python over duck-typed objects, so it runs in the tests.
+
+Without a template, every property is one line: its name in a label
+column, its editor beside it (Inspector.qml). By kind:
+  quantity, number, text   a field, the unit inside it
+  bool                     a switch
+  enum                     joined buttons for up to three short choices,
+                           otherwise a drop-down
+  link                     a chip per object or sub-element, each with a
+                           remove button, and a + to pick more in the tree
+                           or the 3D view
+  vector                   X, Y and Z fields on one line
+  placement                position, then rotation, X Y Z each
+  color                    a swatch and its code, opening a colour picker
+  anything else            its value, and FreeCAD's own editor
+  shapes, meshes, materials  not shown (UNSHOWN_TYPES): no editor, and
+                           nothing readable
+Read-only values are plain text. Groups are cards; the quiet ones
+(QUIET_GROUPS) start closed.
 """
 
 from __future__ import annotations
@@ -27,6 +45,10 @@ COMPACT = frozenset({"quantity", "number", "bool", "enum", "color"})
 #: Groups collapsed unless something in them has an expression.
 QUIET_GROUPS = frozenset({"Base", "Attachment", "Object Style",
                           "Display Options", "Selection"})
+
+#: An enumeration this short is joined buttons, not a drop-down.
+SEGMENTED_CHOICES = 3
+SEGMENTED_LETTERS = 24
 
 LENGTH_UNIT = "mm"
 ANGLE_UNIT = "°"
@@ -59,6 +81,56 @@ def _labels(value: Any) -> list[str]:
     return out
 
 
+def link_items(value: Any) -> list[tuple[Any, str]]:
+    """(object, sub-element) pairs a link property holds, in any shape."""
+    if value is None:
+        return []
+    if hasattr(value, "Label"):
+        return [(value, "")]
+    if not isinstance(value, (list, tuple)) or not value:
+        return []
+    if hasattr(value[0], "Label") and (
+            len(value) == 2 and isinstance(value[1], (list, tuple, str))):
+        subs = value[1]
+        subs = [subs] if isinstance(subs, str) else list(subs)
+        return [(value[0], sub) for sub in subs if sub] or [(value[0], "")]
+    out: list[tuple[Any, str]] = []
+    for item in value:
+        out.extend(link_items(item))
+    return out
+
+
+def link_value(type_id: str, items: list[tuple[Any, str]]) -> Any:
+    """What a link property of `type_id` takes for these pairs."""
+    if type_id.startswith("App::PropertyLinkSubList"):
+        grouped: dict[str, tuple[Any, list[str]]] = {}
+        for obj, sub in items:
+            entry = grouped.setdefault(obj.Name, (obj, []))
+            if sub and sub not in entry[1]:
+                entry[1].append(sub)
+        return [(obj, tuple(subs) or ("",)) for obj, subs in grouped.values()]
+    if type_id.startswith("App::PropertyLinkSub"):
+        if not items:
+            return None
+        obj = items[-1][0]
+        subs = [sub for o, sub in items if o is obj and sub]
+        return (obj, subs)
+    if type_id.startswith("App::PropertyLinkList"):
+        out: list[Any] = []
+        for obj, _sub in items:
+            if all(o is not obj for o in out):
+                out.append(obj)
+        return out
+    return items[-1][0] if items else None
+
+
+def _chips(value: Any) -> list[dict[str, str]]:
+    return [{"key": "%d" % index,
+             "label": "%s.%s" % (obj.Label, sub) if sub else obj.Label,
+             "sub": sub}
+            for index, (obj, sub) in enumerate(link_items(value))]
+
+
 def _hex(colour: Any) -> str:
     try:
         r, g, b = (max(0, min(255, round(c * 255))) for c in colour[:3])
@@ -75,6 +147,8 @@ def _entry(container: Any, prop: str, expressions: dict[str, str]
         return None
     try:
         type_id = container.getTypeIdOfProperty(prop)
+        if type_id in property_kinds.UNSHOWN_TYPES:
+            return None
         value = getattr(container, prop)
     except Exception:
         return None
@@ -89,6 +163,7 @@ def _entry(container: Any, prop: str, expressions: dict[str, str]
         "checked": False, "options": [], "links": [], "parts": [],
         "expression": expressions.get(prop, ""),
         "readOnly": "ReadOnly" in modes, "mixed": False, "tip": tip,
+        "editor": "", "chips": [],
     }
     if kind == "quantity":
         text = getattr(value, "UserString", str(value))
@@ -97,14 +172,19 @@ def _entry(container: Any, prop: str, expressions: dict[str, str]
         entry["text"] = str(value)
     elif kind == "bool":
         entry["checked"] = bool(value)
+        entry["editor"] = "switch"
     elif kind == "enum":
         entry["text"] = str(value)
         entry["options"] = list(
             container.getEnumerationsOfProperty(prop) or ())
+        if (len(entry["options"]) <= SEGMENTED_CHOICES
+                and sum(map(len, entry["options"])) <= SEGMENTED_LETTERS):
+            entry["editor"] = "segmented"
     elif kind == "color":
         entry["text"] = _hex(value)
     elif kind == "link":
         entry["links"] = _labels(value)
+        entry["chips"] = _chips(value)
     elif kind == "vector":
         unit = LENGTH_UNIT if type_id in property_kinds.LENGTH_VECTORS else ""
         entry["parts"] = [
@@ -201,6 +281,9 @@ def describe(objects: list[DocObject], tab: str = DATA,
     out.sort(key=lambda group: not group["first"])
     if cards and out:
         out[0]["rest"] = True
+        out[0]["restCount"] = len(out)
+        for group in out:
+            group["behind"] = True
     return cards + out
 
 
@@ -255,6 +338,41 @@ def _assign_part(container: Any, prop: str, path: str, text: str) -> None:
     elif path == "Angle":
         value.Rotation = App.Rotation(value.Rotation.Axis, number)
     setattr(container, prop, value)
+
+
+def edit_links(objects: list[DocObject], prop: str,
+               remove: str = "", add: list[tuple[Any, str]] | None = None
+               ) -> bool:
+    """Drop the chip keyed `remove`, or add picked pairs, as one undo step."""
+    if not objects:
+        return False
+    doc = getattr(objects[0], "Document", None)
+    if doc is None:
+        return False
+    try:
+        with transaction(doc, "Edit %s" % prop):
+            for obj in objects:
+                type_id = obj.getTypeIdOfProperty(prop)
+                items = link_items(getattr(obj, prop))
+                if remove:
+                    index = int(remove)
+                    items = [i for n, i in enumerate(items) if n != index]
+                for picked in add or ():
+                    if picked[0] is obj:
+                        continue
+                    # A whole object stands for its sub-elements, and
+                    # they for it.
+                    items = [i for i in items
+                             if not (i[0] is picked[0]
+                                     and (not i[1] or not picked[1]))]
+                    items.append(picked)
+                setattr(obj, prop, link_value(type_id, items))
+    except Exception:
+        App.Console.PrintError("Nxt: could not change %s\n" % prop)
+        App.Console.PrintError(traceback.format_exc())
+        return False
+    doc.recompute()
+    return True
 
 
 def apply(objects: list[DocObject], prop: str, value: Any,

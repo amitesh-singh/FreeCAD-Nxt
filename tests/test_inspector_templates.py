@@ -103,24 +103,64 @@ class PadTests(unittest.TestCase):
     def test_the_cards_come_first_in_the_templates_order(self) -> None:
         groups = layout(modern())
         self.assertEqual([g["name"] for g in groups[:2]],
-                         ["Extent", "Profile"])
+                         ["Extent", "Result"])
         extent = groups[0]
         self.assertEqual([i["name"] for i in extent["items"]], ["SideType"])
         self.assertEqual(len(extent["columns"]), 1)
         self.assertEqual(extent["columns"][0]["title"], "")
         self.assertEqual([i["name"] for i in extent["columns"][0]["items"]],
-                         ["Type", "Length", "TaperAngle"])
+                         ["Length", "TaperAngle"])
         self.assertEqual([i["name"] for i in extent["after"]],
-                         ["UseCustomVector", "Reversed"])
+                         ["UseCustomVector"])
+
+    def test_extent_has_no_heading_and_sides_no_label(self) -> None:
+        extent = layout(modern())[0]
+        self.assertFalse(extent["heading"])
+        self.assertTrue(extent["open"])
+        self.assertEqual(extent["items"][0]["label"], "")
+
+    def test_multiple_faces_moves_under_part_design(self) -> None:
+        pad = modern()
+        pad._props["AllowMultiFace"] = ("SketchBased", "App::PropertyBool",
+                                        True)
+        pad.PropertiesList.append("AllowMultiFace")
+        pad.AllowMultiFace = True
+        groups = {g["name"]: names(g) for g in layout(pad)}
+        self.assertIn("AllowMultiFace", groups["Part Design"])
+        self.assertNotIn("SketchBased", groups)
+
+    def test_shapes_and_materials_are_not_shown(self) -> None:
+        pad = modern()
+        for name, kind in (("Shape", "Part::PropertyPartShape"),
+                           ("ShapeMaterial", "Materials::PropertyMaterial")):
+            pad._props[name] = ("", kind, object())
+            pad.PropertiesList.append(name)
+            setattr(pad, name, object())
+        shown = [n for g in layout(pad) for n in names(g)]
+        self.assertNotIn("Shape", shown)
+        self.assertNotIn("ShapeMaterial", shown)
+
+    def test_type_leads_length_and_reversed_trails_direction(self) -> None:
+        extent = layout(modern())[0]
+        length, taper = extent["columns"][0]["items"]
+        self.assertEqual(length["lead"]["name"], "Type")
+        self.assertTrue(taper["narrow"])
+        self.assertEqual(extent["after"][0]["trail"]["name"], "Reversed")
+
+    def test_a_type_without_a_value_shows_alone(self) -> None:
+        extent = layout(modern(Type="UpToLast"))[0]
+        first = extent["columns"][0]["items"][0]
+        self.assertEqual((first["name"], first["label"]), ("Type", "Up to"))
 
     def test_two_sides_add_a_second_column(self) -> None:
         extent = layout(modern(SideType="Two sides"))[0]
         self.assertEqual([c["title"] for c in extent["columns"]],
                          ["First side", "Second side"])
         self.assertEqual([i["name"] for i in extent["columns"][1]["items"]],
-                         ["Type2", "Length2", "TaperAngle2"])
-        self.assertEqual(extent["columns"][1]["items"][1]["label"],
-                         "Length")
+                         ["Length2", "TaperAngle2"])
+        length = extent["columns"][1]["items"][0]
+        self.assertEqual((length["label"], length["lead"]["name"]),
+                         ("Length", "Type2"))
 
     def test_midplane_is_gone_once_sides_exist(self) -> None:
         everything = [n for g in layout(modern()) for n in names(g)]
@@ -129,13 +169,11 @@ class PadTests(unittest.TestCase):
     def test_editors(self) -> None:
         extent = layout(modern())[0]
         sides = extent["items"][0]
-        self.assertEqual((sides["editor"], sides["wide"]),
-                         ("segmented", True))
-        kind = extent["columns"][0]["items"][0]
+        self.assertEqual(sides["editor"], "segmented")
+        kind = extent["columns"][0]["items"][0]["lead"]
         self.assertEqual(kind["editor"], "dropdown")
         self.assertEqual(kind["optionLabels"][:2], ["Dimension", "To last"])
         self.assertNotIn("TwoLengths", kind["options"])
-        self.assertEqual(extent["after"][-1]["editor"], "switch")
 
     def test_direction_is_two_named_states(self) -> None:
         direction = layout(modern())[0]["after"][0]
@@ -153,7 +191,7 @@ class PadTests(unittest.TestCase):
         self.assertEqual(len(extent["columns"]), 2)
         self.assertIn("Length2", names(extent))
         self.assertIn("TwoLengths",
-                      extent["columns"][0]["items"][0]["options"])
+                      extent["columns"][0]["items"][0]["lead"]["options"])
 
     def test_what_it_does_not_name_is_kept_closed_below(self) -> None:
         groups = layout(modern())
@@ -201,12 +239,32 @@ class StartTests(unittest.TestCase):
 
     def test_profile_plane_shows_as_an_offset_of_zero(self) -> None:
         start = next(g for g in layout(started()) if g["name"] == "Start")
-        kind, offset = start["items"][:2]
+        offset = start["items"][0]
+        kind = offset["beside"][0]
+        self.assertEqual(kind["label"], "")
         self.assertEqual(kind["options"], ["Offset", "Reference"])
         self.assertEqual(kind["optionLabels"], ["Profile", "Reference"])
         self.assertEqual(kind["text"], "Offset")
         self.assertFalse(offset["readOnly"])
-        self.assertEqual(len(start["items"]), 2)    # no reference yet
+        self.assertEqual(len(start["items"]), 1)    # no reference yet
+
+    def test_start_is_one_open_line(self) -> None:
+        start = next(g for g in layout(started()) if g["name"] == "Start")
+        self.assertTrue(start["open"])
+        self.assertFalse(start["heading"])
+        self.assertEqual(start["items"][0]["label"], "Start offset")
+
+    def test_closed_when_sums_a_card_up(self) -> None:
+        card = templates.Card(
+            "Start", (templates.Item("StartOffset"),
+                      templates.Item("StartType")),
+            closed_when=(("StartOffset", (0,)),))
+        template = templates.Template("t", ("PartDesign::Pad",), (card,))
+        groups = {"Start": [inspector._entry(started(), n, {})
+                            for n in ("StartOffset", "StartType")]}
+        closed = templates.apply(template, [started()], groups)[0]
+        self.assertFalse(closed["open"])
+        self.assertEqual(closed["summary"], "0 mm · Profile plane")
 
     def test_typing_an_offset_makes_the_start_an_offset(self) -> None:
         self.assertEqual(self.edits(started(), "StartOffset", "2"),

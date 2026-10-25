@@ -92,6 +92,13 @@ class Services(QtCore.QObject):
             log.error("could not install the face snapping")
             self._face_snap = None
         try:
+            from ..tools.task_layout import TaskLayout
+            self._task_layout: Any = TaskLayout(self)
+            self._task_layout.install()
+        except Exception:
+            log.error("could not install the Pad and Pocket task layout")
+            self._task_layout = None
+        try:
             from ..tools.visibility import SpaceInView
             self._space = SpaceInView(self)
             self._space.install()
@@ -118,7 +125,8 @@ class Services(QtCore.QObject):
         self._restyle_timer.stop()
         for part in (self._double_click, self._floating,
                      self._sketch_repair, self._sketch_attach,
-                     self._face_snap, self._space):
+                     self._face_snap, self._space,
+                     getattr(self, "_task_layout", None)):
             if part is not None:
                 try:
                     part.remove()
@@ -127,6 +135,7 @@ class Services(QtCore.QObject):
         self._double_click = self._floating = None
         self._sketch_repair = self._sketch_attach = None
         self._face_snap = self._space = None
+        self._task_layout = None
         try:
             self._main_window.removeEventFilter(self)
         except RuntimeError:

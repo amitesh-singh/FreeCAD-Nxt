@@ -7,13 +7,15 @@ stay under "Everything else", and missing names are skipped.
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from fnmatch import fnmatchcase
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
 import FreeCAD as App
+
+from ..core import units
 
 #: Editors a template may request for a property.
 EDITORS = frozenset({"", "dropdown", "segmented", "switch"})
@@ -29,6 +31,21 @@ class Item:
     #: (value, property): omit value when the object has property.
     omit_if: tuple[tuple[str, str], ...] = ()
     labels: tuple[str, ...] = ()
+    #: An enumeration shown inside the field, before the value.
+    lead: str = ""
+    #: A yes/no shown as a glyph button after the editor.
+    trail: str = ""
+    glyph: str = ""
+    #: Half the editor column.
+    narrow: bool = False
+    #: No label: the row's other items say enough.
+    bare: bool = False
+    #: Items laid on the same line, after this one's editor.
+    beside: tuple["Item", ...] = ()
+
+    def names(self) -> list[str]:
+        return [self.prop, *(n for n in (self.lead, self.trail) if n),
+                *(n for item in self.beside for n in item.names())]
 
 
 @dataclass(frozen=True)
@@ -47,6 +64,10 @@ class Card:
     hint: str = ""
     columns: tuple[Column, ...] = ()
     after: tuple[Item, ...] = ()
+    #: Shown with no heading, and always open.
+    heading: bool = True
+    #: Closed, with a summary, while every one of these tests holds.
+    closed_when: tuple[tuple[str, tuple[Any, ...]], ...] = ()
 
     def all_items(self) -> list[Item]:
         return [*self.items, *(i for c in self.columns for i in c.items),
@@ -75,13 +96,23 @@ class Template:
     #: (hidden, superseding property), e.g. Midplane by SideType.
     hide_if: tuple[tuple[str, str], ...] = ()
     couples: tuple[Couple, ...] = ()
+    #: (property, group): left out, but shown under another group.
+    group_as: tuple[tuple[str, str], ...] = ()
 
     def matches(self, type_id: str) -> bool:
         return any(fnmatchcase(type_id, pattern) for pattern in self.types)
 
+    def item(self, prop: str) -> Item:
+        """The first item naming `prop`, for its settings elsewhere."""
+        for card in self.cards:
+            for item in card.all_items():
+                if item.prop == prop:
+                    return replace(item, beside=(), lead="", trail="")
+        return Item(prop)
+
     def names(self) -> set[str]:
-        return {item.prop for card in self.cards
-                for item in card.all_items()}
+        return {name for card in self.cards
+                for item in card.all_items() for name in item.names()}
 
 
 def _tests(raw: Any) -> tuple[tuple[str, tuple[Any, ...]], ...]:
@@ -93,6 +124,9 @@ def _tests(raw: Any) -> tuple[tuple[str, tuple[Any, ...]], ...]:
 def _item(raw: Any) -> Item:
     if isinstance(raw, str):
         return Item(raw)
+    if isinstance(raw, list):
+        first, *rest = [_item(r) for r in raw]
+        return replace(first, beside=tuple(rest))
     show_if = _tests(raw.get("show_if"))
     omit_if = tuple((str(value), str(prop)) for value, prop
                     in dict(raw.get("omit_if", {})).items())
@@ -101,7 +135,10 @@ def _item(raw: Any) -> Item:
         raise ValueError("%s: unknown editor %r" % (raw["prop"], editor))
     return Item(str(raw["prop"]), str(raw.get("label", "")),
                 raw.get("wide"), editor, show_if, omit_if,
-                tuple(str(label) for label in raw.get("labels", ())))
+                tuple(str(label) for label in raw.get("labels", ())),
+                str(raw.get("lead", "")), str(raw.get("trail", "")),
+                str(raw.get("glyph", "")), bool(raw.get("narrow", False)),
+                bool(raw.get("bare", False)))
 
 
 def parse(data: dict[str, Any]) -> list[Template]:
@@ -115,16 +152,20 @@ def parse(data: dict[str, Any]) -> list[Template]:
                               tuple(_item(i) for i in col.get("items", ())),
                               _tests(col.get("show_if")))
                        for col in card.get("column", ())),
-                 tuple(_item(item) for item in card.get("after", ())))
+                 tuple(_item(item) for item in card.get("after", ())),
+                 bool(card.get("heading", True)),
+                 _tests(card.get("closed_when")))
             for card in raw.get("card", ()))
         hide_if = tuple((str(hidden), str(by)) for hidden, by
                         in dict(raw.get("hide_if", {})).items())
         couples = tuple(Couple(str(c["value"]), str(c["mode"]),
                                str(c["zero"]), str(c["nonzero"]))
                         for c in raw.get("couple", ()))
+        group_as = tuple((str(prop), str(group)) for prop, group
+                         in dict(raw.get("group_as", {})).items())
         out.append(Template(str(raw["id"]), tuple(raw.get("types", ())),
                             cards, dict(raw.get("choices", {})), hide_if,
-                            couples))
+                            couples, group_as))
     return out
 
 
@@ -171,7 +212,28 @@ def for_objects(objects: list[Any],
 def _same(value: Any, wanted: Any) -> bool:
     if isinstance(wanted, bool):
         return bool(value) is wanted
+    if isinstance(wanted, (int, float)):
+        return _magnitude(value) == float(wanted)
     return str(value) == str(wanted)
+
+
+def _magnitude(value: Any) -> float | None:
+    """A number or quantity's number, in its shown unit."""
+    if hasattr(value, "Value"):
+        return float(value.Value)
+    text = str(getattr(value, "UserString", value))
+    try:
+        return float(units.split_number_and_unit(text)[0].replace(",", "."))
+    except ValueError:
+        return None
+
+
+def holds_all(tests: tuple[tuple[str, tuple[Any, ...]], ...],
+              objects: list[Any]) -> bool:
+    """Whether every test holds for every object; none never holds."""
+    return bool(tests) and all(
+        any(_same(getattr(o, name, None), w) for w in values)
+        for name, values in tests for o in objects)
 
 
 def shown(item: Item | Column, objects: list[Any]) -> bool:
@@ -197,25 +259,48 @@ def apply(template: Template, objects: list[Any],
     placed = template.names() | {
         hidden for hidden, by in template.hide_if
         if all(hasattr(o, by) for o in objects)}
+    moved = dict(template.group_as)
     for name in list(groups):
-        groups[name] = [e for e in groups[name] if e["name"] not in placed]
+        kept = []
+        for entry in groups[name]:
+            if entry["name"] in placed:
+                continue
+            group = moved.get(entry["name"], name)
+            if group == name:
+                kept.append(entry)
+            else:
+                groups.setdefault(group, []).append(entry)
+        groups[name] = kept
+    for name in list(groups):
         if not groups[name]:
             del groups[name]
 
+    def one(item: Item) -> dict[str, Any] | None:
+        generic = found.get(item.prop)
+        if generic is None or not shown(item, objects):
+            return None
+        entry = _shaped(template, item, generic, objects)
+        if item.lead and item.lead in found:
+            entry["lead"] = _shaped(template, template.item(item.lead),
+                                    found[item.lead], objects)
+        if item.trail and item.trail in found:
+            entry["trail"] = dict(found[item.trail],
+                                  glyph=item.glyph or "\u21c5")
+        entry["beside"] = [e for e in map(one, item.beside) if e]
+        entry["narrow"] = item.narrow
+        if item.bare:
+            entry["label"] = ""
+        return entry
+
     def laid_out(items: tuple[Item, ...]) -> list[dict[str, Any]]:
-        out = []
-        for item in items:
-            generic = found.get(item.prop)
-            if generic is None or not shown(item, objects):
-                continue
-            out.append(_shaped(template, item, generic, objects))
-        return out
+        return [e for e in map(one, items) if e]
 
     cards = []
     for card in template.cards:
         items = laid_out(card.items)
-        columns = [{"title": column.title, "items": laid_out(column.items)}
-                   for column in card.columns if shown(column, objects)]
+        columns: list[dict[str, Any]] = [
+            {"title": column.title, "items": laid_out(column.items)}
+            for column in card.columns if shown(column, objects)]
         columns = [c for c in columns if c["items"]]
         if len(columns) == 1:
             columns[0]["title"] = ""
@@ -223,11 +308,45 @@ def apply(template: Template, objects: list[Any],
         count = (len(items) + len(after)
                  + sum(len(c["items"]) for c in columns))
         if count:
-            cards.append({"name": card.title, "open": True, "items": items,
-                          "columns": columns, "after": after,
+            closed = holds_all(card.closed_when, objects)
+            every: list[dict[str, Any]] = [
+                *items, *(i for c in columns for i in c["items"]), *after]
+            cards.append({"name": card.title,
+                          "open": not closed or not card.heading,
+                          "heading": card.heading,
+                          "items": items, "columns": columns, "after": after,
                           "count": count, "first": True, "hint": card.hint,
+                          "summary": summary(every) if closed else "",
                           "template": template.id})
     return cards
+
+
+def _said(entry: dict[str, Any]) -> str:
+    """One entry in a few words, for a closed card's summary."""
+    kind = entry["kind"]
+    if kind == "enum":
+        options, labels = entry["options"], entry.get("optionLabels") or []
+        index = options.index(entry["text"]) if entry["text"] in options \
+            else -1
+        return labels[index] if 0 <= index < len(labels) else entry["text"]
+    if kind == "quantity":
+        return ("%s %s" % (entry["text"], entry["unit"])).strip()
+    if kind == "link":
+        return ", ".join(entry["links"])
+    if kind == "bool":
+        return entry["label"] if entry["checked"] else ""
+    return str(entry["text"])
+
+
+def summary(entries: list[dict[str, Any]]) -> str:
+    """The values of a card's entries, and those beside them."""
+    out = []
+    for entry in entries:
+        for one in (entry, *entry.get("beside", ())):
+            said = _said(one)
+            if said:
+                out.append(said)
+    return " · ".join(out)
 
 
 def _shaped(template: Template, item: Item, generic: dict[str, Any],

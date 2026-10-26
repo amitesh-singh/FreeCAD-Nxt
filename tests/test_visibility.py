@@ -161,6 +161,39 @@ class SpaceTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
 
+class TreeShortcutTests(unittest.TestCase):
+    """FreeCAD's shortcut for a key the Nxt tree takes is dropped there."""
+
+    def setUp(self) -> None:
+        self.space = visibility.SpaceInView(action=lambda: None)
+        self.panel = QtWidgets.QWidget()
+        self.panel.setObjectName(visibility.TREE_PANEL)
+        self.inner = QtWidgets.QWidget(self.panel)
+        self.other = QtWidgets.QWidget()
+
+    def shortcut(self, keys: str, focus: Any) -> bool:
+        event = types.SimpleNamespace(
+            type=lambda: QtCore.QEvent.Type.Shortcut,
+            key=lambda: QtGui.QKeySequence(keys))
+        saved = QtWidgets.QApplication.focusWidget
+        QtWidgets.QApplication.focusWidget = staticmethod(  # type: ignore
+            lambda: focus)
+        try:
+            return self.space.eventFilter(QtGui.QAction(), event)
+        finally:
+            QtWidgets.QApplication.focusWidget = saved  # type: ignore
+
+    def test_dropped_in_the_tree(self) -> None:
+        for keys in ("Space", "Home", "End", "Del", "Backspace"):
+            self.assertTrue(self.shortcut(keys, self.inner), keys)
+
+    def test_kept_elsewhere_or_for_other_keys(self) -> None:
+        self.assertFalse(self.shortcut("Space", self.other))
+        self.assertFalse(self.shortcut("Space", None))
+        self.assertFalse(self.shortcut("Ctrl+Space", self.inner))
+        self.assertFalse(self.shortcut("V", self.inner))
+
+
 class NativeMenuBarTests(unittest.TestCase):
     """macOS: Space moves off FreeCAD's menu item to an action of ours."""
 

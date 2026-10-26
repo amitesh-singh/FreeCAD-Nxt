@@ -189,15 +189,23 @@ def build(doc):
 
     # A tapered pyramid's top corner: rounded at once, or one edge at a
     # time in any order, the corner is the same sphere (as in Onshape).
-    top, slant = (V(8.12178, 0, 35), V(0, 8.12178, 35)), V(12.81, 12.81, 17.5)
+    # Picked towards the top edges' far ends: an 8 mm chamfer of the
+    # slanted edge first takes their middles.
+    top = (V(8.12178, -6, 35), V(-6, 8.12178, 35))
+    slant = V(12.81, 12.81, 17.5)
     c = case("Pyramid_corner", frustum(),
              "Three edges at a tapered pyramid's corner, r 8, at once.")
     c.add([top[0], top[1], slant], 8.0)
-    for name, order in (("a", (slant, top[0], top[1])),
-                        ("b", (top[0], top[1], slant)),
-                        ("c", (top[0], slant, top[1]))):
+    # Tangent edges taken along: the second pick runs on round the first
+    # round to the third edge, so two picks finish the corner.
+    for name, order in (("a", (slant, top[0])),
+                        ("b", (top[0], top[1])),
+                        ("c", (top[0], slant))):
         c = case("Pyramid_order_" + name, frustum(),
                  "The same corner, one edge at a time: the same result.")
+        if FLAT:
+            # Chamfers take no tangent edges along: the third is picked.
+            order += tuple(p for p in (slant,) + top if p not in order)
         for pick in order:
             c.add([pick], 8.0)
     c = case("Pyramid_order_d", frustum(),

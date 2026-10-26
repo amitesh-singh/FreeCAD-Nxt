@@ -2783,7 +2783,7 @@ def _same_kind(feature: Any, like: Any) -> bool:
     """`feature` is an Nxt fillet, or chamfer, made as `like` is."""
     proxy = getattr(feature, "Proxy", None)
     mine = getattr(like, "Proxy", None)
-    if mine is None or type(proxy) is not type(mine):
+    if mine is None or proxy is None or type(proxy) is not type(mine):
         return False
     size = mine.size(like)
     if abs(proxy.size(feature) - size) > size * 1e-6:
@@ -2825,6 +2825,7 @@ def _with_earlier(obj: Any, shape: Any, edges: list[Any]
         return shape, edges
     size = obj.Proxy.size(obj)
     base = obj.BaseFeature
+    first = shape, edges
     while _same_kind(base, obj):
         earlier_base = getattr(base, "BaseFeature", None)
         if earlier_base is None:
@@ -2840,15 +2841,22 @@ def _with_earlier(obj: Any, shape: Any, edges: list[Any]
                       for n in base.Proxy.names(base, earlier)]
         except Exception:  # noqa: BLE001 - as they are then
             break
+        if not theirs or not all(_convex_edge(earlier, e) for e in theirs):
+            break
+        tolerance = max(shape.BoundBox.DiagonalLength * 1e-6, 1e-6)
         mine = []
         for edge in edges:
-            if any(f.isSame(m) for f in _faces_of(shape, edge)
-                   for m in made):
+            middle = Part.Vertex(edge.valueAt(
+                (edge.FirstParameter + edge.LastParameter) / 2))
+            if any(m.distToShape(middle)[0] < tolerance for m in made):
                 continue
             found = _on_earlier(edge, earlier)
             if found is None:
-                return shape, edges
+                return first
             mine.append(found)
+        if not mine:
+            # Nothing past what it made: nothing for this one to add.
+            return first
         merged = list(mine)
         for edge in theirs:
             if not any(edge.isSame(e) for e in merged):

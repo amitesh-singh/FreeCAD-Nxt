@@ -240,47 +240,8 @@ class TaskLayout(QtCore.QObject):
         layout = holder.layout() if holder is not None else None
         if layout is None:
             return
-        from ..app import services
-        theme = services.theme() or theme_mod.Theme(
-            holder, theme_mod.find_reference_widget(holder))
         bridge = inspector_bridge.InspectorBridge(task=True)
-        cards = quick_host.make_view(
-            holder, "TaskLayout.qml",
-            {"expressions": expressions.helper(), "inspector": bridge,
-             "theme": theme, "nativeChoices": None},
-            prepare=_with_choices)
-        cards.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
-        cards.nxt_keys = _Keyboard(cards)  # type: ignore[attr-defined]
-        cards.nxt_paint = _Repaint(cards)  # type: ignore[attr-defined]
-        bridge.setParent(cards)
-        cards.setClearColor(QtGui.QColor(theme.background))
-        root = cards.rootObject()
-
-        def fit() -> None:
-            if widgets.alive(cards) and root is not None:
-                cards.setFixedHeight(
-                    max(1, int(root.property("implicitHeight"))))
-
-        def renew() -> None:
-            """Resize the view once on screen, so it draws at its size.
-
-            Made while the dialog is still being filled, the view keeps
-            showing its first, half-sized frame (though it takes clicks)
-            until it is resized, as a change of Sides does.
-            """
-            if not widgets.alive(cards) or root is None:
-                return
-            height = max(1, int(root.property("implicitHeight")))
-            cards.setFixedHeight(height + 1)
-            QtCore.QTimer.singleShot(0, cards, fit)
-
-        root.implicitHeightChanged.connect(fit)
-        fit()
-        cards.nxt_shown = _OnShow(cards, renew)  # type: ignore[attr-defined]
-        for delay in RENEW_MS:
-            QtCore.QTimer.singleShot(delay, cards, renew)
-        cards.setSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred,
-                            QtWidgets.QSizePolicy.Policy.Fixed)
+        cards = make_cards(holder, bridge)
         if isinstance(layout, QtWidgets.QBoxLayout):
             layout.insertWidget(layout.indexOf(box), cards)
         else:
@@ -289,3 +250,49 @@ class TaskLayout(QtCore.QObject):
         bridge.start()
         # The box goes with its dialog; what holds it stays for the next.
         box.destroyed.connect(lambda *_: _discard(cards, bridge))
+
+
+def make_cards(holder: Any, bridge: Any) -> Any:
+    """The template's cards for what `bridge` edits, sized to fit."""
+    from ..app import services
+    reference = holder if holder is not None else Gui.getMainWindow()
+    theme = services.theme() or theme_mod.Theme(
+        reference, theme_mod.find_reference_widget(reference))
+    cards = quick_host.make_view(
+        holder, "TaskLayout.qml",
+        {"expressions": expressions.helper(), "inspector": bridge,
+         "theme": theme, "nativeChoices": None},
+        prepare=_with_choices)
+    cards.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
+    cards.nxt_keys = _Keyboard(cards)  # type: ignore[attr-defined]
+    cards.nxt_paint = _Repaint(cards)  # type: ignore[attr-defined]
+    bridge.setParent(cards)
+    cards.setClearColor(QtGui.QColor(theme.background))
+    root = cards.rootObject()
+
+    def fit() -> None:
+        if widgets.alive(cards) and root is not None:
+            cards.setFixedHeight(
+                max(1, int(root.property("implicitHeight"))))
+
+    def renew() -> None:
+        """Resize the view once on screen, so it draws at its size.
+
+        Made while the dialog is still being filled, the view keeps
+        showing its first, half-sized frame (though it takes clicks)
+        until it is resized, as a change of Sides does.
+        """
+        if not widgets.alive(cards) or root is None:
+            return
+        height = max(1, int(root.property("implicitHeight")))
+        cards.setFixedHeight(height + 1)
+        QtCore.QTimer.singleShot(0, cards, fit)
+
+    root.implicitHeightChanged.connect(fit)
+    fit()
+    cards.nxt_shown = _OnShow(cards, renew)  # type: ignore[attr-defined]
+    for delay in RENEW_MS:
+        QtCore.QTimer.singleShot(delay, cards, renew)
+    cards.setSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred,
+                        QtWidgets.QSizePolicy.Policy.Fixed)
+    return cards

@@ -1,0 +1,28 @@
+# Property Inspector template for Nxt's section planes; the section's task
+# panel shows the same cards. Keys: see partdesign.toml. A Python feature
+# matches "Nxt::<its proxy's class>".
+
+version = 1
+
+[[template]]
+id = "nxt-section"
+types = ["Nxt::SectionPlane"]
+
+[template.choices]
+Plane = "Plane"
+Wedge = "Wedge"
+
+[[template.card]]
+title = "Cut"
+heading = false
+items = [
+    { prop = "Mode", bare = true, editor = "segmented" },
+    { prop = "Angle", label = "Opening", narrow = true, show_if = { Mode = "Wedge" } },
+]
+
+[[template.card]]
+title = "Solids"
+heading = false
+items = [
+    { prop = "Excluded", label = "Left whole" },
+]

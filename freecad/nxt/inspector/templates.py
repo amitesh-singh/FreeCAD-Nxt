@@ -102,6 +102,9 @@ class Template:
     def matches(self, type_id: str) -> bool:
         return any(fnmatchcase(type_id, pattern) for pattern in self.types)
 
+    def matches_object(self, obj: Any) -> bool:
+        return any(self.matches(kind) for kind in kinds_of(obj))
+
     def item(self, prop: str) -> Item:
         """The first item naming `prop`, for its settings elsewhere."""
         for card in self.cards:
@@ -113,6 +116,15 @@ class Template:
     def names(self) -> set[str]:
         return {name for card in self.cards
                 for item in card.all_items() for name in item.names()}
+
+
+def kinds_of(obj: Any) -> list[str]:
+    """Its TypeId, and for a Python feature "Nxt::<its proxy's class>"."""
+    kinds = [str(getattr(obj, "TypeId", ""))]
+    proxy = getattr(obj, "Proxy", None)
+    if proxy is not None and not isinstance(proxy, str):
+        kinds.append("Nxt::%s" % type(proxy).__name__)
+    return kinds
 
 
 def _tests(raw: Any) -> tuple[tuple[str, tuple[Any, ...]], ...]:
@@ -203,8 +215,7 @@ def for_objects(objects: list[Any],
     if not objects:
         return None
     for template in loaded() if templates is None else templates:
-        if all(template.matches(str(getattr(o, "TypeId", "")))
-               for o in objects):
+        if all(template.matches_object(o) for o in objects):
             return template
     return None
 

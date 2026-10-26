@@ -19,6 +19,9 @@ GROUP_NAME = "Sections"
 SECTION_NAME = "Section"
 #: How many sections may cut a view at once.
 LIMIT = 3
+MODES = ["Plane", "Wedge"]
+#: The wedge's opening between its two planes, by default.
+WEDGE_ANGLE = 90.0
 ICON = str(resources.ICONS / "nxt_section.svg")
 
 
@@ -32,11 +35,45 @@ class SectionPlane:
     def execute(self, obj: Any) -> None:
         pass
 
+    def onChanged(self, obj: Any, prop: str) -> None:  # noqa: N802
+        if prop == "Excluded" and _whole_bodies(obj):
+            return
+        if prop in ("Mode", "Angle", "Excluded"):
+            from . import section_view
+            section_view.changed(obj)
+
     def dumps(self) -> None:
         return None
 
     def loads(self, _state: Any) -> None:
         return None
+
+    def onDocumentRestored(self, obj: Any) -> None:  # noqa: N802
+        add_properties(obj)
+
+
+def _body_of(obj: Any) -> Any:
+    """A Part Design feature's Body: picked, it stands for the body."""
+    try:
+        body = obj.getParentGeoFeatureGroup()
+    except Exception:
+        return obj
+    if body is not None and body.TypeId == "PartDesign::Body":
+        return body
+    return obj
+
+
+def _whole_bodies(obj: Any) -> bool:
+    """Excluded features become their bodies; True if it was changed."""
+    out: list[Any] = []
+    for item in obj.Excluded:
+        whole = _body_of(item)
+        if all(o is not whole for o in out):
+            out.append(whole)
+    if [o.Name for o in out] == [o.Name for o in obj.Excluded]:
+        return False
+    obj.Excluded = out
+    return True
 
 
 def add_properties(obj: Any) -> None:
@@ -45,9 +82,19 @@ def add_properties(obj: Any) -> None:
             ("App::PropertyVector", "Normal",
              "Points into the half that stays"),
             ("App::PropertyVector", "XAxis", "The frame's own x axis"),
-            ("App::PropertyLink", "Cut", "The exact cut faces")):
+            ("App::PropertyLink", "Cut", "The exact cut faces"),
+            ("App::PropertyEnumeration", "Mode",
+             "One plane, or two hinged on the frame's middle"),
+            ("App::PropertyAngle", "Angle",
+             "The wedge's opening, between its two planes"),
+            ("App::PropertyLinkListGlobal", "Excluded",
+             "Left whole: these and all inside them")):
         if not hasattr(obj, name):
             obj.addProperty(kind, name, "Section", doc)
+            if name == "Mode":
+                obj.Mode = MODES
+            elif name == "Angle":
+                obj.Angle = WEDGE_ANGLE
     obj.setEditorMode("Cut", 2)
 
 

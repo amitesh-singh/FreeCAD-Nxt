@@ -1,10 +1,9 @@
-"""Section view: a clip plane through the model, its cut faces hatched.
+"""Section view: a clip plane through the solids, their cut faces hatched.
 
-The model is clipped by a Coin clip plane. The cut is capped on the GPU:
-the visible solids' faces are drawn again into the stencil buffer only,
-inverting a bit per pixel at every surface, so an odd count marks where
-the plane passes through material; a lit quad on the plane is drawn
-only there, then a stipple hatch over it. Only GL render passes touch GL.
+Each visible solid is clipped in its own view provider (section_cap.py),
+so sketches, datums and other aids are left whole. The cap is the exact
+cut, the solids sliced by the plane, drawn as real faces with the hatch
+as their texture: it hides only what lies behind it, as any face does.
 
 The cap's look follows FreeCAD PR #33186 (SoFCSectionCap): the part's
 colour, lit, stipple lines every 8 px, and a pattern per part so
@@ -13,9 +12,8 @@ neighbours read apart. Nxt keeps the cap lighter and its lines 2 px.
 
 from __future__ import annotations
 
-import ctypes
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -100,8 +98,9 @@ SQUARE_SNAP = 3.0
 #: on screen to follow; the drag then goes by height instead.
 HEAD_ON = 0.25
 
-#: How long the plane must rest before the exact cut is made.
-SETTLE_MS = 300
+#: How long the plane must rest before the cap's faces replace its
+#: outline.
+CAP_MS = 400
 #: The clip sits this share of the diagonal behind the plane, so the
 #: exact cut lying on the plane is not clipped away with the rest.
 CLIP_SLACK = 1e-5
@@ -231,30 +230,6 @@ def snapped_tile(world_per_pixel: float) -> float:
     return float(2.0 ** round(math.log2(target)))
 
 
-#: GL texture names per (3D view, pattern), made on first use; a view
-#: draws in one GL context. (Coin's cache context is not reachable from
-#: pivy: callbacks get a plain SoAction.)
-_textures: dict[tuple[int, str], int] = {}
-
-
-def _texture(g: Any, context: int, name: str) -> int:
-    key = (context, name)
-    if key not in _textures:
-        tex = ctypes.c_uint(0)
-        g.glGenTextures(1, ctypes.byref(tex))
-        g.glBindTexture(GL_TEXTURE_2D, tex)
-        for param, value in ((GL_TEXTURE_WRAP_S, GL_REPEAT),
-                             (GL_TEXTURE_WRAP_T, GL_REPEAT),
-                             (GL_TEXTURE_MIN_FILTER, GL_NEAREST),
-                             (GL_TEXTURE_MAG_FILTER, GL_NEAREST)):
-            g.glTexParameteri(GL_TEXTURE_2D, param, value)
-        data = pattern_rgba(PATTERNS[name])
-        g.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 32, 32, 0, GL_RGBA,
-                       GL_UNSIGNED_BYTE, data)
-        _textures[key] = tex.value
-    return _textures[key]
-
-
 def pattern_for(name: str) -> str:
     """The hatch a part always gets, from its name (FNV-1a)."""
     h = 14695981039346656037
@@ -382,6 +357,9 @@ class Instance:
     name: str
     shape: Any
     colour: tuple[float, float, float]
+    #: The object whose view draws it, and the placement above it.
+    obj: Any = None
+    parent: Any = None
 
 
 #: Containers whose children are cut one by one, never as one compound.
@@ -437,33 +415,36 @@ def _own_colour(obj: Any, target: Any) -> bool:
     return True
 
 
-def cut_instances(doc: Any, shape_of: Callable[[Any], Any] | None = None
-                  ) -> list[Instance]:
+def cut_instances(doc: Any, shape_of: Callable[[Any], Any] | None = None,
+                  excluded: Iterable[Any] = ()) -> list[Instance]:
     """Every visible solid, each once, placed where the view draws it.
 
     Parts, assemblies and groups are opened up so each body keeps its
     own colour, and links are followed to what they show. A Body is one
     solid (it draws its tip; counting both would cancel the cap out).
+    Excluded objects, and all inside them, are left out.
     """
     if shape_of is None:
         import Part
         shape_of = Part.getShape
     out: list[Instance] = []
+    skip = {o.Name for o in excluded if o is not None}
     for obj in doc.Objects:
         if _container(obj) is None and _parent_group(obj) is None:
-            _walk(obj, App.Placement(), out, shape_of, 0)
+            _walk(obj, App.Placement(), out, shape_of, 0, skip)
     return out
 
 
 def _walk(obj: Any, parent: Any, out: list[Instance],
-          shape_of: Callable[[Any], Any], depth: int) -> None:
-    if depth > MAX_DEPTH or not _shown(obj):
+          shape_of: Callable[[Any], Any], depth: int,
+          skip: set[str]) -> None:
+    if depth > MAX_DEPTH or not _shown(obj) or obj.Name in skip:
         return
     target = _linked(obj)
     if _is_group(target):
         here = parent.multiply(getattr(obj, "Placement", App.Placement()))
         for child in getattr(target, "Group", None) or ():
-            _walk(child, here, out, shape_of, depth + 1)
+            _walk(child, here, out, shape_of, depth + 1, skip)
         return
     try:
         shape = shape_of(obj)
@@ -474,165 +455,12 @@ def _walk(obj: Any, parent: Any, out: list[Instance],
     shape = shape.copy()
     shape.Placement = parent.multiply(shape.Placement)
     painted = obj if _own_colour(obj, target) else target
-    out.append(Instance(obj.Name, shape, body_colour(painted)))
+    out.append(Instance(obj.Name, shape, body_colour(painted), obj, parent))
 
 
 def _is_render(action: Any) -> bool:
     from pivy import coin
     return bool(action.isOfType(coin.SoGLRenderAction.getClassTypeId()))
-
-
-def _count_begin(_data: Any, action: Any) -> None:
-    """Before the faces are drawn again: invert a stencil bit per surface."""
-    if not _is_render(action):
-        return
-    g = gl()
-    g.glClearStencil(0)
-    g.glClear(GL_STENCIL_BUFFER_BIT)
-    g.glEnable(GL_STENCIL_TEST)
-    g.glStencilFunc(GL_ALWAYS, 0, 0xFF)
-    g.glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT)
-    g.glColorMask(0, 0, 0, 0)
-    g.glDepthMask(0)
-    g.glDisable(GL_DEPTH_TEST)
-    g.glDisable(GL_CULL_FACE)
-
-
-#: GL clip planes switched off for counting and capping, to restore.
-_unclipped: list[int] = []
-_plane_count: list[int] = []
-
-
-def _unclip_all(g: Any) -> None:
-    """Switch off every GL clip plane, whichever index Coin gave it.
-
-    The count adds its own plane back through Coin; the cap is trimmed
-    by the other sections on the CPU (Section.cap_polygon).
-    """
-    if not _plane_count:
-        most = ctypes.c_int(0)
-        g.glGetIntegerv(GL_MAX_CLIP_PLANES, ctypes.byref(most))
-        _plane_count.append(most.value or 6)
-    for plane in range(GL_CLIP_PLANE0, GL_CLIP_PLANE0 + _plane_count[0]):
-        if g.glIsEnabled(plane):
-            _unclipped.append(plane)
-            g.glDisable(plane)
-
-
-def _restore_clips(g: Any) -> None:
-    while _unclipped:
-        g.glEnable(_unclipped.pop())
-
-
-def _reclip(_data: Any, action: Any) -> None:
-    if not _is_render(action):
-        return
-    _restore_clips(gl())
-
-
-def _cap_begin(_data: Any, action: Any) -> None:
-    """Draw the cap only where the count was left odd."""
-    if not _is_render(action):
-        return
-    g = gl()
-    g.glColorMask(1, 1, 1, 1)
-    g.glDepthMask(1)
-    g.glEnable(GL_DEPTH_TEST)
-    g.glEnable(GL_STENCIL_TEST)
-    g.glStencilFunc(GL_NOTEQUAL, 0, 0x01)
-    g.glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
-    # Level with the exact cut, which lies on the plane too.
-    g.glDepthFunc(GL_LEQUAL)
-    _unclip_all(g)
-
-
-def _cap_end(_data: Any, action: Any) -> None:
-    if not _is_render(action):
-        return
-    g = gl()
-    g.glDepthFunc(GL_LESS)
-    g.glDisable(GL_POLYGON_STIPPLE)
-    g.glEnable(GL_COLOR_MATERIAL)
-    g.glDisable(GL_STENCIL_TEST)
-    _reclip(_data, action)
-
-
-def _cap_drawer(section: Any, cap: tuple[float, float, float],
-                pattern: str) -> Any:
-    """A render callback drawing one solid's cap straight in GL.
-
-    Coin is bypassed for the cap: FreeCAD leaves GL_COLOR_MATERIAL on
-    and Coin's lazy state re-sends whatever colour it last saw, so a
-    material node never reached the screen. The cap is lit in `cap`;
-    the hatch, `cap` darkened to INK_SHARE, is a texture on the plane,
-    so its lines stay on the part as the view turns.
-    """
-    diffuse = (ctypes.c_float * 4)(cap[0], cap[1], cap[2], 1.0)
-    darker = (ctypes.c_float * 4)(*(c * INK_SHARE for c in cap), 1.0)
-    f = ctypes.c_float
-
-    def quad(g: Any, corners: list[Vec3], textured: bool) -> None:
-        g.glBegin(GL_POLYGON)
-        for corner in corners:
-            if textured:
-                g.glTexCoord2f(*(f(t) for t in section.hatch_at(corner)))
-            g.glVertex3f(*(f(c) for c in corner))
-        g.glEnd()
-
-    def seam_lines(g: Any, edges: list[tuple[Vec3, Vec3]]) -> None:
-        """Outline where the cap was trimmed.
-
-        The stencil keeps it on the part, and the cap it meets draws the
-        same line.
-        """
-        width = f(0.0)
-        g.glGetFloatv(GL_LINE_WIDTH, ctypes.byref(width))
-        g.glDisable(GL_LIGHTING)
-        g.glColor3f(*(f(c) for c in CUT_LINE))
-        g.glLineWidth(f(SEAM_WIDTH))
-        g.glBegin(GL_LINES)
-        for a, b in edges:
-            g.glVertex3f(*(f(c) for c in a))
-            g.glVertex3f(*(f(c) for c in b))
-        g.glEnd()
-        g.glLineWidth(width)
-
-    def draw(_data: Any, action: Any) -> None:
-        if not _is_render(action):
-            return
-        corners, edges = section.cap_shape()
-        if not corners:
-            return
-        g = gl()
-        _cap_begin(None, action)
-        lit = g.glIsEnabled(GL_LIGHTING)
-        was_textured = g.glIsEnabled(GL_TEXTURE_2D)
-        g.glDisable(GL_TEXTURE_2D)
-        g.glDisable(GL_COLOR_MATERIAL)
-        g.glEnable(GL_LIGHTING)
-        g.glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, diffuse)
-        nx, ny, nz = section.cap_normal
-        g.glNormal3f(f(nx), f(ny), f(nz))
-        quad(g, corners, False)
-        g.glEnable(GL_TEXTURE_2D)
-        g.glBindTexture(GL_TEXTURE_2D,
-                        _texture(g, id(section.view), pattern))
-        g.glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
-        g.glEnable(GL_ALPHA_TEST)
-        g.glAlphaFunc(GL_GREATER, f(0.5))
-        g.glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, darker)
-        quad(g, corners, True)
-        g.glDisable(GL_ALPHA_TEST)
-        g.glBindTexture(GL_TEXTURE_2D, 0)
-        if edges:
-            g.glDisable(GL_TEXTURE_2D)
-            seam_lines(g, edges)
-        (g.glEnable if was_textured else g.glDisable)(GL_TEXTURE_2D)
-        (g.glEnable if lit else g.glDisable)(GL_LIGHTING)
-        _cap_end(None, action)
-
-    draw.kept = (diffuse, darker)  # type: ignore[attr-defined]
-    return draw
 
 
 def _fill_begin(_data: Any, action: Any) -> None:
@@ -667,23 +495,6 @@ def _callback(function: Any) -> Any:
     return node
 
 
-def _mesh(shape: Any) -> Any:
-    """The shape's faces as triangles, for counting only."""
-    from pivy import coin
-    points, triangles = shape.tessellate(MESH_TOLERANCE)
-    node = coin.SoSeparator()
-    coords = coin.SoCoordinate3()
-    coords.point.setValues(0, len(points), [tuple(p) for p in points])
-    node.addChild(coords)
-    faces = coin.SoIndexedFaceSet()
-    index: list[int] = []
-    for a, b, c in triangles:
-        index += [a, b, c, -1]
-    faces.coordIndex.setValues(0, len(index), index)
-    node.addChild(faces)
-    return node
-
-
 class Section:
     """One section plane in one 3D view."""
 
@@ -705,21 +516,51 @@ class Section:
         self._placed = False
         self._root = view.getSceneGraph()
 
+        from . import section_cap
+        #: The plane in world space: it trims the other sections' caps.
         self._clip = coin.SoClipPlane()
-        # After everything else, edge lines included, so none show
-        # through; the callbacks turn the depth test back on.
-        self._cap = coin.SoAnnotation()
-        # Never culled: a box wholly on the clipped side would skip the
-        # stencil set-up and leave the cap drawn everywhere.
-        self._cap.renderCulling = coin.SoSeparator.OFF
-        self._cap.renderCaching = coin.SoSeparator.OFF
-        unpickable = coin.SoPickStyle()
-        unpickable.style = coin.SoPickStyle.UNPICKABLE
-        self._cap.addChild(unpickable)
-        # Counted and capped one solid at a time, each in its own shade.
-        self._make_cap_parts()
-        self._bodies = coin.SoGroup()
-        self._cap.addChild(self._bodies)
+        #: The plane on each solid, in that solid's own view provider.
+        self._clips = section_cap.Clips()
+        self._capper = section_cap.Cap()
+        self._meshes = section_cap.Meshes()
+        self._solids: list[Instance] = []
+        from . import section_fill
+        self._fill = section_fill.QuickFill()
+        #: Which solid each face of the exact cut came from.
+        self._cut_owner: list[tuple[str, int]] = []
+        self._highlight = section_cap.Highlight(
+            self._capper, lambda: {s.name for s in self._solids},
+            lambda obj, sub: self._owner_of(obj, sub, 0))
+        Gui.Selection.addObserver(self._highlight)
+        from . import section_wedge
+        #: The wedge's second plane: its clip for the fill's count, the
+        #: trims each plane's cap gets from the other, its cap and fill,
+        #: and the solids drawn again in front of it.
+        self._clip_b = coin.SoClipPlane()
+        self._not_a = coin.SoClipPlane()
+        self._not_b = coin.SoClipPlane()
+        self._capper_b = section_cap.Cap()
+        self._fill_b = section_fill.QuickFill()
+        self._second = section_wedge.SecondPass()
+        self._highlight_b = section_cap.Highlight(
+            self._capper_b, lambda: {s.name for s in self._solids},
+            lambda obj, sub: self._owner_of(obj, sub, 1))
+        Gui.Selection.addObserver(self._highlight_b)
+        self._wedge = coin.SoSwitch()
+        self._wedge.whichChild = -1
+        wedge_parts = coin.SoGroup()
+        for node in (self._second.root, self._fill_b.switch,
+                     self._capper_b.root):
+            wedge_parts.addChild(node)
+        self._wedge.addChild(wedge_parts)
+        #: World length of one hatch tile at the current zoom.
+        self.hatch_tile = 1.0
+        # Slicing takes time: while the plane moves only the outline is
+        # drawn; the cap's faces follow once it rests.
+        self._cap_timer = QtCore.QTimer()
+        self._cap_timer.setSingleShot(True)
+        self._cap_timer.setInterval(CAP_MS)
+        self._cap_timer.timeout.connect(self._build_cap)
         self._on_camera = self._camera_moved
         self._camera_sensor = coin.SoNodeSensor(self._on_camera, None)
 
@@ -747,23 +588,21 @@ class Section:
         self._on_event = self._event
         cut = getattr(obj, "Cut", None)
         self._cut_name = cut.Name if cut is not None else ""
-        self._settle = QtCore.QTimer()
-        self._settle.setSingleShot(True)
-        self._settle.setInterval(SETTLE_MS)
-        self._settle.timeout.connect(self.cut_exactly)
         from .section_field import OffsetBox, ToolButtons
         self.editing = True
+        #: The task panel while editing (section_task.py).
+        self.task: Any = None
         self._offset_box = OffsetBox(self)
         self._flip_button = ToolButtons(self)
         self._clicks = _ArrowClicks(self)
         view.addEventCallbackPivy(coin.SoEvent.getClassTypeId(),
                                   self._on_event)
 
-        self._clips = _clip_group(self._root)
-        self._clips.addChild(self._clip)
+        self._root.addChild(self._fill.switch)
+        self._root.addChild(self._capper.root)
+        self._root.addChild(self._wedge)
         self.refresh()
         self._root.insertChild(self._handle, 0)
-        self._root.addChild(self._cap)
 
     def _frame(self) -> Any:
         """The plane's outline: drag it to slide the plane."""
@@ -794,6 +633,11 @@ class Section:
         arc_lines.numVertices.setValues(0, 2, [ARC_STEPS, ARC_STEPS])
         arcs.addChild(arc_lines)
         frame.addChild(arcs)
+        self._wing_points = coin.SoCoordinate3()
+        frame.addChild(self._wing_points)
+        wing = coin.SoLineSet()
+        wing.numVertices = 4
+        frame.addChild(wing)
         fill = coin.SoSeparator()
         fill.addChild(_callback(_fill_begin))
         material = coin.SoMaterial()
@@ -808,49 +652,27 @@ class Section:
         frame.addChild(fill)
         return frame
 
-    def _make_cap_parts(self) -> None:
-        """What every solid's cap shares: its quad and its normal."""
-        self.quad_corners: list[tuple[float, float, float]] = []
-        self.cap_normal = (0.0, 0.0, 1.0)
-        #: World length of one hatch tile at the current zoom.
-        self.hatch_tile = 1.0
-        # pivy holds callbacks by a borrowed reference, and the stipple
-        # buffers must outlive every frame that draws them.
-        self._kept: list[Any] = []
-
-    def _body_cap(self, solid: Instance) -> Any:
-        """Count one solid's surfaces, then cap it in its own shade."""
-        from pivy import coin
-        node = coin.SoSeparator()
-        node.renderCulling = coin.SoSeparator.OFF
-        node.renderCaching = coin.SoSeparator.OFF
-        count = coin.SoSeparator()
-        count.renderCulling = coin.SoSeparator.OFF
-
-        def begin(data: Any, action: Any) -> None:
-            if _is_render(action):
-                _count_begin(data, action)
-                _unclip_all(gl())
-
-        self._kept.append(begin)
-        count.addChild(_callback(begin))
-        # Counted against this plane alone: Coin enables it again here,
-        # at whatever GL index it is free, and drops it at the end.
-        count.addChild(self._clip)
-        count.addChild(_mesh(solid.shape))
-        node.addChild(count)
-        cap = shade(desaturate(solid.colour, CAP_DESATURATE), CAP_SHADE)
-        draw = _cap_drawer(self, cap,
-                           pattern_for(solid.name))
-        self._kept.append(draw)
-        node.addChild(_callback(draw))
-        return node
-
     def refresh(self) -> None:
         """Re-read the solids: after a recompute or a visibility change."""
-        solids = cut_instances(self.doc)
-        self._bodies.removeAllChildren()
-        self._kept.clear()
+        solids = cut_instances(self.doc,
+                               excluded=self.setting("Excluded", []))
+        self._solids = solids
+        self._clips.attach(solids)
+        self._meshes.read(solids)
+        meshes = [(points, triangles, self._cap_colour(solid),
+                   pattern_for(solid.name),
+                   pattern_rgba(PATTERNS[pattern_for(solid.name)]),
+                   solid.name)
+                  for solid, points, triangles in self._meshes.items]
+        self._fill.build(meshes, self._clip, INK_SHARE)
+        if self.is_wedge():
+            self._second.attach(self._clips.items)
+            self._fill_b.build(meshes, self._clip_b, INK_SHARE)
+            self._wedge.whichChild = -3
+        else:
+            self._second.detach()
+            self._fill_b.build([], self._clip_b, INK_SHARE)
+            self._wedge.whichChild = -1
         camera = self.view.getCameraNode()
         if self._camera_sensor.getAttachedNode() is not camera:
             self._camera_sensor.detach()
@@ -860,12 +682,6 @@ class Section:
         box = solids[0].shape.BoundBox
         for solid in solids[1:]:
             box.add(solid.shape.BoundBox)
-        for solid in solids:
-            try:
-                self._bodies.addChild(self._body_cap(solid))
-            except Exception as exc:
-                log.error("section: could not mesh %s: %s"
-                          % (solid.name, exc))
         self.span = max(box.DiagonalLength, 1.0)
         if not self._placed:
             self.origin = box.Center
@@ -912,31 +728,166 @@ class Section:
     def move(self, offset: float, from_handle: bool = False) -> None:
         """Put the plane `offset` along its normal from where it began."""
         from pivy import coin
+
+        from . import section_wedge
         self.offset = offset
         n = self.normal
         point = self.origin + n * offset
         behind = point - n * (self.span * CLIP_SLACK)
         self._clip.plane = coin.SbPlane(coin.SbVec3f(n.x, n.y, n.z),
                                         coin.SbVec3f(*behind))
+        self._clips.place(n, behind)
+        self._capper.moving(self._meshes.outline(n, n.dot(point)))
+        wedge = self.is_wedge()
+        trims: list[Plane] = []
+        wing = [point] * 4
+        if wedge:
+            nb, ub = self.normal_b(), self.u_b()
+            behind_b = point - nb * (self.span * CLIP_SLACK)
+            section_wedge.set_world(self._clip_b, nb, behind_b)
+            section_wedge.set_world(self._not_a, n * -1.0, behind)
+            section_wedge.set_world(self._not_b, nb * -1.0, behind_b)
+            self._second.place(n, behind, nb, behind_b)
+            self._capper_b.moving(self._meshes.outline(nb, nb.dot(point)))
+            self._fill_quad(self._fill_b, point, ub, self.v, nb,
+                            [((-n.x, -n.y, -n.z), -n.dot(behind))])
+            self._fill_b.show(True)
+            trims = [((-nb.x, -nb.y, -nb.z), -nb.dot(behind_b))]
+            u0, u1, v0, v1 = self._extents
+            reach = max(abs(u0), abs(u1))
+            out = section_wedge.outward(nb, self.v, n) * reach
+            wing = [point + self.v * v0, point + self.v * v0 + out,
+                    point + self.v * v1 + out, point + self.v * v1]
+        self._wing_points.point.setValues(
+            0, 4, [(p.x, p.y, p.z) for p in wing])
+        self._fill_quad(self._fill, point, self.u, self.v, n, trims)
+        self._fill.show(True)
+        self._cap_timer.start()
         corners = self._frame_corners(point)
         self._frame_points.point.setValues(
             0, 5, [(c.x, c.y, c.z) for c in corners + corners[:1]])
         arc_points = [p for arc in self._arcs(point).values() for p in arc]
         self._arc_points.point.setValues(
             0, len(arc_points), [(p.x, p.y, p.z) for p in arc_points])
-        u, v = self.u, self.v
-        half = self.span
-        corners = [point + u * su * half + v * sv * half
-                   for su, sv in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
-        self.quad_corners = [(c.x, c.y, c.z) for c in corners]
         self._face_viewer()
         self._place_offset_box()
         if not from_handle:
             local = offset / (self.span * HANDLE_SCALE)
             self._dragger.translation = (local, 0, 0)
-        self._settle.start()
 
-    def cut_exactly(self) -> None:
+    def _build_cap(self) -> None:
+        """Slice the solids where the plane is now, and hatch the cut."""
+        from . import section_cap
+        n = self.normal
+        point = self.origin + n * self.offset
+        shapes = [s.shape for s in self._solids]
+        faces = cut_faces(shapes, n, n.dot(point))
+        wedge = self.is_wedge()
+        nb = self.normal_b()
+        faces_b = cut_faces(shapes, nb, nb.dot(point)) if wedge else None
+        self.cut_exactly(faces, faces_b)
+
+        def image_of(solid: Instance) -> bytes:
+            return section_cap.tile_image(
+                pattern_rgba(PATTERNS[pattern_for(solid.name)]), INK_SHARE)
+
+        def look_for(solid: Instance) -> Any:
+            return section_cap.look_of(solid.obj, self._cap_colour(solid))
+
+        self._capper.trim_by([self._not_b] if wedge else [])
+        self._capper.build(self._solids, faces, image_of, look_for,
+                           self.hatch_tile, self.u, self.v, self._facing(),
+                           self.trims_of)
+        self._highlight.sync()
+        self._fill.show(False)
+        for other in self.others():
+            other.cut_exactly()
+        if faces_b is not None:
+            self._capper_b.trim_by([self._not_a])
+            self._capper_b.build(self._solids, faces_b, image_of, look_for,
+                                 self.hatch_tile, self.u_b(), self.v,
+                                 self._facing(nb), self.trims_of)
+            self._highlight_b.sync()
+            self._fill_b.show(False)
+
+    @staticmethod
+    def _cap_colour(solid: Instance) -> tuple[float, float, float]:
+        return shade(desaturate(solid.colour, CAP_DESATURATE), CAP_SHADE)
+
+    def _fill_quad(self, fill: Any, point: App.Vector, u: App.Vector,
+                   v: App.Vector, normal: App.Vector,
+                   trims: list[Plane]) -> None:
+        """A quick fill's quad on its plane, less the other sections."""
+        half = self.span
+        quad = [point + u * su * half + v * sv * half
+                for su, sv in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+        corners = [(c.x, c.y, c.z) for c in quad]
+        fill.corners = clip_polygon(corners, trims)
+        fill.corners_of = {
+            solid.name: clip_polygon(
+                corners, trims + [o.keep_plane() for o in self.others()
+                                  if o.cuts(solid.name)])
+            for solid in self._solids}
+        facing = self._facing(normal)
+        fill.normal = (facing.x, facing.y, facing.z)
+        fill.u = (u.x, u.y, u.z)
+        fill.v = (v.x, v.y, v.z)
+        fill.tile = self.hatch_tile
+        fill.context = id(self.view)
+
+    def setting(self, name: str, default: Any) -> Any:
+        """A property of the section object; its default once it is gone.
+
+        A section whose object was deleted (or undone) takes itself out.
+        """
+        if self.obj is None:
+            return default
+        try:
+            return getattr(self.obj, name, default)
+        except ReferenceError:
+            self.obj = None
+            QtCore.QTimer.singleShot(0, lambda: drop(self))
+            return default
+
+    def is_wedge(self) -> bool:
+        return self.setting("Mode", "Plane") == "Wedge"
+
+    def normal_b(self) -> App.Vector:
+        """The wedge's second plane, hinged on the frame's v axis."""
+        from . import section_wedge
+        return section_wedge.hinged(
+            self.normal, self.v,
+            section_wedge.opening(self.setting("Angle", 90.0)))
+
+    def u_b(self) -> App.Vector:
+        return self.v.cross(self.normal_b())
+
+    def keep_plane(self) -> Plane:
+        """The side the section keeps, as its clip plane has it."""
+        n = self.normal
+        behind = self.origin + n * (self.offset - self.span * CLIP_SLACK)
+        return (n.x, n.y, n.z), n.dot(behind)
+
+    def _owner_of(self, obj: str, sub: str, plane: int) -> str:
+        """The solid a face of the exact cut came from, if on `plane`."""
+        if not self._cut_name or obj != self._cut_name:
+            return ""
+        name = (sub or "").split(".")[-1]
+        if not name.startswith("Face"):
+            return ""
+        try:
+            solid, on = self._cut_owner[int(name[4:]) - 1]
+        except (ValueError, IndexError):
+            return ""
+        return solid if on == plane else ""
+
+    def _facing(self, normal: App.Vector | None = None) -> App.Vector:
+        n = self.normal if normal is None else normal
+        look = App.Vector(self.view.getViewDirection())
+        return n if n.dot(look) < 0 else -n
+
+    def cut_exactly(self, per_solid: list[list[Any]] | None = None,
+                    per_solid_b: list[list[Any]] | None = None) -> None:
         """Put the exact cut in the document, to select and measure.
 
         Its faces are invisible (the hatched cap shows) but pickable;
@@ -944,11 +895,37 @@ class Section:
         so moving the plane leaves nothing to undo.
         """
         import Part
+
+        from . import section_wedge
         n = self.normal
         point = self.origin + n * self.offset
-        solids = cut_instances(self.doc)
-        per_solid = cut_faces([i.shape for i in solids], n, n.dot(point))
-        faces = [face for cut in per_solid for face in cut]
+        shapes = [i.shape for i in self._solids]
+        if per_solid is None:
+            per_solid = cut_faces(shapes, n, n.dot(point))
+        if self.is_wedge():
+            nb = self.normal_b()
+            if per_solid_b is None:
+                per_solid_b = cut_faces(shapes, nb, nb.dot(point))
+            size = self.span * 4
+            per_solid = [section_wedge.behind(a, nb, point, size)
+                         for a in per_solid]
+            per_solid_b = [section_wedge.behind(b, n, point, size)
+                           for b in per_solid_b]
+        else:
+            per_solid_b = [[] for _s in per_solid]
+        faces = []
+        self._cut_owner = []
+        size = self.span * 4
+        for solid, a, b in zip(self._solids, per_solid, per_solid_b):
+            for other in self.others():
+                if other.cuts(solid.name):
+                    keep, at = other.normal, other.origin \
+                        + other.normal * other.offset
+                    a = section_wedge.behind(a, keep * -1.0, at, size)
+                    b = section_wedge.behind(b, keep * -1.0, at, size)
+            for plane, cut in ((0, a), (1, b)):
+                faces += cut
+                self._cut_owner += [(solid.name, plane)] * len(cut)
         cut_obj = (self.doc.getObject(self._cut_name) if self._cut_name
                    else None)
         if cut_obj is None:
@@ -970,6 +947,18 @@ class Section:
             cut_obj.ViewObject.Visibility = True
         self._store()
 
+    def others(self) -> list[Section]:
+        """The other sections cutting this view."""
+        return [s for s in _sections.values()
+                if s is not self and s.view is self.view]
+
+    def cuts(self, name: str) -> bool:
+        return any(s.name == name for s in self._solids)
+
+    def trims_of(self, solid: Instance) -> list[Any]:
+        """Other sections' clips that cut `solid`, so trim its cap."""
+        return [o._clip for o in self.others() if o.cuts(solid.name)]
+
     def _store(self) -> None:
         """Write the plane to the section object, if it has one."""
         obj = self.obj
@@ -978,7 +967,8 @@ class Section:
         base = self.origin + self.normal * self.offset
         for name, value in (("Base", base), ("Normal", self.normal),
                             ("XAxis", self.u)):
-            if (getattr(obj, name) - value).Length > 1e-9:
+            if (self.setting(name, value) - value).Length > 1e-9 \
+                    and self.obj is not None:
                 setattr(obj, name, value)
 
     def _camera_moved(self, _data: Any, _sensor: Any) -> None:
@@ -995,9 +985,12 @@ class Section:
             self._root.insertChild(self._handle, 0)
         elif not editing and shown:
             self._root.removeChild(self._handle)
+        from . import section_task
         if editing:
             self._place_offset_box()
+            section_task.open_for(self)
         else:
+            section_task.close_for(self)
             self._grab = self._tilt = None
             self._offset_box.hide()
             self._flip_button.hide()
@@ -1034,11 +1027,7 @@ class Section:
         self.move(0.0)
 
     def _face_viewer(self) -> None:
-        """Light the cap from whichever side the camera sees it."""
-        n = self.normal
-        look = App.Vector(self.view.getViewDirection())
-        facing = n if n.dot(look) < 0 else -n
-        self.cap_normal = (facing.x, facing.y, facing.z)
+        """Keep the hatch's size on screen as the view zooms."""
         self._map_hatch()
 
     def _map_hatch(self) -> None:
@@ -1051,30 +1040,13 @@ class Section:
         else:
             seen = 2 * camera.focalDistance.getValue() * math.tan(
                 camera.heightAngle.getValue() / 2)
-        self.hatch_tile = snapped_tile(seen / height if height else 0.0)
-
-    def hatch_at(self, corner: Vec3) -> tuple[float, float]:
-        """The hatch texture's coordinates at a point on the plane."""
-        p = App.Vector(*corner)
-        return p.dot(self.u) / self.hatch_tile, p.dot(self.v) / self.hatch_tile
-
-    def keep_plane(self) -> Plane:
-        """The side the section keeps, as its clip plane has it."""
-        n = self.normal
-        behind = self.origin + n * (self.offset - self.span * CLIP_SLACK)
-        return (n.x, n.y, n.z), n.dot(behind)
-
-    def cap_shape(self) -> tuple[list[Vec3], list[tuple[Vec3, Vec3]]]:
-        """The cap's quad, less what other sections cut, and the cut edges.
-
-        The quad is trimmed by this view's other sections; the edges are
-        where they cut it.
-        """
-        others = [s.keep_plane() for s in _sections.values()
-                  if s is not self and self._clips.findChild(s._clip) >= 0]
-        corners = clip_polygon(self.quad_corners, others)
-        return corners, seams(corners, others,
-                              self.span * SEAM_TOLERANCE)
+        tile = snapped_tile(seen / height if height else 0.0)
+        if tile != self.hatch_tile:
+            self.hatch_tile = tile
+            self._fill.tile = tile
+            self._fill_b.tile = tile
+            self._capper.map(tile, self.u, self.v)
+            self._capper_b.map(tile, self.u_b(), self.v)
 
     def _screen(self, p: App.Vector) -> Point:
         """Where a model point shows in the view, in Coin's pixels."""
@@ -1282,17 +1254,19 @@ class Section:
         self._drag_sensor.detach()
         self.view.removeEventCallbackPivy(coin.SoEvent.getClassTypeId(),
                                           self._on_event)
-        self._settle.stop()
+        self._cap_timer.stop()
+        from . import section_task
+        section_task.close_for(self)
+        self._clips.detach()
+        self._second.detach()
+        Gui.Selection.removeObserver(self._highlight)
+        Gui.Selection.removeObserver(self._highlight_b)
         self._camera_sensor.detach()
         self._offset_box.remove()
         self._flip_button.remove()
         self._clicks.stop()
-        if self._clips.findChild(self._clip) >= 0:
-            self._clips.removeChild(self._clip)
-        if self._clips.getNumChildren() == 0 and \
-                self._root.findChild(self._clips) >= 0:
-            self._root.removeChild(self._clips)
-        for node in (self._cap, self._handle):
+        for node in (self._fill.switch, self._capper.root, self._wedge,
+                     self._handle):
             if self._root.findChild(node) >= 0:
                 self._root.removeChild(node)
         cut = self.doc.getObject(self._cut_name) if self._cut_name \
@@ -1303,30 +1277,6 @@ class Section:
             self.doc.removeObject(self._cut_name)
         elif cut.ViewObject is not None:
             cut.ViewObject.Visibility = False
-
-
-#: Per scene root, the group holding every section's clip plane.
-#: The name of the group holding a scene's section clip planes.
-CLIP_GROUP = "NxtSectionClips"
-
-
-def _clip_group(root: Any) -> Any:
-    """The sections' clip planes, first in the scene; made on first use.
-
-    Found by name: pivy hands out a new wrapper for the same root on
-    each getSceneGraph(), so its id() can't key a cache, and a group per
-    section would hide the others from cap_polygon.
-    """
-    from pivy import coin
-    for i in range(root.getNumChildren()):
-        child = root.getChild(i)
-        if child.getName().getString() == CLIP_GROUP:
-            return (child if hasattr(child, "addChild")
-                    else coin.cast(child, "SoGroup"))
-    group = coin.SoGroup()
-    group.setName(CLIP_GROUP)
-    root.insertChild(group, 0)
-    return group
 
 
 def _left_held() -> bool:
@@ -1415,6 +1365,12 @@ class _Recompute:
             if section.doc is doc:
                 section.refresh()
 
+    def slotDeletedObject(self, obj: Any) -> None:  # noqa: N802
+        for section in list(_sections.values()):
+            if section.obj is obj:
+                section.obj = None
+                QtCore.QTimer.singleShot(0, lambda s=section: drop(s))
+
     def slotDeletedDocument(self, doc: Any) -> None:  # noqa: N802
         for key, section in list(_sections.items()):
             if section.doc is doc:
@@ -1449,6 +1405,33 @@ def _watch() -> None:
         _observer = None
 
 
+def _recap() -> None:
+    """Cap every section again: one came or went, so the trims change."""
+    for section in _sections.values():
+        section._cap_timer.start()
+
+
+def drop(section: Section) -> None:
+    """Take out a section whose object is gone."""
+    for key, other in list(_sections.items()):
+        if other is section:
+            del _sections[key]
+            section.remove()
+            _recap()
+    _watch()
+
+
+def changed(obj: Any) -> None:
+    """The section object's settings changed: cut again."""
+    try:
+        section = _sections.get(_key(obj))
+    except Exception:
+        return
+    if section is not None:
+        section.refresh()
+        _recap()
+
+
 def running(obj: Any) -> bool:
     return _key(obj) in _sections
 
@@ -1465,6 +1448,7 @@ def start(obj: Any, editing: bool) -> Section | None:
     section.set_editing(editing)
     _sections[_key(obj)] = section
     _watch()
+    _recap()
     return section
 
 
@@ -1472,6 +1456,7 @@ def stop(obj: Any, delete_cut: bool = False) -> None:
     section = _sections.pop(_key(obj), None)
     if section is not None:
         section.remove(delete_cut)
+        _recap()
     elif delete_cut:
         cut = getattr(obj, "Cut", None)
         if cut is not None:

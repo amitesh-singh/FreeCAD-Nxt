@@ -34,8 +34,12 @@ class InspectorBridge(QtCore.QObject):
     nativeRequested = QtCore.Signal(str)
 
     def __init__(self, parent: QtCore.QObject | None = None,
-                 task: bool = False) -> None:
+                 task: bool = False,
+                 target: Callable[[], Any] | None = None) -> None:
         super().__init__(parent)
+        #: In a task of Nxt's own: what it edits, rather than FreeCAD's
+        #: object in edit.
+        self._target = target
         #: Inside a task dialog (task_layout.py): the object it edits,
         #: never the selection; the Data tab, a template's cards only.
         self._task = task
@@ -75,7 +79,7 @@ class InspectorBridge(QtCore.QObject):
         if self._picking:
             return list(self._pick_for)
         if self._task:
-            editing = _in_edit()
+            editing = self._target() if self._target else _in_edit()
             return [] if editing is None else [editing]
         try:
             return list(Gui.Selection.getSelection())

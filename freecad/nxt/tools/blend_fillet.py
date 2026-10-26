@@ -2502,8 +2502,15 @@ def _capped(shape: Any, edge: Any, tool: Any, radius: float) -> Any:
             stops.append((face, near))
 
     mitres = []
+    # Ends at a junction stop short of it (_stops) and the junction's
+    # own blend fills the corner: a mitre there would cut the round back
+    # further, leaving a wedge between it and the blend.
+    stopped = _stops[-1].get(_index_of(edge), []) if _stops else []
     for vertex in edge.Vertexes:
         if _joined(vertex.Point, tolerance * 10):
+            continue
+        if any((vertex.Point - point).dot(towards) > 0
+               for point, towards in stopped):
             continue
         plane = _mitre(shape, edge, vertex.Point)
         if plane is not None:
@@ -2772,6 +2779,92 @@ def refine_by_default() -> bool:
                         "PartDesign").GetBool("RefineModel", True)
 
 
+def _same_kind(feature: Any, like: Any) -> bool:
+    """`feature` is an Nxt fillet, or chamfer, made as `like` is."""
+    proxy = getattr(feature, "Proxy", None)
+    mine = getattr(like, "Proxy", None)
+    if mine is None or proxy is None or type(proxy) is not type(mine):
+        return False
+    size = mine.size(like)
+    if abs(proxy.size(feature) - size) > size * 1e-6:
+        return False
+    return getattr(feature, "Corners", None) == getattr(like, "Corners", None)
+
+
+def _on_earlier(edge: Any, earlier: Any) -> Any:
+    """The edge of `earlier` that `edge` lies along, or None."""
+    middle = edge.valueAt((edge.FirstParameter + edge.LastParameter) / 2)
+    tangent = edge.tangentAt((edge.FirstParameter + edge.LastParameter) / 2)
+    tolerance = max(earlier.BoundBox.DiagonalLength * 1e-6, 1e-6)
+    for candidate in earlier.Edges:
+        if candidate.distToShape(Part.Vertex(middle))[0] > tolerance:
+            continue
+        try:
+            u = candidate.Curve.parameter(middle)
+            if abs(abs(candidate.tangentAt(u).dot(tangent)) - 1) < 1e-4:
+                return candidate
+        except Exception:  # noqa: BLE001 - not this one
+            continue
+    return None
+
+
+def _with_earlier(obj: Any, shape: Any, edges: list[Any]
+                  ) -> tuple[Any, list[Any]]:
+    """The shape and edges to round, an earlier feature taken in.
+
+    Outer edges running into what the Nxt fillet (or chamfer) just
+    before made, of the same size, are rounded together with that
+    feature's own edges, on its base: the corner they share comes out as
+    it would done at once, as in other CAD systems, whatever the order.
+    Its other rounds come out as they were. Edges on what it made go
+    with it.
+    """
+    # Outer edges only: a hollow round at the foot of an earlier outer one
+    # runs out on it, in turn, as other CAD systems do too.
+    if not edges or not all(_convex_edge(shape, e) for e in edges):
+        return shape, edges
+    size = obj.Proxy.size(obj)
+    base = obj.BaseFeature
+    first = shape, edges
+    while _same_kind(base, obj):
+        earlier_base = getattr(base, "BaseFeature", None)
+        if earlier_base is None:
+            break
+        earlier = _usable(earlier_base.Shape)
+        made = list(generated_faces(shape, earlier).Faces)
+        ends = [v for e in edges for v in e.Vertexes]
+        if not made or not any(f.distToShape(v)[0] <= size * 2
+                               for f in made for v in ends):
+            break
+        try:
+            theirs = [earlier.getElement(n)
+                      for n in base.Proxy.names(base, earlier)]
+        except Exception:  # noqa: BLE001 - as they are then
+            break
+        if not theirs or not all(_convex_edge(earlier, e) for e in theirs):
+            break
+        tolerance = max(shape.BoundBox.DiagonalLength * 1e-6, 1e-6)
+        mine = []
+        for edge in edges:
+            middle = Part.Vertex(edge.valueAt(
+                (edge.FirstParameter + edge.LastParameter) / 2))
+            if any(m.distToShape(middle)[0] < tolerance for m in made):
+                continue
+            found = _on_earlier(edge, earlier)
+            if found is None:
+                return first
+            mine.append(found)
+        if not mine:
+            # Nothing past what it made: nothing for this one to add.
+            return first
+        merged = list(mine)
+        for edge in theirs:
+            if not any(edge.isSame(e) for e in merged):
+                merged.append(edge)
+        shape, edges, base = earlier, merged, earlier_base
+    return shape, edges
+
+
 class BlendFillet:
     """Document object proxy for the Nxt fillet feature."""
 
@@ -2827,10 +2920,13 @@ class BlendFillet:
             raise ValueError("Nxt fillet has no base feature")
         with timed("%s: edges gathered" % obj.Label):
             # Features apply in order, each on the one before, as in other
-            # CAD systems: an earlier one is never worked out again.
+            # CAD systems: an earlier one is worked out again only where
+            # this one meets it at a corner (_with_earlier).
             shape = _usable(obj.BaseFeature.Shape)
             names = self.names(obj, shape)
             edges = [shape.getElement(n) for n in names]
+            own = shape
+            shape, edges = _with_earlier(obj, shape, edges)
             sizes = [self.size(obj)] * len(edges)
         # While its task panel is open: no refining (on OK instead), and
         # the size limits the panel shows.
@@ -2843,7 +2939,8 @@ class BlendFillet:
             result, problems = fillet(
                 shape, edges, sizes, self.FLAT,
                 getattr(obj, "Refine", True) and not editing,
-                found if editing and not dragging else None,
+                found if editing and not dragging and shape is own
+                else None,
                 mended=not dragging)
         self.problems = problems
         if not dragging:
@@ -2857,7 +2954,7 @@ class BlendFillet:
         if editing and hasattr(obj, "PreviewShape"):
             # Part Design's own preview shows this, as for its dress-ups.
             with timed("preview faces"):
-                obj.PreviewShape = generated_faces(result, shape)
+                obj.PreviewShape = generated_faces(result, own)
 
     def dumps(self) -> None:
         return None

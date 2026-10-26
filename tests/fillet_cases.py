@@ -113,6 +113,21 @@ def kidney(r1, r2, gap, height, bulge):
     return Part.Face(wire).extrude(V(0, 0, height)), m2
 
 
+def frustum(bottom=17.5, top=8.121785, height=35.0):
+    """A square pyramid cut flat: the pyramid.FCStd of a report."""
+    def corners(half, z):
+        return [V(-half, -half, z), V(half, -half, z), V(half, half, z),
+                V(-half, half, z)]
+
+    low, high = corners(bottom, 0), corners(top, height)
+    loops = [low[::-1], high] + [
+        [low[i], low[(i + 1) % 4], high[(i + 1) % 4], high[i]]
+        for i in range(4)]
+    faces = [Part.Face(Part.makePolygon(loop + loop[:1])) for loop in loops]
+    solid = Part.Solid(Part.Shell(faces))
+    return solid if solid.Volume > 0 else solid.reversed()
+
+
 def plate(length, width, height, at=V()):
     return Part.makeBox(length, width, height, at)
 
@@ -171,6 +186,33 @@ def build(doc):
     c = case("Box_corner", plate(40, 30, 20),
              "Three edges meeting at a corner, equal r 4: sphere corner.")
     c.add([V(40, 15, 20), V(20, 30, 20), V(40, 30, 10)], 4.0)
+
+    # A tapered pyramid's top corner: rounded at once, or one edge at a
+    # time in any order, the corner is the same sphere (as in Onshape).
+    # Picked towards the top edges' far ends: an 8 mm chamfer of the
+    # slanted edge first takes their middles.
+    top = (V(8.12178, -6, 35), V(-6, 8.12178, 35))
+    slant = V(12.81, 12.81, 17.5)
+    c = case("Pyramid_corner", frustum(),
+             "Three edges at a tapered pyramid's corner, r 8, at once.")
+    c.add([top[0], top[1], slant], 8.0)
+    # Tangent edges taken along: the second pick runs on round the first
+    # round to the third edge, so two picks finish the corner.
+    for name, order in (("a", (slant, top[0])),
+                        ("b", (top[0], top[1])),
+                        ("c", (top[0], slant))):
+        c = case("Pyramid_order_" + name, frustum(),
+                 "The same corner, one edge at a time: the same result.")
+        if FLAT:
+            # Chamfers take no tangent edges along: the third is picked.
+            order += tuple(p for p in (slant,) + top if p not in order)
+        for pick in order:
+            c.add([pick], 8.0)
+    c = case("Pyramid_order_d", frustum(),
+             "The same corner one edge at a time, no tangent edges taken "
+             "along: still the same result.")
+    for pick in (top[1], top[0], slant):
+        c.add([pick], 8.0, tangent=False)
 
     if FLAT:
         c = case("Box_corner_point", plate(40, 30, 20),

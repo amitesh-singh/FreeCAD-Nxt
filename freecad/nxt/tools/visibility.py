@@ -26,6 +26,31 @@ STOCK = "Std_ToggleVisibility"
 #: ShortcutOverride, so there FreeCAD's command loses its Space and Nxt
 #: hands it the keys it does not take.
 NATIVE_MENU_BAR = sys.platform == "darwin"
+#: The Nxt tree's panel (tree/panel.py OBJECT_NAME).
+TREE_PANEL = "NxtModelPanel"
+#: Keys the Nxt tree claims (NxtTree.qml, Keys.onShortcutOverride).
+TREE_KEYS = ("Space", "Home", "End", "Del", "Backspace")
+
+
+def in_tree(widget: Any) -> bool:
+    """Whether `widget` is inside the Nxt tree's panel."""
+    while widget is not None:
+        if widget.objectName() == TREE_PANEL:
+            return True
+        widget = widget.parentWidget()
+    return False
+
+
+def tree_claims(sequence: Any) -> bool:
+    """A shortcut the Nxt tree handles itself, while it has the focus.
+
+    Some Qt builds (6.8 on Windows) look for the shortcut again once the
+    key reaches the tree's offscreen window, after the tree claimed it,
+    so FreeCAD's command runs as well as the tree's: Space toggled
+    twice. The command's shortcut event is dropped instead.
+    """
+    return sequence.toString() in TREE_KEYS \
+        and in_tree(QtWidgets.QApplication.focusWidget())
 
 
 def _is(obj: Any, type_name: str) -> bool:
@@ -228,6 +253,11 @@ class SpaceInView(ApplicationEventFilter):
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
         # Sees every application event: cheap test first.
         kind = event.type()
+        if kind == QtCore.QEvent.Type.Shortcut:
+            try:
+                return tree_claims(event.key())
+            except Exception:
+                return False
         if kind not in (QtCore.QEvent.Type.ShortcutOverride,
                         QtCore.QEvent.Type.KeyPress):
             return False

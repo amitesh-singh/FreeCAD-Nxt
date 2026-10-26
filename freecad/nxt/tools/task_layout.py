@@ -38,6 +38,13 @@ def _short(widget: Any) -> str:
     return widget.metaObject().className().split("::")[-1]
 
 
+def _dialog_open() -> bool:
+    try:
+        return bool(Gui.Control.activeDialog())
+    except Exception:
+        return False
+
+
 def _task_view() -> Any:
     main = Gui.getMainWindow()
     if main is None:
@@ -46,6 +53,83 @@ def _task_view() -> Any:
         if widget.metaObject().className() == "Gui::TaskView::TaskView":
             return widget
     return None
+
+
+class NativeChoices(QtCore.QObject):
+    """A drop-down's list as a Qt menu: it may reach past the view."""
+
+    def __init__(self, view: Any) -> None:
+        super().__init__(view)
+        self._view = view
+
+    @QtCore.Slot(list, list, str, float, float, float, result=str)
+    def choose(self, options: list[Any], labels: list[Any], current: str,
+               x: float, y: float, width: float) -> str:
+        menu = QtWidgets.QMenu(self._view)
+        menu.setMinimumWidth(int(width))
+        chosen: dict[Any, str] = {}
+        for index, value in enumerate(options):
+            label = labels[index] if index < len(labels) and labels[index] \
+                else value
+            action = menu.addAction(str(label))
+            action.setCheckable(True)
+            action.setChecked(str(value) == current)
+            chosen[action] = str(value)
+        picked = menu.exec(self._view.mapToGlobal(
+            QtCore.QPoint(int(x), int(y))))
+        menu.deleteLater()
+        return chosen.get(picked, "")
+
+
+class _Keyboard(QtCore.QObject):
+    """A press in the view gives it the keyboard, as a field expects.
+
+    In FreeCAD's overlay mode the panel floats over the 3D view, whose
+    window keeps the keys unless the view's window is made active too, as
+    the Nxt tree does (panel.takeKeyboard).
+    """
+
+    def __init__(self, view: Any) -> None:
+        super().__init__(view)
+        self._view = view
+        view.installEventFilter(self)
+
+    def eventFilter(self, _obj: Any, event: Any) -> bool:  # noqa: N802
+        if event.type() == QtCore.QEvent.Type.MouseButtonPress:
+            try:
+                self._view.activateWindow()
+                self._view.setFocus(QtCore.Qt.FocusReason.MouseFocusReason)
+            except RuntimeError:
+                pass
+        return False
+
+
+class _Repaint(QtCore.QObject):
+    """Repaint what holds the view after each frame it draws.
+
+    In FreeCAD's overlay mode the task panel is drawn by its overlay,
+    which does not notice the view's own frames: the cards changed, but
+    showed their old picture until the window was redrawn.
+    """
+
+    def __init__(self, view: Any) -> None:
+        super().__init__(view)
+        self._view = view
+        self._timer = QtCore.QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.setInterval(0)
+        self._timer.timeout.connect(self._repaint)
+        # A QQuickWidget's scene draws offscreen: its window says when.
+        view.quickWindow().afterRendering.connect(
+            self._timer.start, QtCore.Qt.ConnectionType.QueuedConnection)
+
+    def _repaint(self) -> None:
+        widget = self._view
+        while widgets.alive(widget):
+            widget.update()
+            if "Overlay" in widget.metaObject().className():
+                break
+            widget = widget.parentWidget()
 
 
 class _OnShow(QtCore.QObject):
@@ -74,6 +158,11 @@ def _discard(cards: Any, bridge: Any) -> None:
         cards.deleteLater()
 
 
+def _with_choices(view: Any) -> None:
+    view.rootContext().setContextProperty("nativeChoices",
+                                          NativeChoices(view))
+
+
 class TaskLayout(QtCore.QObject):
     """Watches FreeCAD's task panel and swaps the boxes it can lay out."""
 
@@ -84,6 +173,10 @@ class TaskLayout(QtCore.QObject):
         self._find = QtCore.QTimer(self)
         self._find.setInterval(FIND_MS)
         self._find.timeout.connect(self._watch)
+        self._later = QtCore.QTimer(self)
+        self._later.setSingleShot(True)
+        self._later.setInterval(0)
+        self._later.timeout.connect(self._swap)
 
     def install(self) -> None:
         self._find.start()
@@ -91,6 +184,7 @@ class TaskLayout(QtCore.QObject):
 
     def remove(self) -> None:
         self._find.stop()
+        self._later.stop()
         if widgets.alive(self._view):
             self._view.removeEventFilter(self)
         self._view = None
@@ -109,15 +203,17 @@ class TaskLayout(QtCore.QObject):
             self._swap()
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
+        # Never inside the event: FreeCAD's watcher update re-enters
+        # itself if its panel is searched while it is being rebuilt.
         if watched is self._view and event.type() in _FILLING \
                 and not self._busy:
-            self._swap()
+            self._later.start()
         return False
 
     def _swap(self) -> None:
         """Each replaceable box, hidden, with the cards in its place."""
         view = self._view
-        if not widgets.alive(view):
+        if not widgets.alive(view) or not _dialog_open():
             return
         self._busy = True
         try:
@@ -151,7 +247,11 @@ class TaskLayout(QtCore.QObject):
         cards = quick_host.make_view(
             holder, "TaskLayout.qml",
             {"expressions": expressions.helper(), "inspector": bridge,
-             "theme": theme})
+             "theme": theme, "nativeChoices": None},
+            prepare=_with_choices)
+        cards.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
+        cards.nxt_keys = _Keyboard(cards)  # type: ignore[attr-defined]
+        cards.nxt_paint = _Repaint(cards)  # type: ignore[attr-defined]
         bridge.setParent(cards)
         cards.setClearColor(QtGui.QColor(theme.background))
         root = cards.rootObject()

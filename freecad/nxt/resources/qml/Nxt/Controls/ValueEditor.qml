@@ -71,6 +71,17 @@ Item {
         spec = spec || editor.spec;
         done = done || editor.edited;
         var root = anchor.Window.contentItem;
+        // A view only as tall as its content (a task dialog's) cannot show
+        // the list: its host offers a menu of its own instead.
+        if (typeof nativeChoices !== "undefined" && nativeChoices) {
+            var at = anchor.mapToItem(root, 0, anchor.height);
+            var picked = nativeChoices.choose(
+                spec.options, spec.optionLabels || [], spec.text || "",
+                at.x, at.y, anchor.width);
+            if (picked.length > 0 && picked !== spec.text)
+                done(picked);
+            return;
+        }
         var list = choices.createObject(root, {
             options: spec.options,
             labels: spec.optionLabels || [],

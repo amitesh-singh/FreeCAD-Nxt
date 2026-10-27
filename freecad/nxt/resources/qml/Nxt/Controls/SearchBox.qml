@@ -9,6 +9,9 @@ Item {
     property string placeholder: qsTr("search")
     property int current: 0
     property bool open: false
+    //: The hits list's width, and where it starts, from the field's left.
+    property real listWidth: width
+    property real listX: 0
 
     signal queryChanged(string text)
     signal chosen(string name)
@@ -84,7 +87,8 @@ Item {
         visible: box.open && box.results.length > 0
         z: 10
         y: field.y + field.height + 4
-        width: parent.width
+        width: Math.max(box.width, box.listWidth)
+        x: box.listX
         height: Math.min(6, box.results.length) * rowHeight + 8
         color: theme.background
         border.width: 1

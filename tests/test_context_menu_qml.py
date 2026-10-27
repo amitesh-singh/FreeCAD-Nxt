@@ -98,6 +98,17 @@ def settle(seconds: float = 0.15) -> None:
         app.processEvents()
 
 
+def until(condition: Any, seconds: float = 3.0) -> bool:
+    """Wait for `condition`: a slow runner draws and times out later."""
+    end = QtCore.QTime.currentTime().addMSecs(int(seconds * 1000))
+    while True:
+        if condition():
+            return True
+        if QtCore.QTime.currentTime() >= end:
+            return bool(condition())
+        app.processEvents()
+
+
 def check(name: str, condition: bool) -> None:
     print("  %-56s %s" % (name, "ok" if condition else "FAIL"))
     if not condition:
@@ -129,14 +140,22 @@ def open_menu() -> Any:
     menu = QtCore.QMetaObject.invokeMethod(
         root, "open", QtCore.Qt.ConnectionType.DirectConnection,
         QtCore.Q_RETURN_ARG("QVariant"), QtCore.Q_ARG("QVariant", MENU))
+    until(lambda: len(shown_windows()) == 1)
     settle()
     return menu
 
 
-def popup_windows() -> list[QtGui.QWindow]:
-    settle(0.05)
+def shown_windows() -> list[QtGui.QWindow]:
     return [w for w in app.topLevelWindows()
             if w is not view and w.isVisible()]
+
+
+def popup_windows(count: int | None = None) -> list[QtGui.QWindow]:
+    """The menu's windows; with `count`, once that many are up."""
+    if count is not None:
+        until(lambda: len(shown_windows()) == count)
+    settle(0.05)
+    return shown_windows()
 
 
 def items_of(item: Any, class_prefix: str) -> list[Any]:
@@ -222,12 +241,12 @@ check("sections are labelled, in order",
 
 print("closing")
 key(window, "Escape")
-check("Escape closes it", not popup_windows())
+check("Escape closes it", not popup_windows(0))
 open_menu()
 QTest.mouseClick(view, QtCore.Qt.MouseButton.LeftButton,
                  QtCore.Qt.KeyboardModifier.NoModifier, QtCore.QPoint(5, 190))
 settle()
-check("a click elsewhere closes it", not popup_windows())
+check("a click elsewhere closes it", not popup_windows(0))
 check("and runs nothing", ran() == [])
 
 print("mouse")
@@ -235,16 +254,18 @@ open_menu()
 window = popup_windows()[0]
 click(window, "Why did it fail?")
 check("a row runs its command and closes the menu",
-      ran() == ["nxt:reveal_failure"] and not popup_windows())
+      until(lambda: ran() == ["nxt:reveal_failure"])
+      and not popup_windows(0))
 open_menu()
 click(popup_windows()[0], "Fit")
 check("a bar button runs its command and closes the menu",
-      ran()[-1] == "Std_ViewFitSelection" and not popup_windows())
+      until(lambda: ran()[-1:] == ["Std_ViewFitSelection"])
+      and not popup_windows(0))
 
 open_menu()
 window = popup_windows()[0]
 hover(window, "More")
-windows = popup_windows()
+windows = popup_windows(2)
 check("hovering More opens it as a submenu", len(windows) == 2)
 more = next((w for w in windows if w is not window), None)
 shown = window_texts(more) if more is not None else []
@@ -260,7 +281,8 @@ if more is not None:
           len(ran()) == before)
     click(more, "Copy")
     check("a More entry runs and closes both",
-          ran()[-1] == "Std_Copy" and not popup_windows())
+          until(lambda: ran()[-1:] == ["Std_Copy"])
+          and not popup_windows(0))
 
 print("keyboard")
 open_menu()
@@ -270,25 +292,26 @@ key(window, "Down")
 key(window, "Down")
 key(window, "Return")
 check("Down past the bar and the lead runs the state row",
-      ran()[-1] == "nxt:reveal_failure")
+      until(lambda: ran()[-1:] == ["nxt:reveal_failure"]))
 open_menu()
 window = popup_windows()[0]
 key(window, "Down")
 key(window, "Return")
 check("Down stops on the bar; Enter runs its first button",
-      ran()[-1] == "nxt:isolate")
+      until(lambda: ran()[-1:] == ["nxt:isolate"]))
 open_menu()
 window = popup_windows()[0]
 key(window, "Down")
 key(window, "Right")
 key(window, "Return")
-check("Right moves along the bar", ran()[-1] == "Std_ViewFitSelection")
+check("Right moves along the bar",
+      until(lambda: ran()[-1:] == ["Std_ViewFitSelection"]))
 
 print("expressions")
 open_menu()
 window = popup_windows()[0]
 hover(window, "Expressions")
-windows = popup_windows()
+windows = popup_windows(2)
 check("Expressions opens as a submenu", len(windows) == 2)
 sub = next((w for w in windows if w is not window), None)
 if sub is not None:
@@ -296,7 +319,8 @@ if sub is not None:
           window_texts(sub) == ["Copy selected", "Copy active document",
                                 "Copy all documents", "Paste"])
     click(sub, "Paste")
-    check("which run", ran()[-1] == "nxt:expressions_paste")
+    check("which run",
+          until(lambda: ran()[-1:] == ["nxt:expressions_paste"]))
 
 print("PROBLEMS: %d" % len(problems))
 for problem in problems:

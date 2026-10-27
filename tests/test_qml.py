@@ -501,7 +501,12 @@ def run(overlay):
         problems.append("header not found")
 
     # The document name should not be truncated while the search field
-    # beside it still has room to give.
+    # beside it still has room to give: it gives way down to its floor,
+    # half the room it has with no name.
+    search = [c for c in visual_tree(root)
+              if c.objectName() == "treeSearch"]
+    floor_reached = bool(search) and search[0].property("width") <= (
+        search[0].parentItem().property("searchFloor") + 0.5)
     labels = [c for c in visual_tree(root)
               if c.metaObject().className().startswith("QQuickText") and
               c.property("text") == "PartDesignExample"]
@@ -509,7 +514,7 @@ def run(overlay):
         w = labels[0].property("width")
         iw = labels[0].property("implicitWidth")
         print("     doc label: width %.0f of implicit %.0f" % (w, iw))
-        if w < iw - 0.5:
+        if w < iw - 0.5 and not floor_reached:
             problems.append("overlay=%s: document name truncated at %.0f "
                             "when it wants %.0f" % (overlay, w, iw))
     else:
@@ -939,4 +944,8 @@ print("PROBLEMS:", len(problems))
 for text in problems:
     print("  *", text)
 print("HARNESS", "FAILED" if problems else "PASSED")
+# os._exit skips Python's own exit, flushes included: a piped stdout (CI)
+# lost everything after its last full buffer, the problems too.
+sys.stdout.flush()
+sys.stderr.flush()
 os._exit(1 if problems else 0)

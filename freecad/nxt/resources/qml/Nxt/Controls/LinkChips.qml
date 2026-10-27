@@ -8,6 +8,8 @@ Flow {
     property var items: []          // [{key, label, sub}]
     property bool editable: true
     property bool picking: false
+    //: What to pick, said while picking.
+    property string hint: ""
     signal removed(string key)
     signal pickRequested()
 
@@ -115,7 +117,7 @@ Flow {
         visible: chips.picking
         height: theme.fieldHeight
         verticalAlignment: Text.AlignVCenter
-        text: qsTr("Pick in the tree or 3D view")
+        text: chips.hint || qsTr("Pick in the tree or 3D view")
         font.pixelSize: theme.fontAside
         font.italic: true
         color: theme.accent

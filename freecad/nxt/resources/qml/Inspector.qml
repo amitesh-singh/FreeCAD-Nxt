@@ -13,6 +13,9 @@ Rectangle {
     property bool bare: false
     //: The cards, whose height the task dialog sizes itself to.
     readonly property alias cards: groups
+    //: Room the warning above the cards takes.
+    readonly property real noticeHeight: alert.visible
+                                         ? alert.height + root.gap : 0
     color: bare ? "transparent" : theme.background
 
     readonly property int pad: 8
@@ -65,10 +68,21 @@ Rectangle {
     }
 
 
-    ListView {
-        id: groups
+    // What is wrong with the object: its recompute failed, or a pick it
+    // cannot take.
+    Notice {
+        id: alert
         anchors.top: top.bottom
         anchors.topMargin: root.bare ? 0 : root.gap
+        x: root.pad
+        width: root.width - 2 * root.pad
+        text: inspector.notice || ""
+    }
+
+    ListView {
+        id: groups
+        anchors.top: alert.visible ? alert.bottom : top.bottom
+        anchors.topMargin: root.bare && !alert.visible ? 0 : root.gap
         anchors.bottom: parent.bottom
         width: root.width
         clip: true

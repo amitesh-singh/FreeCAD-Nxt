@@ -31,6 +31,7 @@ class InspectorBridge(QtCore.QObject):
     """Serves `inspector.describe` for the selection, and applies edits."""
 
     changed = QtCore.Signal()
+    noticeChanged = QtCore.Signal()
     nativeRequested = QtCore.Signal(str)
 
     def __init__(self, parent: QtCore.QObject | None = None,
@@ -44,6 +45,11 @@ class InspectorBridge(QtCore.QObject):
         #: never the selection; the Data tab, a template's cards only.
         self._task = task
         self._groups: list[dict[str, Any]] = []
+        #: What is wrong with the object, shown above its cards.
+        self._notice = ""
+        #: Per panel list picking its reference: the item chosen before,
+        #: its "Select reference..." item, and what has been picked.
+        self._picks: dict[str, dict[str, str]] = {}
         self._title = ""
         self._tab = inspector.DATA
         self._filter = ""
@@ -112,6 +118,13 @@ class InspectorBridge(QtCore.QObject):
         self._groups = inspector.describe(objects, self._tab, self._filter)
         if self._task:
             self._groups = [g for g in self._groups if g.get("template")]
+            if len(objects) == 1:
+                lists = task_sync.combos(objects[0])
+                self._follow_picks(objects, lists)
+                task_sync.as_combo(
+                    self._groups, lists,
+                    {p: pick["picked"] for p, pick in self._picks.items()})
+        self._set_notice(objects)
         for group in self._groups:
             if group["name"] in self._opened and not self._filter:
                 group["open"] = self._opened[group["name"]]
@@ -128,6 +141,28 @@ class InspectorBridge(QtCore.QObject):
         self.changed.emit()
 
     # -- what QML reads --
+
+    def _set_notice(self, objects: list[Any]) -> None:
+        notice = ""
+        if self._picks:
+            wrong = task_sync.not_an_axis()
+            if wrong:
+                notice = ("%s can't give an axis: pick a straight edge, a "
+                          "circle, a flat face or an axis." % wrong)
+        if not notice and len(objects) == 1:
+            obj = objects[0]
+            if "Invalid" in (getattr(obj, "State", None) or ()):
+                try:
+                    notice = str(obj.getStatusString())
+                except Exception:
+                    notice = "This feature failed to recompute."
+        if notice != self._notice:
+            self._notice = notice
+            self.noticeChanged.emit()
+
+    @QtCore.Property(str, notify=noticeChanged)
+    def notice(self) -> str:
+        return self._notice
 
     @QtCore.Property(list, notify=changed)
     def groups(self) -> list[dict[str, Any]]:
@@ -200,11 +235,13 @@ class InspectorBridge(QtCore.QObject):
                 edits = coupled
             if not edits:
                 return
+            self._remember_pick(objects, prop, value)
             # Open task panels take the edit so previews follow.
             rest = [(p, v) for p, v in edits
                     if not task_sync.set_in_task(
                         objects, p, v, unit if p == prop else "")]
             if not rest:
+                self._recompute(objects)
                 self.refresh()
                 return
             edits = rest
@@ -213,8 +250,80 @@ class InspectorBridge(QtCore.QObject):
                           for p, v in edits], self._tab):
             self.refresh()
 
+    @QtCore.Slot(str, int, result=float)
+    def wheelStep(self, unit: str, modifiers: int) -> float:  # noqa: N802
+        """One wheel notch on a field of `unit`, as the drag handles step."""
+        from ..tools import gizmos
+        return gizmos.wheel_step(gizmos.read(), unit, modifiers)
+
+    def _remember_pick(self, objects: list[Any], prop: str,
+                       value: Any) -> None:
+        """Choosing a list's "Select reference...": keep what it was.
+
+        Any other choice ends its picking.
+        """
+        if len(objects) != 1:
+            return
+        lists = task_sync.combos(objects[0])
+        if prop not in lists:
+            return
+        items, current = lists[prop]
+        select = task_sync.select_item(items)
+        if select and str(value) == select:
+            if prop not in self._picks:
+                self._picks[prop] = {"before": current, "select": select,
+                                     "picked": ""}
+        else:
+            self._picks.pop(prop, None)
+
+    @staticmethod
+    def _pick_again(objects: list[Any], prop: str,
+                    select: str) -> Callable[[], None]:
+        def again() -> None:
+            task_sync.set_in_task(objects, prop, select)
+        return again
+
+    def _follow_picks(self, objects: list[Any],
+                      lists: dict[str, tuple[list[str], str]]) -> None:
+        """A pick the panel took: hold it, and pick on until ticked.
+
+        The panel leaves picking once it takes one; it is sent back to
+        "Select reference..." so a different pick can replace it.
+        """
+        for prop, pick in list(self._picks.items()):
+            if prop not in lists:
+                self._picks.pop(prop)
+                continue
+            items, current = lists[prop]
+            if current == pick["select"]:
+                continue
+            pick["picked"] = current
+            select = task_sync.select_item(items)
+            if select:
+                pick["select"] = select
+                self._defer(self._pick_again(objects, prop, select))
+
+    @staticmethod
+    def _recompute(objects: list[Any]) -> None:
+        """The feature again, as its panel's own preview does."""
+        for obj in objects:
+            try:
+                doc = obj.Document
+                if hasattr(doc, "recomputeFeature"):
+                    doc.recomputeFeature(obj)
+                else:
+                    obj.recompute()
+            except Exception:
+                pass
+
     @QtCore.Slot(str, str)
     def removeLink(self, prop: str, key: str) -> None:
+        if prop.endswith(task_sync.PICKING):
+            pick = self._picks.get(prop[:-len(task_sync.PICKING)])
+            if pick is not None:
+                pick["picked"] = ""
+                self.refresh()
+            return
         self._defer(lambda: self._remove_link(prop, key))
 
     def _remove_link(self, prop: str, key: str) -> None:
@@ -223,7 +332,20 @@ class InspectorBridge(QtCore.QObject):
 
     @QtCore.Slot(str)
     def pickLinks(self, prop: str) -> None:
-        """Start, or with the same property end, picking for a link."""
+        """Start, or with the same property end, picking for a link.
+
+        A panel list's reference row ends its picking with what it holds,
+        or with what the list had before if nothing was picked.
+        """
+        if prop.endswith(task_sync.PICKING):
+            listed = prop[:-len(task_sync.PICKING)]
+            pick = self._picks.pop(listed, None)
+            objects = self._objects()
+            chosen = pick["picked"] or pick["before"] if pick else ""
+            if chosen and task_sync.set_in_task(objects, listed, chosen):
+                self._recompute(objects)
+            self.refresh()
+            return
         if self._picking:
             done = self._picking == prop
             self._end_pick()

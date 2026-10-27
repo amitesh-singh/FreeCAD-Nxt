@@ -167,3 +167,80 @@ items = [
     { prop = "Refine", editor = "switch" },
     { prop = "SupportTransform", label = "Pattern with its base feature", editor = "switch", wide = true },
 ]
+
+# Revolution and Groove, laid out as Pad and Pocket: the profile, the
+# axis it turns about (reversed beside it), how far each side turns, the
+# start, and the result.
+[[template]]
+id = "pd-revolve"
+types = ["PartDesign::Revolution", "PartDesign::Groove"]
+
+[template.hide_if]
+Midplane = "SideType"
+
+[template.group_as]
+AllowMultiFace = "Part Design"
+
+[[template.couple]]
+value = "StartOffset"
+mode = "StartType"
+zero = "Profile plane"
+nonzero = "Offset"
+
+[template.choices]
+Angle = "Angle"
+ThroughAll = "Through all"
+UpToLast = "To last"
+UpToFirst = "To first"
+UpToFace = "Up to face"
+UpToShape = "Up to shape"
+
+[[template.card]]
+title = "Profile"
+heading = false
+items = [
+    { prop = "Profile", label = "Sketch" },
+    { prop = "ReferenceAxis", label = "Axis", trail = "Reversed" },
+]
+
+[[template.card]]
+title = "Extent"
+heading = false
+items = [
+    { prop = "SideType", bare = true, editor = "segmented" },
+]
+
+[[template.card.column]]
+title = "First side"
+items = [
+    { prop = "Angle", lead = "Type", show_if = { Type = "Angle" } },
+    { prop = "UpToFace", label = "Up to", lead = "Type", show_if = { Type = "UpToFace" } },
+    { prop = "UpToShape", label = "Up to", lead = "Type", show_if = { Type = "UpToShape" } },
+    { prop = "Type", label = "Up to", editor = "dropdown", omit_if = { "?TwoAngles" = "SideType" }, show_if = { Type = ["UpToLast", "UpToFirst", "ThroughAll"] } },
+]
+
+[[template.card.column]]
+title = "Second side"
+show_if = { SideType = "Two sides" }
+items = [
+    { prop = "Angle2", label = "Angle", lead = "Type2", show_if = { Type2 = "Angle" } },
+    { prop = "UpToFace2", label = "Up to", lead = "Type2", show_if = { Type2 = "UpToFace" } },
+    { prop = "UpToShape2", label = "Up to", lead = "Type2", show_if = { Type2 = "UpToShape" } },
+    { prop = "Type2", label = "Up to", editor = "dropdown", omit_if = { "?TwoAngles" = "SideType" }, show_if = { Type2 = ["UpToLast", "UpToFirst", "ThroughAll"] } },
+]
+
+[[template.card]]
+title = "Start"
+heading = false
+items = [
+    [{ prop = "StartOffset", label = "Start offset" },
+     { prop = "StartType", bare = true, editor = "segmented", labels = ["Profile", "Reference"] }],
+    { prop = "StartReference", label = "Reference", show_if = { StartType = "Reference" } },
+]
+
+[[template.card]]
+title = "Result"
+heading = false
+items = [
+    { prop = "Refine", label = "Merge faces", editor = "switch" },
+]

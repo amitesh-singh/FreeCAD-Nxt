@@ -16,12 +16,44 @@ Item {
     property string suffix: ""
     //: Room kept at the start for something drawn over the field.
     property real leading: 0
+    //: The wheel's step on the number, given its modifiers; null: none.
+    property var stepFor: null
+    //: The wheel can step: once focused, or the pointer has rested on
+    //: it, so scrolling a card past the field leaves it alone.
+    property bool wheelReady: false
+    property real wheelPending: 0
 
     signal edited(string value)
     signal accepted()
     signal dismissed()
     signal upPressed()
     signal downPressed()
+    //: The wheel changed the number and came to rest.
+    signal stepped()
+
+    readonly property var numberAtStart:
+        /^(\s*)([-+]?(?:\d+[.,]?\d*|[.,]\d+)(?:[eE][-+]?\d+)?)/
+
+    function decimalsOf(text) {
+        var match = /[.,](\d+)/.exec(text);
+        return match ? match[1].length : 0;
+    }
+
+    //: The number at the start of the text moved by `delta`.
+    function step(delta) {
+        var match = field.numberAtStart.exec(input.text);
+        if (!match)
+            return false;
+        var comma = match[2].indexOf(",") >= 0;
+        var value = parseFloat(match[2].replace(",", ".")) + delta;
+        var places = Math.max(field.decimalsOf(match[2]),
+                              field.decimalsOf(String(Math.abs(delta))));
+        var shown = value.toFixed(Math.min(places, 6));
+        if (comma)
+            shown = shown.replace(".", ",");
+        input.text = match[1] + shown + input.text.slice(match[0].length);
+        return true;
+    }
 
     implicitHeight: theme.fieldHeight
 
@@ -39,6 +71,48 @@ Item {
     HoverHandler {
         id: fieldHover
         cursorShape: Qt.IBeamCursor
+        onHoveredChanged: {
+            if (hovered) {
+                wheelDwell.restart();
+            } else {
+                wheelDwell.stop();
+                field.wheelReady = false;
+            }
+        }
+    }
+
+    Timer {
+        id: wheelDwell
+        interval: 300
+        onTriggered: field.wheelReady = true
+    }
+
+    // Only the text changes while the wheel turns; the value is set once
+    // it rests, so a spin is one recompute and one undo step.
+    Timer {
+        id: wheelRest
+        interval: 400
+        onTriggered: field.stepped()
+    }
+
+    WheelHandler {
+        enabled: field.stepFor !== null
+                 && (field.wheelReady || input.activeFocus)
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        onWheel: function (event) {
+            field.wheelPending += event.angleDelta.y / 120;
+            var notches = field.wheelPending > 0
+                          ? Math.floor(field.wheelPending)
+                          : Math.ceil(field.wheelPending);
+            if (notches === 0)
+                return;
+            field.wheelPending -= notches;
+            if (!input.activeFocus)
+                input.forceActiveFocus();
+            if (field.step(notches * field.stepFor(event.modifiers)))
+                wheelRest.restart();
+            input.selectAll();
+        }
     }
 
     Text {

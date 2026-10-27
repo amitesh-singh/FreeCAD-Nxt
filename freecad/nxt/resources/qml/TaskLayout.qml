@@ -5,7 +5,7 @@ import QtQuick
 // dialog's fields, so its preview, OK and Cancel work as before.
 Item {
     implicitWidth: 300
-    implicitHeight: panel.cards.contentHeight + 8
+    implicitHeight: panel.cards.contentHeight + panel.noticeHeight + 8
 
     Inspector {
         id: panel

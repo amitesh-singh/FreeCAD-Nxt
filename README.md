@@ -56,16 +56,10 @@ A modern, fluid UI/UX replacement for FreeCAD built on QtQuick/QML.
 
 #### Option 1: FreeCAD Addon Manager *(Custom Repository)*
 
-FreeCAD-Nxt is currently available as a custom addon source in the standard FreeCAD Addon Manager.
+FreeCAD-Nxt is currently available as an addon in FreeCAD's Addon Manager.
 
 1. Open **FreeCAD**.
 2. Navigate to **Tools** ➔ **Addon Manager**.
-2. Navigate to the Edit menu >  **Preferences** and find the section for the addon manager on the left side.
-4. Under the **Custom Repositories** section, click **Add**.
-5. Enter the repository details:
-   * **URL**: `https://github.com/obelisk79/FreeCAD-Nxt`
-   * **Branch**: `main`
-6. Click **Save** / **OK** and close the preferences dialog.
 7. Search for **FreeCAD-Nxt** in the Addon Manager list and click **Install**.
 8. Restart FreeCAD.
 
@@ -80,4 +74,5 @@ Clone or copy the repository directory directly into your local FreeCAD `Mod` di
 * **Windows**: `%APPDATA%\FreeCAD\Mod\FreeCAD-Nxt`
 
 ```bash
-git clone [https://github.com/obelisk79/FreeCAD-Nxt.git](https://github.com/obelisk79/FreeCAD-Nxt.git) ~/.local/share/FreeCAD/Mod/FreeCAD-Nxt
+git clone https://github.com/obelisk79/FreeCAD-Nxt.git <PATH TO YOUR OS Mod DIRECTORY>
+```

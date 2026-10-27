@@ -108,6 +108,7 @@ Item {
 
     SearchBox {
         id: search
+        objectName: "treeSearch"
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: problems.visible ? problems.right : docLabel.right
         anchors.leftMargin: 10

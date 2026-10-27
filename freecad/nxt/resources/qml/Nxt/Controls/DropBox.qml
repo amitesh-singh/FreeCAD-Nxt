@@ -15,7 +15,8 @@ Rectangle {
     implicitHeight: theme.fieldHeight
     radius: 3
     activeFocusOnTab: enabled
-    color: box.inset ? (hover.hovered ? theme.hover : "transparent")
+    color: tap.pressed ? theme.pressed
+         : box.inset ? (hover.hovered ? theme.hover : "transparent")
          : hover.hovered && enabled ? theme.hover
          : theme.overlay ? theme.chip : theme.background
     border.width: box.inset ? 0 : activeFocus ? 2 : 1
@@ -57,6 +58,7 @@ Rectangle {
         cursorShape: Qt.PointingHandCursor
     }
     TapHandler {
+        id: tap
         enabled: box.enabled
         onTapped: box.opened()
     }

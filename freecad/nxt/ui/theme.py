@@ -15,6 +15,8 @@ from . import qss_colours
 SURFACE_MIX = 0.55
 DIM_MIX = 0.45
 HOVER_MIX = 0.25
+#: A control held down: further toward the selection than hovered.
+PRESSED_MIX = 0.45
 BORDER_MIX = 0.18
 CHIP_MIX = 0.10
 SEVERITY_MIX = 0.85
@@ -355,6 +357,7 @@ class Theme(QtCore.QObject):
         self._surface = _mix(base, widget, SURFACE_MIX)
         self._textDim = _mix(text, base, DIM_MIX)
         self._hover = _mix(base, accent, HOVER_MIX)
+        self._pressed = _mix(base, accent, PRESSED_MIX)
         self._border = _mix(base, text, BORDER_MIX)
         self._chip = _mix(base, text, CHIP_MIX)
         self._warning = _mix(base, WARNING_HUE, SEVERITY_MIX)
@@ -481,6 +484,11 @@ class Theme(QtCore.QObject):
     def hover(self) -> QtGui.QColor:
         """Pre-selection tint, a quarter of the way to the selection."""
         return self._hover
+
+    @QtCore.Property(QtGui.QColor, notify=changed)
+    def pressed(self) -> QtGui.QColor:
+        """A control held down."""
+        return self._pressed
 
     @QtCore.Property(QtGui.QColor, notify=changed)
     def border(self) -> QtGui.QColor:

@@ -87,17 +87,12 @@ Popup {
 
         Item { width: 1; height: 2 }
 
-        // `checked` stays bound to the stored value, not the last click.
+        // Shows a click at once, then follows the stored value.
         component Setting: NxtSwitch {
             required property string key
             width: parent.width
-            checked: settingsPopup.values[key] === true
-            onToggled: {
-                prefs.set(key, checked);
-                checked = Qt.binding(function () {
-                    return settingsPopup.values[key] === true;
-                });
-            }
+            stored: settingsPopup.values[key] === true
+            onChangedTo: function (on) { prefs.set(key, on); }
         }
 
         Setting {

@@ -32,7 +32,9 @@ Item {
                 anchors.fill: parent
                 antialiasing: true
                 visible: root.shown
-                opacity: hover.hovered ? 1.0 : 0.8
+                opacity: tap.pressed ? 0.6 : hover.hovered ? 1.0 : 0.8
+                scale: tap.pressed ? 0.85 : 1.0
+                Behavior on scale { NumberAnimation { duration: 70 } }
                 rotation: root.expanded ? 90 : 0
 
                 Behavior on rotation { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
@@ -69,5 +71,5 @@ Item {
     }
 
     HoverHandler { id: hover; enabled: root.shown; cursorShape: Qt.PointingHandCursor }
-    TapHandler { enabled: root.shown; onTapped: root.toggled() }
+    TapHandler { id: tap; enabled: root.shown; onTapped: root.toggled() }
 }

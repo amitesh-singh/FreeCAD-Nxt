@@ -38,6 +38,49 @@ Item {
                                     || editor.kind === "text"
     property bool choosing: false
 
+    // What a click chose, shown at once, before it is stored: the spec
+    // comes back from the stored value a refresh later.
+    //: Choices by property name.
+    property var shownChoice: ({})
+    //: A yes/no clicked, or undefined.
+    property var shownCheck: undefined
+    onSpecChanged: {
+        shownChoice = ({});
+        shownCheck = undefined;
+    }
+
+    function choiceOf(spec) {
+        var name = spec ? spec.name || "" : "";
+        return name in editor.shownChoice ? editor.shownChoice[name]
+                                          : (spec && spec.text) || "";
+    }
+
+    //: Show `value` for `spec` now; tell `done` a frame later.
+    function choose(spec, done, value) {
+        var shown = Object.assign({}, editor.shownChoice);
+        shown[spec.name || ""] = value;
+        editor.shownChoice = shown;
+        later.run(function () { done(value); });
+    }
+
+    // A frame after a click: its new look is drawn before the work it
+    // sets off; and back to the stored look if that never lands.
+    Timer {
+        id: later
+        property var work: null
+        interval: 30
+        function run(fn) { later.work = fn; later.restart(); forget.restart(); }
+        onTriggered: if (later.work) later.work()
+    }
+    Timer {
+        id: forget
+        interval: 2500
+        onTriggered: {
+            editor.shownChoice = ({});
+            editor.shownCheck = undefined;
+        }
+    }
+
     implicitWidth: body.implicitWidth
     implicitHeight: body.implicitHeight
 
@@ -90,8 +133,8 @@ Item {
             var picked = nativeChoices.choose(
                 spec.options, spec.optionLabels || [], spec.text || "",
                 at.x, at.y, anchor.width);
-            if (picked.length > 0 && picked !== spec.text)
-                done(picked);
+            if (picked.length > 0 && picked !== editor.choiceOf(spec))
+                editor.choose(spec, done, picked);
             return;
         }
         var list = choices.createObject(root, {
@@ -104,8 +147,8 @@ Item {
         });
         editor.choosing = true;
         list.chosen.connect(function (value) {
-            if (value !== spec.text)
-                done(value);
+            if (value !== editor.choiceOf(spec))
+                editor.choose(spec, done, value);
         });
         list.Component.destruction.connect(function () {
             editor.choosing = false;
@@ -163,7 +206,8 @@ Item {
                     x: 1
                     y: 1
                     height: parent.height - 2
-                    text: editor.lead ? editor.labelOf(editor.lead.text, editor.lead) : ""
+                    text: editor.lead ? editor.labelOf(editor.choiceOf(editor.lead),
+                                                       editor.lead) : ""
                     onOpened: editor.openChoices(field, editor.lead, editor.leadEdited)
                 }
                 Connections {
@@ -189,16 +233,23 @@ Item {
                 height: theme.markSize
                 radius: 2
                 opacity: editor.locked ? 0.5 : 1.0
-                color: editor.spec.checked && !editor.spec.mixed
-                       ? theme.accent : "transparent"
+                readonly property bool on: editor.shownCheck !== undefined
+                                           ? editor.shownCheck
+                                           : !!editor.spec.checked
+                                             && !editor.spec.mixed
+                color: on ? (checkTap.pressed ? Qt.darker(theme.accent, 1.15)
+                                              : theme.accent)
+                     : checkTap.pressed ? theme.pressed : "transparent"
                 border.width: 1
-                border.color: editor.spec.checked || checkHover.hovered
+                border.color: on || checkHover.hovered
                               ? theme.accent : theme.border
 
                 Text {
                     anchors.centerIn: parent
-                    visible: !!editor.spec.checked || !!editor.spec.mixed
-                    text: editor.spec.mixed ? "–" : "✓"
+                    visible: parent.on || (!!editor.spec.mixed
+                                           && editor.shownCheck === undefined)
+                    text: editor.spec.mixed && editor.shownCheck === undefined
+                          ? "–" : "✓"
                     font.pixelSize: theme.fontAside
                     color: editor.spec.mixed ? theme.textDim
                                              : theme.accentText
@@ -207,7 +258,9 @@ Item {
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: editor.spec.mixed ? qsTr("mixed")
+                text: editor.shownCheck !== undefined
+                      ? (editor.shownCheck ? qsTr("on") : qsTr("off"))
+                      : editor.spec.mixed ? qsTr("mixed")
                       : (editor.spec.checked ? qsTr("on") : qsTr("off"))
                 font.pixelSize: theme.fontSmall
                 font.italic: editor.locked
@@ -220,8 +273,14 @@ Item {
                 cursorShape: Qt.PointingHandCursor
             }
             TapHandler {
+                id: checkTap
                 enabled: !editor.locked
-                onTapped: editor.edited(!editor.spec.checked)
+                onTapped: {
+                    var to = !(editor.shownCheck !== undefined
+                               ? editor.shownCheck : !!editor.spec.checked);
+                    editor.shownCheck = to;
+                    later.run(function () { editor.edited(to); });
+                }
             }
         }
 
@@ -259,13 +318,8 @@ Item {
             width: editor.labelled ? parent.width : implicitWidth
             height: theme.fieldHeight
             text: editor.labelled ? editor.spec.label || "" : ""
-            checked: !!editor.spec.checked && !editor.spec.mixed
-            onToggled: {
-                editor.edited(toggle.checked);
-                toggle.checked = Qt.binding(function () {
-                    return !!editor.spec.checked && !editor.spec.mixed;
-                });
-            }
+            stored: !!editor.spec.checked && !editor.spec.mixed
+            onChangedTo: function (on) { editor.edited(on); }
         }
 
         DropBox {
@@ -273,7 +327,8 @@ Item {
             visible: !editor.labelled && editor.kind === "enum"
                      && editor.spec.editor !== "segmented" && !editor.locked
             width: parent.width
-            text: editor.spec.mixed ? qsTr("— mixed") : editor.labelOf(editor.spec.text || "")
+            text: editor.spec.mixed && !(editor.spec.name in editor.shownChoice)
+                  ? qsTr("— mixed") : editor.labelOf(editor.choiceOf(editor.spec))
             active: editor.choosing
             onOpened: if (!editor.choosing) editor.openChoices(dropBox)
         }
@@ -282,8 +337,8 @@ Item {
             id: choice
             visible: editor.kind === "enum" && editor.spec.editor !== "segmented"
                      && !dropBox.visible
-            text: (editor.spec.mixed ? qsTr("— mixed")
-                   : editor.labelOf(editor.spec.text || ""))
+            text: (editor.spec.mixed && !(editor.spec.name in editor.shownChoice)
+                   ? qsTr("— mixed") : editor.labelOf(editor.choiceOf(editor.spec)))
                   + (editor.locked ? "" : "  ▾")
             active: editor.choosing
             interactive: !editor.locked

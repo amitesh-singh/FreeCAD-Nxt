@@ -86,6 +86,7 @@ Rectangle {
                 font.pixelSize: theme.fontRow
                 font.bold: true
                 font.underline: actionMouse.containsMouse
+                opacity: actionMouse.pressed ? 0.6 : 1.0
                 color: theme.accent
 
                 MouseArea {
@@ -111,6 +112,7 @@ Rectangle {
         text: "\u00d7"
         font.pixelSize: theme.fontRow
         color: closeMouse.containsMouse ? theme.text : theme.textDim
+        opacity: closeMouse.pressed ? 0.6 : 1.0
 
         MouseArea {
             id: closeMouse

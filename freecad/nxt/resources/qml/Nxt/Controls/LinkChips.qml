@@ -26,7 +26,8 @@ Flow {
             height: theme.fieldHeight
             width: row.implicitWidth + 14
             radius: height / 2
-            color: chipHover.hovered ? theme.hover : theme.chip
+            color: chipTap.pressed ? theme.pressed
+                 : chipHover.hovered ? theme.hover : theme.chip
             border.width: 1
             border.color: chipHover.hovered ? theme.textDim : theme.border
 
@@ -36,6 +37,7 @@ Flow {
                                                    : Qt.ArrowCursor
             }
             TapHandler {
+                id: chipTap
                 enabled: !!chip.modelData.sketch
                 onDoubleTapped: chips.opened(chip.modelData.key)
             }
@@ -68,7 +70,8 @@ Flow {
                     width: 16
                     height: 16
                     radius: 8
-                    color: removeHover.hovered ? theme.border : "transparent"
+                    color: removeTap.pressed ? theme.pressed
+                         : removeHover.hovered ? theme.border : "transparent"
                     Text {
                         anchors.centerIn: parent
                         text: "×"
@@ -76,7 +79,10 @@ Flow {
                         color: removeHover.hovered ? theme.text : theme.textDim
                     }
                     HoverHandler { id: removeHover; cursorShape: Qt.PointingHandCursor }
-                    TapHandler { onTapped: chips.removed(chip.modelData.key) }
+                    TapHandler {
+                        id: removeTap
+                        onTapped: chips.removed(chip.modelData.key)
+                    }
                     NxtToolTip {
                         shown: removeHover.hovered
                         text: qsTr("Remove %1").arg(chip.modelData.label)
@@ -105,7 +111,9 @@ Flow {
         height: theme.fieldHeight
         radius: height / 2
         activeFocusOnTab: true
-        color: chips.picking ? theme.accent : plusHover.hovered ? theme.hover : "transparent"
+        color: plusTap.pressed ? theme.pressed
+             : chips.picking ? theme.accent
+             : plusHover.hovered ? theme.hover : "transparent"
         border.width: plus.activeFocus ? 2 : 1
         border.color: chips.picking || plus.activeFocus ? theme.accent
                     : plusHover.hovered ? theme.textDim : theme.border
@@ -116,7 +124,7 @@ Flow {
             color: chips.picking ? theme.accentText : theme.text
         }
         HoverHandler { id: plusHover; cursorShape: Qt.PointingHandCursor }
-        TapHandler { onTapped: chips.pickRequested() }
+        TapHandler { id: plusTap; onTapped: chips.pickRequested() }
         Keys.onSpacePressed: chips.pickRequested()
         Keys.onEscapePressed: if (chips.picking) chips.pickRequested()
         NxtToolTip {

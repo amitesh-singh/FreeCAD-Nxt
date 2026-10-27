@@ -101,6 +101,7 @@ Item {
                     font.pixelSize: theme.fontRow
                     font.bold: innermost
                     font.underline: crumbMouse.containsMouse
+                    opacity: crumbMouse.pressed ? 0.6 : 1.0
                     color: innermost ? theme.text : theme.textDim
 
                     MouseArea {

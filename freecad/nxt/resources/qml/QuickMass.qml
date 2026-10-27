@@ -26,7 +26,8 @@ Rectangle {
         width: fieldWidth
         height: Math.round(bar.height * 0.72)
         radius: 3
-        color: pickerMouse.containsMouse ? theme.hover : theme.background
+        color: pickerMouse.pressed ? theme.pressed
+             : pickerMouse.containsMouse ? theme.hover : theme.background
         border.width: 1
         border.color: list.opened ? theme.accent : theme.border
 
@@ -162,7 +163,8 @@ Rectangle {
                         required property int modelData
                         width: view.width
                         height: theme.rowHeight
-                        color: optionMouse.containsMouse ? theme.hover
+                        color: optionMouse.pressed ? theme.pressed
+                             : optionMouse.containsMouse ? theme.hover
                                                          : "transparent"
 
                         Text {

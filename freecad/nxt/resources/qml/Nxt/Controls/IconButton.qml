@@ -25,8 +25,8 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: 4
-        color: theme.hover
-        visible: button.hovered || button.highlighted
+        color: press.pressed ? theme.pressed : theme.hover
+        visible: button.hovered || button.highlighted || press.pressed
     }
 
     Canvas {
@@ -54,14 +54,23 @@ Item {
     }
 
     MouseArea {
+        id: press
         anchors.fill: parent
         onPressed: button.tipDismissed = true
-        // After the release: the action may rebuild the tree under the
-        // pointer, which must not happen inside the MouseArea's own event.
+        // A frame after the release: the release is drawn first, and the
+        // action may rebuild the tree under the pointer, which must not
+        // happen inside the MouseArea's own event.
         onClicked: function (event) {
-            var click = {modifiers: event.modifiers, button: event.button};
-            Qt.callLater(function () { button.clicked(click); });
+            announce.click = {modifiers: event.modifiers,
+                              button: event.button};
+            announce.restart();
         }
+    }
+    Timer {
+        id: announce
+        property var click
+        interval: 30
+        onTriggered: button.clicked(announce.click)
     }
 
     NxtToolTip {

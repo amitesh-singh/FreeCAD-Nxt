@@ -38,7 +38,9 @@ Rectangle {
             height: theme.fieldHeight
             width: label.implicitWidth + 20
             radius: 4
-            color: area.containsMouse ? theme.hover : "transparent"
+            color: area.pressed ? Qt.rgba(notice.ink.r, notice.ink.g,
+                                          notice.ink.b, 0.3)
+                 : area.containsMouse ? theme.hover : "transparent"
             border.width: 1
             border.color: notice.ink
             Text {

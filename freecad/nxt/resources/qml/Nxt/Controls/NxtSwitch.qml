@@ -2,13 +2,42 @@ import QtQuick
 import QtQuick.Controls.Basic
 
 // An on/off toggle: Qt's Switch, drawn in the panel's theme.
+//
+// Bind `stored` to the value it shows, and act in `changedTo`. A click
+// flips the switch at once; `changedTo` follows a frame later, so the
+// flip is drawn before whatever the change sets off. The switch then
+// follows `stored`, and goes back to it if the change never lands.
 Switch {
     id: control
+
+    property bool stored: false
+    signal changedTo(bool on)
 
     font.pixelSize: theme.fontSmall
     padding: 2
     spacing: 10
     hoverEnabled: true
+    checked: stored
+
+    onStoredChanged: {
+        settle.stop();
+        checked = stored;
+    }
+    onToggled: {
+        announce.restart();
+        settle.restart();
+    }
+
+    Timer {
+        id: announce
+        interval: 30
+        onTriggered: control.changedTo(control.checked)
+    }
+    Timer {
+        id: settle
+        interval: 2500
+        onTriggered: control.checked = control.stored
+    }
 
     indicator: Rectangle {
         implicitWidth: Math.round(theme.rowHeight * 1.4)
@@ -16,28 +45,33 @@ Switch {
         x: control.width - width - control.rightPadding
         y: (control.height - height) / 2
         radius: height / 2
-        color: control.checked ? theme.accent : theme.chip
+        color: control.checked
+               ? (control.pressed ? Qt.darker(theme.accent, 1.15) : theme.accent)
+               : control.pressed ? theme.pressed
+               : control.hovered ? theme.hover : theme.chip
         border.width: control.visualFocus ? 2 : 1
-        border.color: control.visualFocus ? theme.accent
-                    : control.checked ? theme.accent : theme.border
+        border.color: control.visualFocus || control.checked ? theme.accent
+                    : control.hovered ? theme.textDim : theme.border
         opacity: control.enabled ? 1.0 : 0.45
 
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on color { ColorAnimation { duration: 90 } }
 
         Rectangle {
             readonly property real inset: 2
-            width: parent.height - 2 * inset
-            height: width
-            radius: width / 2
+            // Held down, the knob stretches toward where it will go.
+            width: parent.height - 2 * inset + (control.pressed ? 4 : 0)
+            height: parent.height - 2 * inset
+            radius: height / 2
             y: inset
             x: control.checked ? parent.width - width - inset : inset
             color: control.checked ? theme.accentText : theme.background
             border.width: 1
-            border.color: theme.border
+            border.color: control.hovered ? theme.textDim : theme.border
 
             Behavior on x {
-                NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
             }
+            Behavior on width { NumberAnimation { duration: 80 } }
         }
     }
 

@@ -65,6 +65,7 @@ Row {
         labelled: false
         editsLinks: true
         picking: inspector.picking === (field.spec.name || "")
+                 || !!field.spec.picking
         onEdited: function (value) { field.send(field.spec, value); }
         onLeadEdited: function (value) { field.send(field.spec.lead, value); }
         onPartEdited: function (path, text) {

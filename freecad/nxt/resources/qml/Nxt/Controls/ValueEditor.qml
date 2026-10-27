@@ -42,6 +42,17 @@ Item {
 
     readonly property var leadingNumber: /^\s*[-+]?[\d.,]+(?:[eE][-+]?\d+)?/
 
+    //: The wheel's step for a field of `unit`, as the drag handles step;
+    //: null where nothing serves it.
+    function wheelFor(unit) {
+        if (editor.locked || typeof inspector === "undefined" || !inspector
+                || !inspector.wheelStep)
+            return null;
+        return function (modifiers) {
+            return inspector.wheelStep(unit || "", modifiers);
+        };
+    }
+
     function selectValue() {
         var input = field.input;
         if (!input.activeFocus)
@@ -121,6 +132,10 @@ Item {
                 suffix: !!editor.spec.unit && !editor.hasExpression
                         ? editor.spec.unit : ""
                 placeholder: editor.spec.mixed ? qsTr("— mixed") : ""
+                stepFor: (editor.kind === "quantity" || editor.kind === "number")
+                         && !editor.hasExpression && !editor.spec.mixed
+                         ? editor.wheelFor(editor.spec.unit) : null
+                onStepped: editor.edited(field.text)
                 Component.onCompleted: field.text = editor.spec.mixed
                                                     ? "" : editor.shown
                 onAccepted: {
@@ -354,6 +369,14 @@ Item {
                                 width: 58
                                 Component.onCompleted:
                                     partField.text = part.modelData.text
+                                stepFor: editor.wheelFor(part.modelData.unit)
+                                onStepped: editor.partEdited(
+                                               part.modelData.path,
+                                               partField.text)
+                                input.onActiveFocusChanged: {
+                                    if (partField.input.activeFocus)
+                                        Qt.callLater(partField.input.selectAll);
+                                }
                                 onAccepted: {
                                     editor.partEdited(part.modelData.path,
                                                       partField.text);
@@ -383,6 +406,7 @@ Item {
             items: editor.spec.chips || []
             editable: !editor.locked
             picking: editor.picking
+            hint: editor.spec.pickHint || ""
             onRemoved: function (key) { editor.linkRemoved(key); }
             onPickRequested: editor.pickRequested()
         }

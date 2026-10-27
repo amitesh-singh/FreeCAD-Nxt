@@ -24,7 +24,8 @@ from . import expressions
 from .task_sync import SWAPPED
 
 #: The dialog boxes replaced: FreeCAD's class for each feature's box.
-REPLACED = frozenset({"TaskPadParameters", "TaskPocketParameters"})
+REPLACED = frozenset({"TaskPadParameters", "TaskPocketParameters",
+                      "TaskRevolutionParameters"})
 #: FreeCAD's task panel exists from startup, but is looked for until found.
 FIND_MS = 500
 #: After the swap: the dialog settles, then the view is drawn afresh.
@@ -288,7 +289,10 @@ def make_cards(holder: Any, bridge: Any) -> Any:
         cards.setFixedHeight(height + 1)
         QtCore.QTimer.singleShot(0, cards, fit)
 
-    root.implicitHeightChanged.connect(fit)
+    # Never inside a frame: the height changes while the view renders,
+    # and resizing it there starts a frame within the frame.
+    root.implicitHeightChanged.connect(
+        lambda: QtCore.QTimer.singleShot(0, cards, fit))
     fit()
     cards.nxt_shown = _OnShow(cards, renew)  # type: ignore[attr-defined]
     for delay in RENEW_MS:

@@ -299,6 +299,15 @@ class FilletBridge(QtCore.QObject):
         if value > 0:
             self._task.set_radius(round(value, 6))
 
+    @QtCore.Slot(int, int)
+    def stepBy(self, steps: int, modifiers: int) -> None:  # noqa: N802
+        """A wheel turn, by the drag handles' fine or coarse step."""
+        from . import gizmos
+        size = gizmos.wheel_step(gizmos.read(), "mm", modifiers)
+        value = round((self._task.radius + steps * size) / size) * size
+        if value > 0:
+            self._task.set_radius(round(value, 6))
+
     @QtCore.Slot()
     def useFits(self) -> None:  # noqa: N802 - QML API
         fits = self._task.fits()

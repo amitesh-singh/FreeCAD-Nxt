@@ -8,8 +8,10 @@ Item {
     property Item ghost
     property bool settingsOpen: false
     readonly property alias gear: gear
-    // Minimum search width, margins included.
-    readonly property int searchFloor: 128
+    // The room between the name's start and the buttons: all the search
+    // field's with no name. It keeps at least half of it.
+    readonly property real searchRoom: collapseButton.x - 4 - docLabel.x - 10
+    readonly property real searchFloor: Math.max(80, searchRoom / 2)
 
     signal settingsClicked()
     signal menuRequested(real x, real y)
@@ -55,7 +57,7 @@ Item {
         x: 9
         // The name takes what it needs; the elastic search field gives way first.
         width: Math.min(implicitWidth,
-                        Math.max(52, parent.width - x - header.searchFloor
+                        Math.max(52, header.searchRoom - header.searchFloor
                                  - (problems.visible ? problems.width + 8
                                                      : 0)))
         text: nxt.hasDocument ? nxt.documentLabel : qsTr("No document")
@@ -105,12 +107,16 @@ Item {
     }
 
     SearchBox {
+        id: search
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: problems.visible ? problems.right : docLabel.right
         anchors.leftMargin: 10
         anchors.right: collapseButton.left
         anchors.rightMargin: 4
         placeholder: qsTr("search")
+        // The hits use the header's whole width, from its left edge.
+        listWidth: header.width - 8
+        listX: 4 - search.x
         results: nxt.searchResults
         onQueryChanged: function (value) { nxt.setSearch(value); }
         onChosen: function (name) { nxt.revealObject(name); }

@@ -52,7 +52,10 @@ DEFAULTS: dict[str, Any] = {
     "step": 1.0,
     "linear": 5,
     "rotation": 5,
+    "turn": 15.0,
 }
+#: Units stepped as angles.
+ANGULAR = ("°", "deg")
 
 
 def read() -> dict[str, Any]:
@@ -69,7 +72,26 @@ def read() -> dict[str, Any]:
         "step": history.GetFloat("LastTranslationIncrement", 1.0),
         "linear": gizmos.GetInt("CoarseLinearSnapMultiplier", 5),
         "rotation": gizmos.GetInt("CoarseRotationSnapMultiplier", 5),
+        "turn": history.GetFloat("LastRotationIncrement", 15.0),
     }
+
+
+def wheel_step(values: dict[str, Any], unit: str, modifiers: int) -> float:
+    """A wheel notch on a field, fine or coarse as a drag handle steps.
+
+    Lengths step by the handles' increment, angles by their rotation's,
+    plain numbers by one; coarse is that times the handle's multiplier.
+    The modifier key swaps plain fine and coarse, as it does on a drag.
+    """
+    angular = unit.strip() in ANGULAR
+    fine = (float(values["turn"]) if angular
+            else float(values["step"]) if unit.strip() else 1.0)
+    coarse = fine * (int(values["rotation"]) if angular
+                     else int(values["linear"])) \
+        if values["coarse"] else fine
+    held = bool(modifiers & KEYS.get(values["key"], CTRL))
+    plain_fine = values["plain"] == "fine"
+    return fine if plain_fine != held else coarse
 
 
 def write(values: dict[str, Any]) -> None:

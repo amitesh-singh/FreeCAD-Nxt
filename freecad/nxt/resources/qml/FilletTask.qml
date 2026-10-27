@@ -90,7 +90,10 @@ Item {
                         if (steps === 0)
                             return
                         radiusField.apply()
-                        task.step(steps, (event.modifiers & Qt.ShiftModifier) !== 0)
+                        // As a drag handle steps: fine, coarse with its key.
+                        task.stepBy(steps, event.modifiers)
+                        radiusField.input.forceActiveFocus()
+                        Qt.callLater(radiusField.input.selectAll)
                     }
                 }
                 Rectangle {
@@ -195,36 +198,14 @@ Item {
         }
 
         // -- edges that do not fit --
-        Rectangle {
+        Notice {
             width: parent.width
-            visible: task.failing > 0
-            height: visible ? notice.implicitHeight + 24 : 0
-            radius: 6
-            color: root.amberWash
-            border.width: 1
-            border.color: root.amber
-
-            Column {
-                id: notice
-                x: 12; y: 12
-                width: parent.width - 24
-                spacing: 8
-                Text {
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    text: (task.flat ? qsTr("%1 of %2 edges won't chamfer at %3.")
-                                     : qsTr("%1 of %2 edges won't fillet at %3."))
-                          .arg(task.failing).arg(task.edges.length).arg(task.radiusText)
-                    color: root.amber
-                    font.pixelSize: theme.fontSmall
-                }
-                PanelButton {
-                    visible: task.fits > 0
-                    text: qsTr("Use %1 for all").arg(task.fitsText)
-                    ink: root.amber
-                    onClicked: task.useFits()
-                }
-            }
+            text: task.failing <= 0 ? ""
+                  : (task.flat ? qsTr("%1 of %2 edges won't chamfer at %3.")
+                               : qsTr("%1 of %2 edges won't fillet at %3."))
+                    .arg(task.failing).arg(task.edges.length).arg(task.radiusText)
+            action: task.fits > 0 ? qsTr("Use %1 for all").arg(task.fitsText) : ""
+            onActed: task.useFits()
         }
 
         // -- options --

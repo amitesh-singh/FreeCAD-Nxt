@@ -74,7 +74,19 @@ class GizmoTests(unittest.TestCase):
     def test_freecads_own_defaults_read_as_coarse_first_and_shift(self):
         self.assertEqual(gizmos.read(), {
             "plain": "coarse", "key": "shift", "coarse": True,
-            "step": 1.0, "linear": 5, "rotation": 5})
+            "step": 1.0, "linear": 5, "rotation": 5, "turn": 15.0})
+
+    def test_wheel_steps_as_the_handles(self) -> None:
+        values = dict(gizmos.DEFAULTS, step=0.5)
+        step = gizmos.wheel_step
+        self.assertEqual(step(values, "mm", 0), 0.5)
+        self.assertEqual(step(values, "mm", gizmos.CTRL), 2.5)
+        self.assertEqual(step(values, "°", 0), 15.0)
+        self.assertEqual(step(values, "°", gizmos.CTRL), 75.0)
+        self.assertEqual(step(values, "", 0), 1.0)
+        self.assertEqual(step(dict(values, plain="coarse"), "mm", 0), 2.5)
+        self.assertEqual(step(dict(values, coarse=False), "mm",
+                              gizmos.CTRL), 0.5)
 
     def enabled(self) -> Any:
         return STORE[gizmos.GIZMOS].get(gizmos.ENABLED, "unset")

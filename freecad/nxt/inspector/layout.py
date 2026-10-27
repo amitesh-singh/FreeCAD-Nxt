@@ -124,10 +124,11 @@ def link_value(type_id: str, items: list[tuple[Any, str]]) -> Any:
     return items[-1][0] if items else None
 
 
-def _chips(value: Any) -> list[dict[str, str]]:
+def _chips(value: Any) -> list[dict[str, Any]]:
+    from ..tools.editing import is_sketch
     return [{"key": "%d" % index,
              "label": "%s.%s" % (obj.Label, sub) if sub else obj.Label,
-             "sub": sub}
+             "sub": sub, "sketch": is_sketch(obj)}
             for index, (obj, sub) in enumerate(link_items(value))]
 
 

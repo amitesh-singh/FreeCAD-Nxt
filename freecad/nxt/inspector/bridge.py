@@ -317,6 +317,24 @@ class InspectorBridge(QtCore.QObject):
                 pass
 
     @QtCore.Slot(str, str)
+    def openLink(self, prop: str, key: str) -> None:  # noqa: N802
+        """A chip double-clicked: a sketch opens for editing."""
+        self._defer(lambda: self._open_link(prop, key))
+
+    def _open_link(self, prop: str, key: str) -> None:
+        from ..tools import editing
+        objects = self._objects()
+        if not objects:
+            return
+        try:
+            target = inspector.link_items(
+                getattr(objects[0], prop))[int(key)][0]
+        except (AttributeError, IndexError, ValueError):
+            return
+        if editing.is_sketch(target):
+            editing.edit_sketch(target)
+
+    @QtCore.Slot(str, str)
     def removeLink(self, prop: str, key: str) -> None:
         if prop.endswith(task_sync.PICKING):
             pick = self._picks.get(prop[:-len(task_sync.PICKING)])

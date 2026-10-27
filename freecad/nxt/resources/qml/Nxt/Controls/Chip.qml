@@ -37,6 +37,7 @@ Rectangle {
     implicitHeight: theme.chipHeight
     radius: height / 2
     color: active ? theme.accent
+         : chipTap.pressed ? theme.pressed
          : hover.hovered && interactive ? theme.hover : theme.chip
     border.width: 1
     border.color: active ? theme.accent : Qt.rgba(theme.border.r, theme.border.g, theme.border.b, 0.8)
@@ -112,6 +113,7 @@ Rectangle {
     }
 
     TapHandler {
+        id: chipTap
         enabled: chip.interactive
         // singleTapped: `tapped` also fires as half of a double tap.
         onSingleTapped: chip.clicked()

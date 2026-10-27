@@ -26,6 +26,9 @@ Item {
             Canvas {
                 anchors.fill: parent
                 antialiasing: true
+                scale: eyeTap.pressed ? 0.85 : 1.0
+                opacity: eyeTap.pressed ? 0.7 : 1.0
+                Behavior on scale { NumberAnimation { duration: 70 } }
 
 
                 onPaint: {
@@ -77,5 +80,5 @@ Item {
     }
 
     HoverHandler { cursorShape: Qt.PointingHandCursor }
-    TapHandler { onTapped: root.toggled() }
+    TapHandler { id: eyeTap; onTapped: root.toggled() }
 }

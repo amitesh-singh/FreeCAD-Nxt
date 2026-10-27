@@ -88,7 +88,8 @@ Item {
 
                     width: box.width - 2
                     height: theme.rowHeight
-                    color: hover.hovered ? theme.hover : "transparent"
+                    color: hover.pressed ? theme.pressed
+                         : hover.hovered ? theme.hover : "transparent"
 
                     Text {
                         id: label

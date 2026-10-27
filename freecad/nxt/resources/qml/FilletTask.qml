@@ -239,33 +239,33 @@ Item {
                 NxtSwitch {
                     width: parent.width
                     text: qsTr("Use all edges")
-                    checked: task.useAllEdges
-                    onToggled: task.setUseAllEdges(checked)
+                    stored: task.useAllEdges
+                    onChangedTo: function (on) { task.setUseAllEdges(on) }
                 }
                 NxtSwitch {
                     width: parent.width
                     text: qsTr("Include tangent edges")
-                    checked: task.tangentEdges
-                    onToggled: task.setTangentEdges(checked)
+                    stored: task.tangentEdges
+                    onChangedTo: function (on) { task.setTangentEdges(on) }
                 }
                 NxtSwitch {
                     width: parent.width
                     visible: task.flat
                     text: qsTr("Triangular corners")
-                    checked: task.triangleCorners
-                    onToggled: task.setTriangleCorners(checked)
+                    stored: task.triangleCorners
+                    onChangedTo: function (on) { task.setTriangleCorners(on) }
                 }
                 NxtSwitch {
                     width: parent.width
                     text: qsTr("Show what changes")
-                    checked: task.preview
-                    onToggled: task.setPreview(checked)
+                    stored: task.preview
+                    onChangedTo: function (on) { task.setPreview(on) }
                 }
                 NxtSwitch {
                     width: parent.width
                     text: qsTr("Refine result")
-                    checked: task.refine
-                    onToggled: task.setRefine(checked)
+                    stored: task.refine
+                    onChangedTo: function (on) { task.setRefine(on) }
                 }
             }
         }
@@ -296,7 +296,8 @@ Item {
         height: theme.fieldHeight
         width: label.implicitWidth + 20
         radius: 4
-        color: area.containsMouse && enabled ? theme.hover : "transparent"
+        color: area.pressed && enabled ? theme.pressed
+             : area.containsMouse && enabled ? theme.hover : "transparent"
         border.width: 1
         border.color: ink
         opacity: enabled ? 1.0 : 0.4

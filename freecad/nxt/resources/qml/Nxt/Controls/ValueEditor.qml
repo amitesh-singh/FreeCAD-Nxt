@@ -19,6 +19,7 @@ Item {
     signal edited(var value)
     signal leadEdited(var value)
     signal linkRemoved(string key)
+    signal linkOpened(string key)
     signal pickRequested()
     signal partEdited(string path, string text)
     signal colourRequested()
@@ -408,6 +409,7 @@ Item {
             picking: editor.picking
             hint: editor.spec.pickHint || ""
             onRemoved: function (key) { editor.linkRemoved(key); }
+            onOpened: function (key) { editor.linkOpened(key); }
             onPickRequested: editor.pickRequested()
         }
 

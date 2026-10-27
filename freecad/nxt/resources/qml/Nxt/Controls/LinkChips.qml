@@ -11,6 +11,8 @@ Flow {
     //: What to pick, said while picking.
     property string hint: ""
     signal removed(string key)
+    //: A chip double-clicked: open what it links (a sketch to edit).
+    signal opened(string key)
     signal pickRequested()
 
     spacing: 4
@@ -28,7 +30,20 @@ Flow {
             border.width: 1
             border.color: chipHover.hovered ? theme.textDim : theme.border
 
-            HoverHandler { id: chipHover }
+            HoverHandler {
+                id: chipHover
+                cursorShape: chip.modelData.sketch ? Qt.PointingHandCursor
+                                                   : Qt.ArrowCursor
+            }
+            TapHandler {
+                enabled: !!chip.modelData.sketch
+                onDoubleTapped: chips.opened(chip.modelData.key)
+            }
+            NxtToolTip {
+                shown: chipHover.hovered && !!chip.modelData.sketch
+                       && !removeHover.hovered
+                text: qsTr("Double-click to edit the sketch")
+            }
 
             Row {
                 id: row

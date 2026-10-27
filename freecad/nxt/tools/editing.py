@@ -122,3 +122,47 @@ def enter_edit(doc_name: str, name: str, handles: bool = True) -> None:
             App.closeActiveTransaction(True)
         App.Console.PrintError("Nxt: could not open %s for editing\n" % name)
         App.Console.PrintError(traceback.format_exc())
+
+
+SKETCH = "Sketcher::SketchObject"
+
+
+def is_sketch(obj: Any) -> bool:
+    try:
+        return bool(obj.isDerivedFrom(SKETCH))
+    except Exception:
+        return False
+
+
+def _ok_button() -> Any:
+    """The open task dialog's OK, or None."""
+    from ..core.qt import QtWidgets
+    main = Gui.getMainWindow()
+    if main is None:
+        return None
+    ok = QtWidgets.QDialogButtonBox.StandardButton.Ok
+    for box in main.findChildren(QtWidgets.QDialogButtonBox):
+        button = box.button(ok)
+        if button is not None and button.isEnabled():
+            return button
+    return None
+
+
+def edit_sketch(sketch: Any) -> None:
+    """Edit a sketch a feature uses, as from its chip.
+
+    An open task dialog is finished with OK first, keeping its edit, as
+    FreeCAD edits one thing at a time.
+    """
+    from ..core.qt import QtCore
+    try:
+        open_dialog = bool(Gui.Control.activeDialog())
+    except Exception:
+        open_dialog = False
+    if open_dialog:
+        button = _ok_button()
+        if button is None:
+            return
+        button.click()
+    doc_name, name = sketch.Document.Name, sketch.Name
+    QtCore.QTimer.singleShot(0, lambda: enter_edit(doc_name, name))

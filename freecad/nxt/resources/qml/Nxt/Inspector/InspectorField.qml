@@ -74,6 +74,7 @@ Row {
         onColourRequested: inspector.pickColour(field.spec.name, field.spec.text)
         onNativeRequested: inspector.editNative(field.spec.name)
         onLinkRemoved: function (key) { inspector.removeLink(field.spec.name, key); }
+        onLinkOpened: function (key) { inspector.openLink(field.spec.name, key); }
         onPickRequested: inspector.pickLinks(field.spec.name)
     }
 

@@ -25,7 +25,11 @@ from .task_sync import SWAPPED
 
 #: The dialog boxes replaced: FreeCAD's class for each feature's box.
 REPLACED = frozenset({"TaskPadParameters", "TaskPocketParameters",
-                      "TaskRevolutionParameters"})
+                      "TaskRevolutionParameters", "TaskLoftParameters",
+                      "TaskPipeParameters"})
+#: Further boxes of those dialogs, whose settings the cards also hold:
+#: hidden, not replaced (a pipe's orientation and sections).
+FOLDED = frozenset({"TaskPipeOrientation", "TaskPipeScaling"})
 #: FreeCAD's task panel exists from startup, but is looked for until found.
 FIND_MS = 500
 #: After the swap: the dialog settles, then the view is drawn afresh.
@@ -219,6 +223,11 @@ class TaskLayout(QtCore.QObject):
         self._busy = True
         try:
             for widget in view.findChildren(QtWidgets.QWidget):
+                if _short(widget) in FOLDED:
+                    widget.setProperty(SWAPPED, True)
+                    if widget.isVisible():
+                        widget.hide()
+                    continue
                 if _short(widget) not in REPLACED:
                     continue
                 # The parameters class is the dialog's box itself (a

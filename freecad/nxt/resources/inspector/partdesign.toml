@@ -15,6 +15,8 @@
 #             and written as nonzero; typing the value writes it too.
 #   hide_if   { Property = "OtherProperty" }: never show Property while
 #             the object has OtherProperty (it supersedes it).
+#   hide      [Property, ...]: never shown, as properties these objects
+#             have but do not use.
 #   group_as  { Property = "Group" }: a property the template leaves out,
 #             shown under another of FreeCAD's groups than its own.
 #   card      [[template.card]] tables, in order:
@@ -37,7 +39,8 @@
 #                 show_if = { Prop = value or [values] },
 #                 omit_if = { value = "Property" },
 #                 lead = "Property", trail = "Property", glyph = "...",
-#                 narrow = true/false, bare = true/false }
+#                 narrow = true/false, bare = true/false,
+#                 whole = true/false }
 #             editor: "dropdown" (an enumeration's default), "segmented"
 #             (every choice in view, joined: for a few choices that change
 #             the shape; on a yes/no, `labels` names its two states) or
@@ -51,7 +54,8 @@
 #             lead shows an enumeration inside the field, before the value
 #             (what the value means); trail a yes/no as a glyph button
 #             after the editor. narrow takes half the editor column; bare
-#             drops the label.
+#             drops the label. whole: on a link, a sketch picked by one of
+#             its edges or points stands for the whole sketch.
 #
 # Names a FreeCAD version does not have are skipped, so one template covers
 # versions with Midplane/TwoLengths and those with SideType.
@@ -244,5 +248,109 @@ items = [
 title = "Result"
 heading = false
 items = [
+    { prop = "Refine", label = "Merge faces", editor = "switch" },
+]
+
+# Additive and subtractive lofts: the profile, the sections it passes
+# through in order, how the surface runs between them, and the result.
+[[template]]
+id = "pd-loft"
+types = ["PartDesign::AdditiveLoft", "PartDesign::SubtractiveLoft"]
+# Inherited from sketch-based features, but unused by a loft (the wiki
+# lists them as not applicable).
+hide = ["Midplane", "Reversed", "AllowMultiFace", "UpToFace", "UpToFace2",
+        "UpToShape", "UpToShape2"]
+
+[template.choices]
+Subtraction = "Cut"
+Common = "Keep common"
+
+[[template.card]]
+title = "Profile"
+heading = false
+items = [
+    { prop = "Profile", label = "Profile", whole = true },
+    { prop = "Sections", label = "Sections", whole = true },
+]
+
+[[template.card]]
+title = "Shape"
+heading = false
+items = [
+    { prop = "Ruled", label = "Surface", editor = "segmented", labels = ["Smooth", "Ruled"] },
+    { prop = "Closed", label = "Closed", editor = "switch" },
+]
+
+[[template.card]]
+title = "Result"
+heading = false
+items = [
+    { prop = "Operation", label = "Operation", editor = "segmented", show_if = { Operation = ["Subtraction", "Common"] } },
+    { prop = "Refine", label = "Merge faces", editor = "switch" },
+]
+
+# Additive and subtractive pipes: the profile swept along a path, how it
+# turns at corners and along the way, optional further sections, and the
+# result. The pipe writes its settings to the feature as they change.
+[[template]]
+id = "pd-pipe"
+types = ["PartDesign::AdditivePipe", "PartDesign::SubtractivePipe"]
+# Inherited from sketch-based features, but unused by a pipe.
+hide = ["Midplane", "Reversed", "UpToFace", "UpToFace2", "UpToShape",
+        "UpToShape2"]
+
+[template.group_as]
+AllowMultiFace = "Part Design"
+
+[template.choices]
+Constant = "One profile"
+Multisection = "Several"
+Transformed = "Transformed"
+"Right corner" = "Right corner"
+"Round corner" = "Round corner"
+Standard = "Standard"
+Fixed = "Fixed"
+Frenet = "Frenet"
+Auxiliary = "Guide path"
+Binormal = "Binormal"
+Subtraction = "Cut"
+Common = "Keep common"
+
+[[template.card]]
+title = "Path"
+heading = false
+items = [
+    { prop = "Profile", label = "Profile", whole = true },
+    { prop = "Spine", label = "Path" },
+    { prop = "SpineTangent", label = "Tangent edges", editor = "switch" },
+]
+
+[[template.card]]
+title = "Sections"
+heading = false
+items = [
+    # Linear, S-shape and Interpolation do not work yet (the wiki says);
+    # every pipe has Mode, so they are always left out.
+    { prop = "Transformation", label = "Sections", editor = "segmented", omit_if = { Linear = "Mode", "S-shape" = "Mode", Interpolation = "Mode" } },
+    { prop = "Sections", label = "Through", whole = true, show_if = { Transformation = "Multisection" } },
+    { prop = "Transition", label = "Corners", editor = "dropdown" },
+]
+
+[[template.card]]
+title = "Orientation"
+heading = false
+items = [
+    { prop = "Mode", label = "Orientation", editor = "dropdown" },
+    { prop = "AuxiliarySpine", label = "Guide path", show_if = { Mode = "Auxiliary" } },
+    { prop = "AuxiliarySpineTangent", label = "Tangent edges", editor = "switch", show_if = { Mode = "Auxiliary" } },
+    { prop = "AuxiliaryCurvilinear", label = "Curvilinear", editor = "switch", show_if = { Mode = "Auxiliary" } },
+    { prop = "Binormal", show_if = { Mode = "Binormal" } },
+]
+
+[[template.card]]
+title = "Result"
+heading = false
+items = [
+    { prop = "Operation", label = "Operation", editor = "segmented", show_if = { Operation = ["Subtraction", "Common"] } },
     { prop = "Refine", label = "Merge faces", editor = "switch" },
 ]

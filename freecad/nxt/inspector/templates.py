@@ -43,6 +43,8 @@ class Item:
     bare: bool = False
     #: Items laid on the same line, after this one's editor.
     beside: tuple["Item", ...] = ()
+    #: A link: a sketch picked by an edge or point is the whole sketch.
+    whole: bool = False
 
     def names(self) -> list[str]:
         return [self.prop, *(n for n in (self.lead, self.trail) if n),
@@ -99,6 +101,8 @@ class Template:
     choices: dict[str, str] = field(default_factory=dict)
     #: (hidden, superseding property), e.g. Midplane by SideType.
     hide_if: tuple[tuple[str, str], ...] = ()
+    #: Never shown: properties that do nothing for these objects.
+    hide: tuple[str, ...] = ()
     couples: tuple[Couple, ...] = ()
     #: (property, group): left out, but shown under another group.
     group_as: tuple[tuple[str, str], ...] = ()
@@ -154,7 +158,8 @@ def _item(raw: Any) -> Item:
                 tuple(str(label) for label in raw.get("labels", ())),
                 str(raw.get("lead", "")), str(raw.get("trail", "")),
                 str(raw.get("glyph", "")), bool(raw.get("narrow", False)),
-                bool(raw.get("bare", False)))
+                bool(raw.get("bare", False)),
+                whole=bool(raw.get("whole", False)))
 
 
 def parse(data: dict[str, Any]) -> list[Template]:
@@ -182,6 +187,7 @@ def parse(data: dict[str, Any]) -> list[Template]:
                          in dict(raw.get("group_as", {})).items())
         out.append(Template(str(raw["id"]), tuple(raw.get("types", ())),
                             cards, dict(raw.get("choices", {})), hide_if,
+                            tuple(str(p) for p in raw.get("hide", ())),
                             couples, group_as))
     return out
 
@@ -276,7 +282,7 @@ def apply(template: Template, objects: list[Any],
         [n for n in variables.added(objects[0]) if n in found]
         if objects and any(card.variables for card in template.cards)
         else [])
-    placed = template.names() | set(own) | {
+    placed = template.names() | set(own) | set(template.hide) | {
         hidden for hidden, by in template.hide_if
         if all(hasattr(o, by) for o in objects)}
     moved = dict(template.group_as)

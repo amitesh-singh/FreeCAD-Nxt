@@ -40,6 +40,17 @@ def _alive(obj: Any) -> bool:
         return False
 
 
+def _whole_sketches(pairs: list[tuple[Any, str]]) -> list[tuple[Any, str]]:
+    """A sketch picked by its elements stands for the whole sketch."""
+    from ..tools.editing import is_sketch
+    out: list[tuple[Any, str]] = []
+    for obj, sub in pairs:
+        pair = (obj, "") if is_sketch(obj) else (obj, sub)
+        if all(p[0] is not pair[0] or p[1] != pair[1] for p in out):
+            out.append(pair)
+    return out
+
+
 class InspectorBridge(QtCore.QObject):
     """Serves `inspector.describe` for the selection, and applies edits."""
 
@@ -442,6 +453,9 @@ class InspectorBridge(QtCore.QObject):
         pairs = [(sel.Object, sub) for sel in picked
                  if sel.Object.Name not in mine
                  for sub in (list(sel.SubElementNames) or [""])]
+        template = inspector_templates.for_objects(self._pick_for)
+        if template is not None and template.item(self._picking).whole:
+            pairs = _whole_sketches(pairs)
         if pairs and inspector.edit_links(self._pick_for, self._picking,
                                           add=pairs):
             self.refresh()

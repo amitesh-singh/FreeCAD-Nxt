@@ -47,12 +47,21 @@ _REVOLVE: dict[str, tuple[str, str]] = {
     "ReferenceAxis": ("axis", COMBO),
 }
 
+#: TaskLoftParameters.ui. Its profile and sections it writes to the
+#: feature as they change, so they are set directly.
+_LOFT: dict[str, tuple[str, str]] = {
+    "Ruled": ("checkBoxRuled", CHECK),
+    "Closed": ("checkBoxClosed", CHECK),
+}
+
 #: Per feature type, property -> (task field, how it is set).
 FIELDS: dict[str, dict[str, tuple[str, str]]] = {
     "PartDesign::Pad": _EXTRUDE,
     "PartDesign::Pocket": _EXTRUDE,
     "PartDesign::Revolution": _REVOLVE,
     "PartDesign::Groove": _REVOLVE,
+    "PartDesign::AdditiveLoft": _LOFT,
+    "PartDesign::SubtractiveLoft": _LOFT,
 }
 #: Those whose start has a drag handle (float_input.py).
 OFFSET_STARTS = ("PartDesign::Pad", "PartDesign::Pocket")

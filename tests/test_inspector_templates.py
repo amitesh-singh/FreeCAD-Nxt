@@ -439,5 +439,32 @@ class VarSetTests(unittest.TestCase):
         self.assertFalse(card["editable"])
 
 
+class LoftTests(unittest.TestCase):
+
+    def test_loft_links_take_whole_sketches(self) -> None:
+        loft = templates.for_objects(
+            [type("Loft", (), {"TypeId": "PartDesign::AdditiveLoft"})()])
+        assert loft is not None
+        self.assertTrue(loft.item("Sections").whole)
+        self.assertTrue(loft.item("Profile").whole)
+
+    def test_an_edge_of_a_sketch_is_the_sketch(self) -> None:
+        from freecad.nxt.inspector import bridge
+
+        class Sketch:
+            def isDerivedFrom(self, kind: str) -> bool:  # noqa: N802
+                return kind == "Sketcher::SketchObject"
+
+        class Pad:
+            def isDerivedFrom(self, _kind: str) -> bool:  # noqa: N802
+                return False
+
+        sketch, pad = Sketch(), Pad()
+        self.assertEqual(
+            bridge._whole_sketches([(sketch, "Edge1"), (sketch, "Edge2"),
+                                    (pad, "Face3")]),
+            [(sketch, ""), (pad, "Face3")])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

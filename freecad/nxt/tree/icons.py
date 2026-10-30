@@ -7,6 +7,7 @@ image://nxticon/@cmd/<Command>. The revision only busts QML's cache.
 from __future__ import annotations
 
 import traceback
+from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -66,10 +67,7 @@ class IconProvider(QQuickImageProvider):
             gray = parts[-1] == "gray"
             if obj_name.startswith(VIRTUAL_PREFIX):
                 return self._folder().pixmap(width, height)
-            doc = App.getDocument(doc_name)
-            obj = doc.getObject(obj_name) if doc is not None else None
-            vo = getattr(obj, "ViewObject", None)
-            icon = getattr(vo, "Icon", None) if vo is not None else None
+            icon = self._live_icon(doc_name, obj_name)
             if icon is None:
                 return self._blank(width, height)
             if isinstance(icon, str):
@@ -84,6 +82,22 @@ class IconProvider(QQuickImageProvider):
                 "Nxt: icon render failed for %r\n" % image_id)
             App.Console.PrintError(traceback.format_exc())
             return self._blank(width, height)
+
+    @staticmethod
+    def _live_icon(doc_name: str, obj_name: str) -> Any:
+        """The object's icon, or None while it is not there to draw.
+
+        QML asks for rows the document has just closed, and while one
+        opens it asks before every view provider is ready: neither is an
+        error, so neither is reported.
+        """
+        try:
+            doc: Any = App.listDocuments().get(doc_name)
+            obj = doc.getObject(obj_name) if doc is not None else None
+            vo = getattr(obj, "ViewObject", None)
+            return getattr(vo, "Icon", None) if vo is not None else None
+        except (RuntimeError, ReferenceError):  # deleted mid-request
+            return None
 
     @staticmethod
     def _folder() -> QtGui.QIcon:

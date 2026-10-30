@@ -1,4 +1,4 @@
-\"""The addon's version, kept in step with package.xml."""
+"""The addon's version, kept in step with package.xml."""
 
 from __future__ import annotations
 

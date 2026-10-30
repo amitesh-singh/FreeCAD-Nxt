@@ -509,6 +509,14 @@ El panel necesita PySide6.QtQuickWidgets.</translation>
         <translation>Reparar «Wire not closed»</translation>
     </message>
     <message>
+        <source>Rename new sketches, containers and features</source>
+        <translation>Renombrar nuevos croquis, contenedores y operaciones</translation>
+    </message>
+    <message>
+        <source>When a new object's edit closes (or a container is made), its name opens for editing in the tree.</source>
+        <translation>Al cerrar la edición de un objeto nuevo (o al crear un contenedor), su nombre se abre para editarlo en el árbol.</translation>
+    </message>
+    <message>
         <source>Attach a new sketch to three picked points without asking</source>
         <translation>Anclar un croquis a tres puntos sin preguntar</translation>
     </message>
@@ -1862,6 +1870,10 @@ Mantenga Alt al arrastrar para atravesarlas.</translation>
     <message>
         <source>Auto repair 'Wire not closed' errors</source>
         <translation>Reparar «Wire not closed»</translation>
+    </message>
+    <message>
+        <source>Rename new objects</source>
+        <translation>Renombrar objetos nuevos</translation>
     </message>
     <message>
         <source>More preferences…</source>

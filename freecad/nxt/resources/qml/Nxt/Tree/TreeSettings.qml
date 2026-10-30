@@ -123,6 +123,10 @@ Popup {
             key: "RepairProfiles"
             text: qsTr("Auto repair 'Wire not closed' errors")
         }
+        Setting {
+            key: "AutoRename"
+            text: qsTr("Rename new objects")
+        }
 
         Rectangle {
             width: parent.width

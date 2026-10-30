@@ -509,6 +509,14 @@ The panel needs PySide6.QtQuickWidgets.</source>
         <translation>自动修复“线框未闭合”错误</translation>
     </message>
     <message>
+        <source>Rename new sketches, containers and features</source>
+        <translation>重命名新建的草图、容器和特征</translation>
+    </message>
+    <message>
+        <source>When a new object's edit closes (or a container is made), its name opens for editing in the tree.</source>
+        <translation>新对象的编辑关闭时 (或创建容器时)，在树中打开其名称以供编辑。</translation>
+    </message>
+    <message>
         <source>Attach a new sketch to three picked points without asking</source>
         <translation>无需询问直接将新草图附加到选取的三个点</translation>
     </message>
@@ -1862,6 +1870,10 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Auto repair 'Wire not closed' errors</source>
         <translation>自动修复“线框未闭合”错误</translation>
+    </message>
+    <message>
+        <source>Rename new objects</source>
+        <translation>重命名新对象</translation>
     </message>
     <message>
         <source>More preferences…</source>

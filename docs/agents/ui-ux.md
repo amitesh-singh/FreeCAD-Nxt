@@ -21,7 +21,7 @@ inside FreeCAD: quiet, quick, predictable.
 
 - Arrow cursor on buttons, switches, rows and chips. Pointing hand only on
   text links.
-- Double-click opens an object for editing; F2 or a click on an
+- Double-click opens an object for editing; F2 (Return on macOS) or a click on an
   already-selected name renames (armed after the double-click interval).
 - Escape backs out of the innermost thing (popup, detail strip, edit),
   never two at once. Return applies; Escape in a field reverts.

@@ -67,13 +67,13 @@ class IconTests(unittest.TestCase):
 
 class PinTests(unittest.TestCase):
     def test_the_detail_strips_pin_is_the_inspectors(self) -> None:
-        def ink(image_id: str) -> int:
-            image = icons.IconProvider().requestPixmap(
-                image_id, None, QtCore.QSize(14, 14)).toImage()
-            return sum(1 for y in range(14) for x in range(14)
-                       if image.pixelColor(x, y).alpha() > 0)
-        self.assertGreater(ink("@pin/1/336699"), ink("@pin/0/336699"))
-        self.assertGreater(ink("@pin/0/336699"), 0)
+        from freecad.nxt.ui.glyphs import pin_icon
+        for pinned in (True, False):
+            served = icons.IconProvider().requestPixmap(
+                "@pin/%d/336699" % pinned, None, QtCore.QSize(14, 14))
+            drawn = pin_icon(14, pinned, QtGui.QColor("#336699")).pixmap(
+                14, 14)
+            self.assertEqual(served.toImage(), drawn.toImage())
 
 
 if __name__ == "__main__":

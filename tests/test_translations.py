@@ -16,6 +16,12 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import i18n  # noqa: E402
 
+#: FreeCAD's language codes: a file under any other name never loads.
+FREECAD_LOCALES = frozenset("""
+    af ar be bg ca cs da de el es-AR es-ES eu fi fil fr gl hr hu id it ja
+    ka kab ko lt nl no pl pt-BR pt-PT ro ru sk sl sr sr-CS sv-SE tr uk
+    val-ES vi zh-CN zh-TW""".split())
+
 
 class TranslationTests(unittest.TestCase):
     def test_each_qm_is_its_ts_compiled(self) -> None:
@@ -25,6 +31,11 @@ class TranslationTests(unittest.TestCase):
             with self.subTest(ts.name):
                 self.assertFalse(i18n.stale_qm(ts),
                                  "run: python scripts/i18n.py build")
+
+    def test_files_use_freecads_language_codes(self) -> None:
+        for ts in i18n.locale_files():
+            with self.subTest(ts.name):
+                self.assertIn(ts.stem[len("Nxt_"):], FREECAD_LOCALES)
 
     def test_placeholders_survive(self) -> None:
         for ts in i18n.locale_files():

@@ -10,7 +10,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from ..app import services
-from ..app.i18n import translate
+from ..app.i18n import on_change, translate
 from ..core import fc, log, settings
 from ..core.qt import QtCore, QtGui
 from ..core.transaction import transaction
@@ -66,6 +66,7 @@ class TreeBridge(QtCore.QObject):
                  widen: bool = False) -> None:
         super().__init__(parent)
         self._widen = widen
+        on_change(self.rebuild)
         self._tree = models.TreeRowModel(self)
         self._tree.opening = self._opening
         self._snapshot = scene.Snapshot()

@@ -84,6 +84,9 @@ zero = "Profile plane"
 nonzero = "Offset"
 
 [template.choices]
+"One side" = "One side"
+"Two sides" = "Two sides"
+Symmetric = "Symmetric"
 Length = "Dimension"
 TwoLengths = "Two lengths"
 ThroughAll = "Through all"
@@ -194,6 +197,9 @@ zero = "Profile plane"
 nonzero = "Offset"
 
 [template.choices]
+"One side" = "One side"
+"Two sides" = "Two sides"
+Symmetric = "Symmetric"
 Angle = "Angle"
 ThroughAll = "Through all"
 UpToLast = "To last"

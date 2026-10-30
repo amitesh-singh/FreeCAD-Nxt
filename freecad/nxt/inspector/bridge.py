@@ -8,6 +8,7 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
+from ..app import i18n
 from ..core.qt import QtCore, QtWidgets
 from ..tools import task_sync
 from . import layout as inspector
@@ -97,6 +98,7 @@ class InspectorBridge(QtCore.QObject):
     # -- lifetime --
 
     def start(self) -> None:
+        i18n.on_change(self.refresh)
         self._signature = ()
         self._poll()
         self._timer.start()

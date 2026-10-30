@@ -11,6 +11,7 @@ from typing import Any
 
 import FreeCADGui as Gui
 
+from ..app.i18n import follow, translate
 from ..core.qt import QtCore, QtWidgets
 from ..inspector import bridge as inspector_bridge
 from . import task_layout
@@ -24,7 +25,8 @@ class SectionTask:
         self.bridge = inspector_bridge.InspectorBridge(
             task=True, target=lambda: section.obj)
         self.form = task_layout.make_cards(None, self.bridge)
-        self.form.setWindowTitle("Section")
+        self.form.setWindowTitle(translate("Nxt", "Section"))
+        follow(self.form)
         self.bridge.start()
 
     def getStandardButtons(self) -> int:  # noqa: N802 - FreeCAD API

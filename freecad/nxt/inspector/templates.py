@@ -406,8 +406,8 @@ def _shaped(template: Template, item: Item, generic: dict[str, Any],
             objects: list[Any]) -> dict[str, Any]:
     """The generic entry for a property, as the template asks for it."""
     entry = dict(generic)
-    if item.label:
-        entry["label"] = template_text(item.label, template.id)
+    entry["label"] = template_text(item.label or entry["label"],
+                                   template.id)
     if item.wide is not None:
         entry["wide"] = bool(item.wide)
     if item.editor:

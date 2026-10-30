@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from .. import resources
+from ..app import i18n
 from ..core import qtquick
 from ..core.qt import QtCore, QtGui, QtWidgets
 
@@ -41,6 +42,7 @@ def make_view(parent: QtWidgets.QWidget | None, source: str,
         detail = "\n".join(str(e.toString()) for e in view.errors())
         view.deleteLater()
         raise QmlLoadError("%s failed to load:\n%s" % (source, detail))
+    i18n.follow(view)
     return view
 
 

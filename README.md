@@ -145,6 +145,7 @@ Add, rename and change VarSet variables right in the Property Inspector.
 Clone or copy the repository into your FreeCAD `Mod` folder:
 
 * **Linux**: `~/.local/share/FreeCAD/Mod/FreeCAD-Nxt`
+    * **snap**: `~/snap/freecad/common/Mod/Nxt`
 * **macOS**: `~/Library/Application Support/FreeCAD/Mod/FreeCAD-Nxt`
 * **Windows**: `%APPDATA%\FreeCAD\Mod\FreeCAD-Nxt`
 

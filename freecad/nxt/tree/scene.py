@@ -5,6 +5,7 @@ No Qt imports, so it runs headlessly under `freecadcmd` and in tests.
 
 from __future__ import annotations
 
+import contextlib
 import re
 import traceback
 from collections.abc import Container, Iterable, Sequence
@@ -87,11 +88,9 @@ CONTAINMENT_PROPS = frozenset({
 
 def _derived(obj: DocObject, bases: Iterable[str]) -> bool:
     for base in bases:
-        try:
+        with contextlib.suppress(Exception):
             if obj.isDerivedFrom(base):
                 return True
-        except Exception:
-            pass
     return False
 
 
@@ -150,17 +149,13 @@ def claim_children(obj: DocObject) -> list[DocObject]:
     if vo is not None:
         fn = getattr(vo, "claimChildren", None)
         if callable(fn):
-            try:
+            with contextlib.suppress(Exception):
                 return [c for c in (fn() or []) if c is not None]
-            except Exception:
-                pass
         proxy = getattr(vo, "Proxy", None)
         fn = getattr(proxy, "claimChildren", None)
         if callable(fn):
-            try:
+            with contextlib.suppress(Exception):
                 return [c for c in (fn() or []) if c is not None]
-            except Exception:
-                pass
 
     group = getattr(obj, "Group", None)
     if group:
@@ -213,7 +208,7 @@ def feature_stack(body: DocObject) -> list[DocObject]:
         try:
             if "BaseFeature" not in (obj.PropertiesList or []):
                 continue
-        except Exception:
+        except Exception:  # nosec B112  # an object FreeCAD can't describe
             continue
         features.append(obj)
 
@@ -285,7 +280,7 @@ def _link_table(holder: DocObject) -> LinkTable:
                     "App::PropertyLink"):
                 continue
             value = getattr(holder, prop, None)
-        except Exception:
+        except Exception:  # nosec B112  # an object FreeCAD can't describe
             continue
         for obj, subs in link_entries(value):
             entry = table.setdefault(obj.Name, [])
@@ -517,7 +512,7 @@ class Snapshot:
                 continue
             try:
                 members = getattr(obj, "Group", None) or ()
-            except Exception:
+            except Exception:  # nosec B112  # an object FreeCAD can't describe
                 continue
             for member in members:
                 group_owner.setdefault(getattr(member, "Name", None), obj.Name)

@@ -5,6 +5,7 @@ They reach the panel only through signals; nothing here imports it.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 import FreeCAD as App
@@ -136,10 +137,8 @@ class Services(QtCore.QObject):
         self._sketch_repair = self._sketch_attach = None
         self._face_snap = self._space = None
         self._task_layout = None
-        try:
+        with contextlib.suppress(RuntimeError):
             self._main_window.removeEventFilter(self)
-        except RuntimeError:
-            pass
 
     # -- isolate -- #
 
@@ -188,10 +187,8 @@ class Services(QtCore.QObject):
             except Exception:
                 log.error("could not remove Escape for isolate")
             self._escape = None
-        try:
+        with contextlib.suppress(Exception):
             App.removeDocumentObserver(self._isolation_observer)
-        except Exception:
-            pass
         self._isolation = self._isolation_observer = self._notice = None
 
     # -- quick mass -- #
@@ -287,11 +284,9 @@ def stop() -> None:
     global _services
     if _services is None:
         return
-    try:
+    with contextlib.suppress(RuntimeError):
         _services.remove()
         _services.deleteLater()
-    except RuntimeError:
-        pass                    # the main window already took it down
     _services = None
 
 

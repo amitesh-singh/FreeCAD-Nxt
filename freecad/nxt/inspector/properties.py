@@ -65,7 +65,7 @@ def describe(obj: Any) -> list[dict[str, Any]]:
         try:
             kind = _strip_kind(obj.getTypeIdOfProperty(prop))
             value = getattr(obj, prop)
-        except Exception:
+        except Exception:  # nosec B112  # an unreadable property
             continue
         if kind is None:
             continue

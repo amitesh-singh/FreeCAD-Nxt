@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 import FreeCAD as App
@@ -25,10 +26,8 @@ class ViewNotice(TopNotice):
         isolation.changed.connect(self._sync)
 
     def remove(self) -> None:
-        try:
+        with contextlib.suppress(RuntimeError, TypeError):
             self._isolation.changed.disconnect(self._sync)
-        except (RuntimeError, TypeError):
-            pass
         super().remove()
 
     def _context(self) -> dict[str, Any]:
@@ -78,11 +77,9 @@ class EscapeToExit(ApplicationEventFilter):
         if app.activeModalWidget() is not None \
                 or app.activePopupWidget() is not None:
             return False
-        try:
+        with contextlib.suppress(Exception):
             if Gui.Control.activeDialog():
                 return False
-        except Exception:
-            pass
         gui_doc = Gui.ActiveDocument
         if gui_doc is not None and gui_doc.getInEdit() is not None:
             return False

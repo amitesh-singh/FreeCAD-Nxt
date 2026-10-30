@@ -11,6 +11,7 @@ by the rounds' end sections and by curves on the faces they share.
 
 from __future__ import annotations
 
+import contextlib
 import math
 from dataclasses import dataclass
 from typing import Any
@@ -504,14 +505,12 @@ def applied(shape: Any, junction: Junction) -> Any:
     if junction.centre is not None:
         with bf.timed("sphere corner"):
             return _sphere_corner(shape, junction)
-    try:
+    with contextlib.suppress(Exception):  # the fitted patch next
         with bf.timed("swept blend"):
             swept = _swept(junction, _loop(junction))
             done = _sewn(shape, *swept) if swept is not None else None
         if done is not None and done.isValid():
             return done
-    except Exception:  # noqa: BLE001 - the fitted patch next
-        pass
     with bf.timed("fitted patch"):
         parts = outline(junction)
         return _sewn(shape, [patch(junction, parts)],

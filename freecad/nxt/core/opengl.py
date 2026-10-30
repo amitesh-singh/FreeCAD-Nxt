@@ -6,6 +6,7 @@ library exports directly: no extension loading needed.
 
 from __future__ import annotations
 
+import contextlib
 import ctypes
 import ctypes.util
 import sys
@@ -40,11 +41,9 @@ def library() -> Any:
         loader = getattr(ctypes, "WinDLL", ctypes.CDLL) \
             if sys.platform == "win32" else ctypes.CDLL
         for name in _names():
-            try:
+            with contextlib.suppress(OSError):
                 _library = loader(name)
                 break
-            except OSError:
-                continue
         else:
             raise OSError("no OpenGL library found")
     return _library

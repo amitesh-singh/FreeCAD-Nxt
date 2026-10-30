@@ -6,6 +6,7 @@ if not, the press and its moves and release go to the 3D view.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 import FreeCAD as App
@@ -91,10 +92,8 @@ class ViewOverlay(QtCore.QObject):
         self._remove_strip()
         area = view3d.mdi_area()
         if area is not None:
-            try:
+            with contextlib.suppress(RuntimeError, TypeError):
                 area.subWindowActivated.disconnect(self._follow)
-            except (RuntimeError, TypeError):
-                pass
         for old in (self._host, self._holder, *self._overlays):
             if widgets.alive(old):
                 old.removeEventFilter(self)

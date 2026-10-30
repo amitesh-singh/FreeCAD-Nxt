@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable, Iterable
 from functools import partial
 from typing import Any
@@ -132,7 +133,7 @@ class TreeBridge(QtCore.QObject):
         for key in keys or self.ACTIVE_KEYS:
             try:
                 obj = view.getActiveObject(key)
-            except Exception:
+            except Exception:  # nosec B112  # no such key in this build
                 continue
             # Some builds return a tuple (object, ...).
             if isinstance(obj, tuple):
@@ -148,13 +149,11 @@ class TreeBridge(QtCore.QObject):
         Read from the file because FreeCAD restores State only later.
         """
         saved: set[str] = set()
-        try:
+        with contextlib.suppress(Exception):
             doc = App.getDocument(snap.doc_name)
             saved = saved_expansion.read(getattr(doc, "FileName", "") or "")
             saved |= {o.Name for o in doc.Objects
                       if "Expanded" in (getattr(o, "State", None) or ())}
-        except Exception:
-            pass
         return snap.opening_expansion(saved)
 
     def save_expansion(self, doc: Any) -> None:
@@ -189,11 +188,9 @@ class TreeBridge(QtCore.QObject):
             have = "Expanded" in (getattr(obj, "State", None) or ())
             if want == have:
                 continue
-            try:
+            with contextlib.suppress(Exception):
                 # 2 expands the stock tree's item, 1 collapses it.
                 gui_doc.toggleTreeItem(obj, 2 if want else 1)
-            except Exception:
-                pass
 
     def _sync_active(self) -> None:
         part = self._read_active(("part",))
@@ -304,12 +301,10 @@ class TreeBridge(QtCore.QObject):
             self.pickOriginsChanged.emit()
             self._arrows_timer.start()
         names: list[str] = []
-        try:
+        with contextlib.suppress(Exception):
             for obj in Gui.Selection.getSelection(self._snapshot.doc_name):
                 if obj.Name not in names:
                     names.append(obj.Name)
-        except Exception:
-            pass
         before = set(self._tree.selection())
         self._tree.set_selection(names)
         self._mark_related(names)
@@ -426,7 +421,7 @@ class TreeBridge(QtCore.QObject):
             self._auto_name = name
             self._auto_timer.start()
         if additive:
-            try:
+            with contextlib.suppress(Exception):
                 doc: Any = App.ActiveDocument
                 already = {o.Name for o
                            in Gui.Selection.getSelection(doc.Name)}
@@ -434,8 +429,6 @@ class TreeBridge(QtCore.QObject):
                     Gui.Selection.removeSelection(doc.Name, name)
                     self.sync_selection()
                     return
-            except Exception:
-                pass
         self._push_selection([name], additive)
 
     @QtCore.Slot()

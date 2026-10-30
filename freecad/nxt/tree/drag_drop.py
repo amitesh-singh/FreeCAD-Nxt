@@ -55,7 +55,7 @@ class DragDrop:
         for find in (reorder.body_of, reorder.group_of):
             try:
                 holders = {getattr(find(o), "Name", None) for o in objects}
-            except Exception:
+            except Exception:  # nosec B112  # no such holder
                 continue
             if len(holders) == 1 and None not in holders:
                 return str(holders.pop())

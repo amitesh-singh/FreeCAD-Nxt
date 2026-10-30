@@ -7,6 +7,7 @@ task the repair joins the task's undo step.
 
 from __future__ import annotations
 
+import contextlib
 from functools import partial
 from typing import Any
 
@@ -240,10 +241,8 @@ class SketchRepair(QtCore.QObject):
         for remove in (App.removeDocumentObserver,
                        Gui.removeDocumentObserver,
                        Gui.Selection.removeObserver):
-            try:
+            with contextlib.suppress(Exception):
                 remove(self._observer)
-            except Exception:
-                pass
 
     def consider(self, sketch: Any, edited: bool = False) -> None:
         """Look at this sketch soon. `edited`: the user just changed it."""

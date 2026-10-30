@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 import FreeCAD as App
@@ -94,12 +95,10 @@ class Activation:
         type_id = str(getattr(obj, "TypeId", ""))
         if type_id == "PartDesign::Body":
             return "pdbody"
-        try:
+        with contextlib.suppress(Exception):
             if type_id.startswith("Assembly::Assembly") \
                     or obj.isDerivedFrom("App::Part"):
                 return "part"
-        except Exception:
-            pass
         return ""
 
     def _activate_pending(self) -> None:
@@ -110,10 +109,8 @@ class Activation:
         key = self._active_key(obj)
         if obj is None or not key:
             return
-        try:
+        with contextlib.suppress(Exception):
             obj.ViewObject.doubleClicked()
-        except Exception:
-            pass
         try:
             view = fc.active_view()
             if self._bridge._read_active((key,)) != name \

@@ -7,6 +7,7 @@ stay on the frame in the 3D view.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 import FreeCADGui as Gui
@@ -47,11 +48,9 @@ class SectionTask:
     def close(self) -> None:
         """The section stopped editing: take the dialog away."""
         self.bridge.stop()
-        try:
+        with contextlib.suppress(Exception):  # FreeCAD closed it already
             if Gui.Control.activeDialog():
                 Gui.Control.closeDialog()
-        except Exception:  # noqa: BLE001 - FreeCAD closed it already
-            pass
 
 
 def open_for(section: Any) -> None:

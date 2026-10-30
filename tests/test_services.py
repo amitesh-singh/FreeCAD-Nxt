@@ -77,7 +77,7 @@ class ServicesTests(unittest.TestCase):
 
     def test_an_edit_is_announced_then_deferred(self) -> None:
         live = services.start()
-        assert live is not None
+        self.assertIsNotNone(live)
         heard: list[tuple[str, str]] = []
         live.featurePicked.connect(lambda d, n: heard.append((d, n)))
         live.edit_feature("Doc", "Pad")
@@ -88,7 +88,7 @@ class ServicesTests(unittest.TestCase):
 
     def test_the_edit_needs_no_panel(self) -> None:
         live = services.start()
-        assert live is not None
+        self.assertIsNotNone(live)
         live.edit_feature("Doc", "Pocket")       # nobody listening
         APP.processEvents()
         self.assertEqual(self.edits, [("Doc", "Pocket")])

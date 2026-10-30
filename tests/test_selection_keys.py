@@ -634,7 +634,7 @@ class TipDragTests(unittest.TestCase):
 
     def drag_to(self, feature: str) -> None:
         bars = self.bridge._rollback
-        assert bars.drag is not None
+        self.assertIsNotNone(bars.drag)
         bars.drag["wanted"] = feature
         bars._drain_tip_drag()
 

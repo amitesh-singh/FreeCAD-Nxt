@@ -8,8 +8,9 @@ from __future__ import annotations
 import sys
 import unittest
 import warnings
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from defusedxml.ElementTree import parse
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -45,7 +46,7 @@ class TranslationTests(unittest.TestCase):
     def test_template_text_is_extracted(self) -> None:
         source = ROOT / "freecad/nxt/resources/translations/Nxt.ts"
         found = {(m.findtext("comment") or "", m.findtext("source"))
-                 for c in ET.parse(source).getroot().iter("context")
+                 for c in parse(source).getroot().iter("context")
                  if c.findtext("name") == i18n.TEMPLATE_CONTEXT
                  for m in c.iter("message")}
         missing = set(i18n.template_strings()) - found

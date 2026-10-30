@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -24,7 +25,7 @@ from PySide6.QtTest import QTest  # noqa: E402
 App = types.ModuleType("FreeCAD")
 App.Console = types.SimpleNamespace(PrintError=lambda _m: None,
                                     PrintMessage=lambda _m: None)
-App.getUserAppDataDir = lambda: "/tmp/"
+App.getUserAppDataDir = lambda: tempfile.gettempdir() + os.sep
 
 
 class FakeParams:

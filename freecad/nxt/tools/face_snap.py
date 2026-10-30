@@ -7,6 +7,7 @@ polled and set through their rawValue, as their own arrows do.
 from __future__ import annotations
 
 import bisect
+import contextlib
 import traceback
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -129,10 +130,8 @@ def _sources(feature: Any) -> list[Any]:
     if base is not None:
         sources.append(base)
     body = None
-    try:
+    with contextlib.suppress(Exception):
         body = feature.getParentGeoFeatureGroup()
-    except Exception:
-        pass
     for obj in feature.Document.Objects:
         if obj is feature or obj is body or obj is base:
             continue
@@ -153,7 +152,7 @@ def _planar_faces(sources: Iterable[Any]) -> Iterable[Planar]:
     for obj in sources:
         try:
             faces = obj.Shape.Faces
-        except Exception:
+        except Exception:  # nosec B112  # no shape to snap to
             continue
         for index, face in enumerate(faces, start=1):
             seen += 1
@@ -324,17 +323,13 @@ class FaceSnap(QtCore.QObject):
     # -- highlight via FreeCAD preselection --
 
     def _highlight(self, doc_name: str, face: Face) -> None:
-        try:
+        with contextlib.suppress(Exception):
             Gui.Selection.setPreselection(
                 App.getDocument(doc_name).getObject(face.obj), face.element)
-        except Exception:
-            pass
 
     def _unhighlight(self) -> None:
-        try:
+        with contextlib.suppress(Exception):
             Gui.Selection.clearPreselection()
-        except Exception:
-            pass
 
     def _release(self) -> None:
         if self._held is not None:

@@ -6,6 +6,7 @@ mark is cleared again where FreeCAD allows. Saves keep the prior view.
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Iterable
 from typing import Any
 
@@ -270,11 +271,9 @@ class Isolation(QtCore.QObject):
         """Clear the modified mark if the document was clean going in."""
         if self._was_modified is not False or self._doc is None:
             return
-        try:
+        with contextlib.suppress(Exception):
             gui_doc: Any = Gui.getDocument(self._doc)   # stubs: read-only
             gui_doc.Modified = False
-        except Exception:
-            pass                        # read-only in this build: harmless
 
     # -- document events --
 

@@ -181,6 +181,15 @@ state = [{ command = "nxt:reveal_first_problem", flags = ["failed"] }]
 [menu.section]
 Model = ["PartDesign_NewSketch", "Std_ToggleFreeze"]
 
+# ----------------------------------------------------------------- containers
+
+[[menu]]
+id = "container"
+when = { type = ["App::Part", "App::DocumentObjectGroup", "PartDesign::Body", "Assembly::AssemblyObject"], count = 1 }
+
+[menu.section]
+Organize = ["nxt:show_contents"]
+
 # ---------------------------------------------------------------------- datum
 
 [[menu]]
@@ -200,7 +209,6 @@ Organize = [
     { command = "Std_Group", label = "New group inside" },
     "nxt:expand_all",
     "nxt:collapse_all",
-    "nxt:show_all",
 ]
 
 # ------------------------------------------------------------ Part primitives

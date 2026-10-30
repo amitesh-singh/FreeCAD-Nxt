@@ -715,6 +715,10 @@ Przytrzymaj Alt podczas przeciągania, by przejść dalej.</translation>
         <translation>Pokaż wszystko</translation>
     </message>
     <message>
+        <source>Show all</source>
+        <translation>Pokaż wszystko</translation>
+    </message>
+    <message>
         <source>Collapse all</source>
         <translation>Zwiń wszystko</translation>
     </message>

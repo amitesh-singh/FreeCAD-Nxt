@@ -715,6 +715,10 @@ Mit Alt beim Ziehen geht es hindurch.</translation>
         <translation>Alle Objekte zeigen</translation>
     </message>
     <message>
+        <source>Show all</source>
+        <translation>Alles zeigen</translation>
+    </message>
+    <message>
         <source>Collapse all</source>
         <translation>Alle zuklappen</translation>
     </message>

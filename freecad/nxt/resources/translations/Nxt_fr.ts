@@ -715,6 +715,10 @@ Maintenez Alt en glissant pour traverser.</translation>
         <translation>Afficher tout</translation>
     </message>
     <message>
+        <source>Show all</source>
+        <translation>Tout afficher</translation>
+    </message>
+    <message>
         <source>Collapse all</source>
         <translation>Tout replier</translation>
     </message>

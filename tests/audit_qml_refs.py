@@ -48,7 +48,7 @@ theme = py_members(PY.parent / "ui" / "theme.py")
 panel = py_members(PY / "panel.py")
 
 # roleNames -> the properties a delegate may declare
-models_src = (PY / "models.py").read_text()
+models_src = (PY / "models.py").read_text(encoding="utf-8")
 roles = set(re.findall(r':\s*"([A-Za-z]+)",', models_src))
 
 calls = {"nxt": set(), "theme": set(), "host": set()}
@@ -56,7 +56,7 @@ components = set()
 inline: set[str] = set()
 declared = set()
 for path in qml_files():
-    src = strip_comments(path.read_text())
+    src = strip_comments(path.read_text(encoding="utf-8"))
     for obj in calls:
         calls[obj] |= set(re.findall(r"(?<![A-Za-z0-9_.])" + obj +
                                      r"\.([A-Za-z_][A-Za-z0-9_]*)", src))
@@ -124,7 +124,7 @@ if registered - present or present - registered:
 # every file imports the module of each Nxt component it uses
 unimported = []
 for path in qml_files():
-    src = strip_comments(path.read_text())
+    src = strip_comments(path.read_text(encoding="utf-8"))
     imports = set(re.findall(r"^import (Nxt\.\w+)", src, re.M))
     own = path.parent.name if path.parent.parent.name == "Nxt" else None
     for name in set(re.findall(r"\b([A-Z]\w+)\s*\{", src)):

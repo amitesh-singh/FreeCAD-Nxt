@@ -176,8 +176,10 @@ def _entry(container: Any, prop: str, expressions: dict[str, str]
         entry["editor"] = "switch"
     elif kind == "enum":
         entry["text"] = str(value)
-        entry["options"] = list(
-            container.getEnumerationsOfProperty(prop) or ())
+        # FreeCAD marks values kept only for old files with "?".
+        entry["options"] = [
+            o for o in container.getEnumerationsOfProperty(prop) or ()
+            if not o.startswith("?") or o == entry["text"]]
         if (len(entry["options"]) <= SEGMENTED_CHOICES
                 and sum(map(len, entry["options"])) <= SEGMENTED_LETTERS):
             entry["editor"] = "segmented"

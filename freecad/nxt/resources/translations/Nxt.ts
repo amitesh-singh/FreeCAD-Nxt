@@ -626,6 +626,10 @@ Hold Alt while dragging to pass through.</source>
         <extracomment>Called with the document after Undo, to restore view state. A toast button: (label, callback). (document name, undo count or None, AfterUndo).</extracomment>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Section</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>NxtMenu</name>
@@ -855,6 +859,21 @@ Hold Alt while dragging to pass through.</source>
 <context>
     <name>NxtTemplate</name>
     <message>
+        <source>One side</source>
+        <comment>pd-extrude</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Two sides</source>
+        <comment>pd-extrude</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Symmetric</source>
+        <comment>pd-extrude</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Dimension</source>
         <comment>pd-extrude</comment>
         <translation type="unfinished"></translation>
@@ -955,6 +974,11 @@ Hold Alt while dragging to pass through.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Side Type</source>
+        <comment>pd-extrude</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Offset</source>
         <comment>pd-extrude</comment>
         <translation type="unfinished"></translation>
@@ -966,6 +990,11 @@ Hold Alt while dragging to pass through.</source>
     </message>
     <message>
         <source>Start offset</source>
+        <comment>pd-extrude</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start Type</source>
         <comment>pd-extrude</comment>
         <translation type="unfinished"></translation>
     </message>
@@ -1020,8 +1049,28 @@ Hold Alt while dragging to pass through.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Refine</source>
+        <comment>pd-fillet</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Pattern with its base feature</source>
         <comment>pd-fillet</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>One side</source>
+        <comment>pd-revolve</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Two sides</source>
+        <comment>pd-revolve</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Symmetric</source>
+        <comment>pd-revolve</comment>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1075,6 +1124,11 @@ Hold Alt while dragging to pass through.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Side Type</source>
+        <comment>pd-revolve</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>First side</source>
         <comment>pd-revolve</comment>
         <translation type="unfinished"></translation>
@@ -1096,6 +1150,11 @@ Hold Alt while dragging to pass through.</source>
     </message>
     <message>
         <source>Start offset</source>
+        <comment>pd-revolve</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start Type</source>
         <comment>pd-revolve</comment>
         <translation type="unfinished"></translation>
     </message>
@@ -1301,6 +1360,11 @@ Hold Alt while dragging to pass through.</source>
     </message>
     <message>
         <source>Cut</source>
+        <comment>nxt-section</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mode</source>
         <comment>nxt-section</comment>
         <translation type="unfinished"></translation>
     </message>

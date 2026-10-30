@@ -631,6 +631,10 @@ Hold Alt while dragging to pass through.</source>
         <extracomment>Called with the document after Undo, to restore view state. A toast button: (label, callback). (document name, undo count or None, AfterUndo).</extracomment>
         <translation>撤销</translation>
     </message>
+    <message>
+        <source>Section</source>
+        <translation>剖面</translation>
+    </message>
 </context>
 <context>
     <name>NxtMenu</name>
@@ -860,6 +864,21 @@ Hold Alt while dragging to pass through.</source>
 <context>
     <name>NxtTemplate</name>
     <message>
+        <source>One side</source>
+        <comment>pd-extrude</comment>
+        <translation>单侧</translation>
+    </message>
+    <message>
+        <source>Two sides</source>
+        <comment>pd-extrude</comment>
+        <translation>双侧</translation>
+    </message>
+    <message>
+        <source>Symmetric</source>
+        <comment>pd-extrude</comment>
+        <translation>对称</translation>
+    </message>
+    <message>
         <source>Dimension</source>
         <comment>pd-extrude</comment>
         <translation>尺寸</translation>
@@ -917,22 +936,22 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Sketch normal</source>
         <comment>pd-extrude</comment>
-        <translation type="unfinished" />
+        <translation>草图法向</translation>
     </message>
     <message>
         <source>Custom</source>
         <comment>pd-extrude</comment>
-        <translation type="unfinished" />
+        <translation>自定义</translation>
     </message>
     <message>
         <source>Reference axis</source>
         <comment>pd-extrude</comment>
-        <translation type="unfinished" />
+        <translation>参考轴</translation>
     </message>
     <message>
         <source>Along normal</source>
         <comment>pd-extrude</comment>
-        <translation type="unfinished" />
+        <translation>沿法向</translation>
     </message>
     <message>
         <source>First side</source>
@@ -942,7 +961,7 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Up to</source>
         <comment>pd-extrude</comment>
-        <translation type="unfinished" />
+        <translation>直到</translation>
     </message>
     <message>
         <source>Taper</source>
@@ -960,6 +979,11 @@ Hold Alt while dragging to pass through.</source>
         <translation>长度</translation>
     </message>
     <message>
+        <source>Side Type</source>
+        <comment>pd-extrude</comment>
+        <translation>侧</translation>
+    </message>
+    <message>
         <source>Offset</source>
         <comment>pd-extrude</comment>
         <translation>偏移</translation>
@@ -972,12 +996,17 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Start offset</source>
         <comment>pd-extrude</comment>
-        <translation type="unfinished" />
+        <translation>起始偏移</translation>
+    </message>
+    <message>
+        <source>Start Type</source>
+        <comment>pd-extrude</comment>
+        <translation>起始类型</translation>
     </message>
     <message>
         <source>Reference</source>
         <comment>pd-extrude</comment>
-        <translation type="unfinished" />
+        <translation>参考</translation>
     </message>
     <message>
         <source>Result</source>
@@ -987,7 +1016,7 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Merge faces</source>
         <comment>pd-extrude</comment>
-        <translation type="unfinished" />
+        <translation>合并面</translation>
     </message>
     <message>
         <source>Fillet</source>
@@ -997,12 +1026,12 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Edges</source>
         <comment>pd-fillet</comment>
-        <translation type="unfinished" />
+        <translation>边</translation>
     </message>
     <message>
         <source>Selected</source>
         <comment>pd-fillet</comment>
-        <translation type="unfinished" />
+        <translation>选定</translation>
     </message>
     <message>
         <source>All</source>
@@ -1012,7 +1041,7 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Selected edges</source>
         <comment>pd-fillet</comment>
-        <translation type="unfinished" />
+        <translation>选定的边</translation>
     </message>
     <message>
         <source>One edge of a tangent chain fillets the whole chain.</source>
@@ -1025,9 +1054,29 @@ Hold Alt while dragging to pass through.</source>
         <translation>结果</translation>
     </message>
     <message>
+        <source>Refine</source>
+        <comment>pd-fillet</comment>
+        <translation>精简</translation>
+    </message>
+    <message>
         <source>Pattern with its base feature</source>
         <comment>pd-fillet</comment>
-        <translation type="unfinished" />
+        <translation>与基础特征一起阵列</translation>
+    </message>
+    <message>
+        <source>One side</source>
+        <comment>pd-revolve</comment>
+        <translation>单侧</translation>
+    </message>
+    <message>
+        <source>Two sides</source>
+        <comment>pd-revolve</comment>
+        <translation>双侧</translation>
+    </message>
+    <message>
+        <source>Symmetric</source>
+        <comment>pd-revolve</comment>
+        <translation>对称</translation>
     </message>
     <message>
         <source>Angle</source>
@@ -1080,6 +1129,11 @@ Hold Alt while dragging to pass through.</source>
         <translation>范围</translation>
     </message>
     <message>
+        <source>Side Type</source>
+        <comment>pd-revolve</comment>
+        <translation>侧</translation>
+    </message>
+    <message>
         <source>First side</source>
         <comment>pd-revolve</comment>
         <translation>第一侧</translation>
@@ -1087,7 +1141,7 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Up to</source>
         <comment>pd-revolve</comment>
-        <translation type="unfinished" />
+        <translation>直到</translation>
     </message>
     <message>
         <source>Second side</source>
@@ -1102,12 +1156,17 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Start offset</source>
         <comment>pd-revolve</comment>
-        <translation type="unfinished" />
+        <translation>起始偏移</translation>
+    </message>
+    <message>
+        <source>Start Type</source>
+        <comment>pd-revolve</comment>
+        <translation>起始类型</translation>
     </message>
     <message>
         <source>Reference</source>
         <comment>pd-revolve</comment>
-        <translation type="unfinished" />
+        <translation>参考</translation>
     </message>
     <message>
         <source>Result</source>
@@ -1117,7 +1176,7 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Merge faces</source>
         <comment>pd-revolve</comment>
-        <translation type="unfinished" />
+        <translation>合并面</translation>
     </message>
     <message>
         <source>Cut</source>
@@ -1147,22 +1206,22 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Surface</source>
         <comment>pd-loft</comment>
-        <translation type="unfinished" />
+        <translation>曲面</translation>
     </message>
     <message>
         <source>Smooth</source>
         <comment>pd-loft</comment>
-        <translation type="unfinished" />
+        <translation>平滑</translation>
     </message>
     <message>
         <source>Ruled</source>
         <comment>pd-loft</comment>
-        <translation type="unfinished" />
+        <translation>直纹</translation>
     </message>
     <message>
         <source>Closed</source>
         <comment>pd-loft</comment>
-        <translation type="unfinished" />
+        <translation>闭合</translation>
     </message>
     <message>
         <source>Result</source>
@@ -1172,12 +1231,12 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Operation</source>
         <comment>pd-loft</comment>
-        <translation type="unfinished" />
+        <translation>操作</translation>
     </message>
     <message>
         <source>Merge faces</source>
         <comment>pd-loft</comment>
-        <translation type="unfinished" />
+        <translation>合并面</translation>
     </message>
     <message>
         <source>One profile</source>
@@ -1252,7 +1311,7 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Tangent edges</source>
         <comment>pd-pipe</comment>
-        <translation type="unfinished" />
+        <translation>相切边</translation>
     </message>
     <message>
         <source>Sections</source>
@@ -1262,12 +1321,12 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Through</source>
         <comment>pd-pipe</comment>
-        <translation type="unfinished" />
+        <translation>贯穿</translation>
     </message>
     <message>
         <source>Corners</source>
         <comment>pd-pipe</comment>
-        <translation type="unfinished" />
+        <translation>角</translation>
     </message>
     <message>
         <source>Orientation</source>
@@ -1277,7 +1336,7 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Curvilinear</source>
         <comment>pd-pipe</comment>
-        <translation type="unfinished" />
+        <translation>曲线</translation>
     </message>
     <message>
         <source>Result</source>
@@ -1287,22 +1346,22 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Operation</source>
         <comment>pd-pipe</comment>
-        <translation type="unfinished" />
+        <translation>操作</translation>
     </message>
     <message>
         <source>Merge faces</source>
         <comment>pd-pipe</comment>
-        <translation type="unfinished" />
+        <translation>合并面</translation>
     </message>
     <message>
         <source>Plane</source>
         <comment>nxt-section</comment>
-        <translation type="unfinished" />
+        <translation>平面</translation>
     </message>
     <message>
         <source>Wedge</source>
         <comment>nxt-section</comment>
-        <translation type="unfinished" />
+        <translation>楔形</translation>
     </message>
     <message>
         <source>Cut</source>
@@ -1310,9 +1369,14 @@ Hold Alt while dragging to pass through.</source>
         <translation>减除</translation>
     </message>
     <message>
+        <source>Mode</source>
+        <comment>nxt-section</comment>
+        <translation>模式</translation>
+    </message>
+    <message>
         <source>Opening</source>
         <comment>nxt-section</comment>
-        <translation type="unfinished" />
+        <translation>开口</translation>
     </message>
     <message>
         <source>Solids</source>
@@ -1322,7 +1386,7 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <source>Left whole</source>
         <comment>nxt-section</comment>
-        <translation type="unfinished" />
+        <translation>保持完整</translation>
     </message>
     <message>
         <source>Variables</source>

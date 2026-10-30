@@ -25,4 +25,5 @@ python scripts/i18n.py terms --freecad PATH  # refresh app/freecad_terms.py
 `update` keeps existing translations of the same text. Commit each
 `.qm` with its `.ts`: the tests check that the `.qm` is exactly what its
 `.ts` compiles to, so the binary can be reviewed through the `.ts`.
-`init_gui.py` adds this folder to FreeCAD's language path.
+Name each file with FreeCAD's language code (`Nxt_es-ES.ts`, not
+`Nxt_es.ts`), or FreeCAD won't load it. `init_gui.py` adds this folder to FreeCAD's language path.

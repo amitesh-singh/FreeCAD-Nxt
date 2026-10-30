@@ -10,6 +10,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from .. import resources
+from ..app import i18n
 from ..app.i18n import QT_TRANSLATE_NOOP, translate
 from ..core import fc, qtquick
 from ..core import settings as settings_mod
@@ -192,6 +193,7 @@ class ModelPanel(QtWidgets.QDockWidget):
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(translate("Nxt", TITLE), parent)
         self.setObjectName(OBJECT_NAME)
+        i18n.on_change(self._retitle)
 
         # QML calls back into these while loading, so set before setWidget.
         self._view: Any = None     # QQuickWidget; the module loads lazily
@@ -603,6 +605,11 @@ class ModelPanel(QtWidgets.QDockWidget):
             return
         self._theme.set_reference(widget)
         self._apply_clear_colour()
+        if self._title_bar is not None:
+            self._title_bar.refresh()
+
+    def _retitle(self) -> None:
+        self.setWindowTitle(translate("Nxt", TITLE))
         if self._title_bar is not None:
             self._title_bar.refresh()
 

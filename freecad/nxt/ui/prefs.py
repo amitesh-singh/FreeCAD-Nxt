@@ -8,7 +8,7 @@ from typing import Any
 import FreeCAD as App
 
 from .. import resources
-from ..app.i18n import translate
+from ..app.i18n import follow, translate
 from ..core import settings
 from ..core.qt import QtCore, QtGui, QtWidgets
 from ..tools import gizmos
@@ -138,6 +138,7 @@ class NxtPreferencesPage:
         self.form = QtWidgets.QWidget()
         self.form.setWindowTitle(translate("Nxt", "Model panel"))
         self.form.setWindowIcon(QtGui.QIcon(str(resources.LOGO)))
+        follow(self.form)
         outer = QtWidgets.QVBoxLayout(self.form)
 
         tree = QtWidgets.QGroupBox(translate("Nxt", "Tree"), self.form)

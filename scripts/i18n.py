@@ -35,6 +35,8 @@ TERMS_FILE = SRC_DIR / "app" / "freecad_terms.py"
 TEMPLATE_CONTEXT = "NxtTemplate"
 DEFAULT_LOCALE = "zh-CN"
 PLACEHOLDER = re.compile(r"%[0-9]+|%[sd]|{[A-Za-z0-9_]*}")
+#: A property's name as its label: as inspector.layout.label_for.
+SPACED = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 #: Template keys whose values are shown to the user.
 SHOWN_KEYS = ("title", "hint", "label")
 
@@ -71,6 +73,8 @@ def _shown(node: object) -> Iterator[str]:
             yield from _shown(item)
     elif isinstance(node, dict):
         for key, value in node.items():
+            if key == "prop" and "label" not in node:
+                yield SPACED.sub(" ", str(value))
             if key in SHOWN_KEYS and isinstance(value, str) and value:
                 yield value
             elif key == "labels" and isinstance(value, list):

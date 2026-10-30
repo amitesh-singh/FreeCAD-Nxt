@@ -11,7 +11,6 @@ import FreeCAD as App
 
 from .. import menus
 from ..app.i18n import translate
-from ..core import fc
 from ..core.transaction import transaction
 from ..menus import facts, present, runner
 from ..menus.definitions import Item
@@ -174,27 +173,9 @@ def _set_tip(bridge: TreeBridge, objects: list[Any]) -> None:
         bridge.setTip(node.body, node.name)
 
 
-def _active_key(obj: Any) -> str:
-    type_id = str(getattr(obj, "TypeId", ""))
-    if type_id == "PartDesign::Body":
-        return "pdbody"
-    if type_id.startswith("Assembly::Assembly"):
-        return "assembly"
-    return ""
-
-
 def _make_active(bridge: TreeBridge, objects: list[Any]) -> None:
-    view = fc.active_view()
-    if view is None:
-        return
-    obj = objects[0]
-    key = _active_key(obj)
-    if not key:
-        return
-    current = view.getActiveObject(key)
-    if isinstance(current, tuple):
-        current = current[0] if current else None
-    view.setActiveObject(key, None if current is obj else obj)
+    if len(objects) == 1:
+        bridge._activation.toggle_active(objects[0].Name)
 
 
 def _select_same_type(bridge: TreeBridge, objects: list[Any]) -> None:

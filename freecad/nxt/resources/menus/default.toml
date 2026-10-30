@@ -212,6 +212,7 @@ Organize = [
 ]
 
 # ------------------------------------------------------------------ Assembly
+# After the group menu: an Assembly is a group too, and the later lead wins.
 
 [[menu]]
 id = "assembly"

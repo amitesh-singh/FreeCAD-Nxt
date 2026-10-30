@@ -15,7 +15,7 @@ from typing import Any
 
 import FreeCAD as App
 
-from ..app.i18n import translate
+from ..app.i18n import template_text
 from ..core import units
 from . import variables
 
@@ -330,8 +330,7 @@ def apply(template: Template, objects: list[Any],
             continue
         items = laid_out(card.items)
         columns: list[dict[str, Any]] = [
-            {"title": (translate("Nxt", column.title)
-                      if column.title else ""),
+            {"title": template_text(column.title, template.id),
              "items": laid_out(column.items)}
             for column in card.columns if shown(column, objects)]
         columns = [c for c in columns if c["items"]]
@@ -344,13 +343,12 @@ def apply(template: Template, objects: list[Any],
             closed = holds_all(card.closed_when, objects)
             every: list[dict[str, Any]] = [
                 *items, *(i for c in columns for i in c["items"]), *after]
-            cards.append({"name": translate("Nxt", card.title),
+            cards.append({"name": template_text(card.title, template.id),
                           "open": not closed or not card.heading,
                           "heading": card.heading,
                           "items": items, "columns": columns, "after": after,
                           "count": count, "first": True,
-                          "hint": (translate("Nxt", card.hint)
-                                   if card.hint else ""),
+                          "hint": template_text(card.hint, template.id),
                           "summary": summary(every) if closed else "",
                           "template": template.id})
     return cards
@@ -367,11 +365,12 @@ def _variables_card(card: Card, template: Template, objects: list[Any],
     rows = [dict(entry, label=entry["name"], variable=True,
                  typeLabel=variables.type_label(type_of(entry["name"])))
             for entry in entries]
-    return {"name": translate("Nxt", card.title), "open": True,
+    return {"name": template_text(card.title, template.id), "open": True,
             "heading": card.heading,
             "items": [], "columns": [], "after": [], "variables": rows,
             "editable": len(objects) == 1, "count": len(rows),
-            "first": True, "hint": card.hint, "summary": "",
+            "first": True, "hint": template_text(card.hint, template.id),
+            "summary": "",
             "template": template.id}
 
 
@@ -408,14 +407,14 @@ def _shaped(template: Template, item: Item, generic: dict[str, Any],
     """The generic entry for a property, as the template asks for it."""
     entry = dict(generic)
     if item.label:
-        entry["label"] = translate("Nxt", item.label)
+        entry["label"] = template_text(item.label, template.id)
     if item.wide is not None:
         entry["wide"] = bool(item.wide)
     if item.editor:
         entry["editor"] = item.editor
     if entry["kind"] == "bool" and item.labels:
-        entry["optionLabels"] = [
-            translate("Nxt", str(lbl)) for lbl in item.labels]
+        entry["optionLabels"] = [template_text(label, template.id)
+                                 for label in item.labels]
     for couple in template.couples:
         if item.prop == couple.mode and couple.zero in entry["options"]:
             entry["options"] = [o for o in entry["options"]
@@ -430,18 +429,14 @@ def _shaped(template: Template, item: Item, generic: dict[str, Any],
     if entry["kind"] == "enum":
         omitted = {value for value, prop in item.omit_if
                    if all(hasattr(o, prop) for o in objects)}
-        omitted |= {f"?{v}" for v in omitted}
         options = [o for o in entry["options"]
-                   if (not o.startswith("?") or o == entry["text"])
-                   and (o not in omitted or o == entry["text"])]
+                   if o not in omitted or o == entry["text"]]
         entry["options"] = options
-        raw_labels = (
-            list(item.labels) if len(item.labels) == len(options)
-            else [template.choices.get(
-                o, template.choices.get(o.lstrip("?"), o.lstrip("?")))
-                for o in options])
-        entry["optionLabels"] = [
-            translate("Nxt", str(lbl)) for lbl in raw_labels]
+        entry["optionLabels"] = (
+            [template_text(label, template.id) for label in item.labels]
+            if len(item.labels) == len(options)
+            else [template_text(template.choices[o], template.id)
+                  if o in template.choices else o for o in options])
     return entry
 
 

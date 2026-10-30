@@ -6,9 +6,8 @@ import importlib
 import re
 from typing import Any
 
-import FreeCADGui as Gui
-
 import FreeCAD as App
+import FreeCADGui as Gui
 
 from .definitions import EDIT_MODES
 from .present import CommandInfo
@@ -42,6 +41,20 @@ def _command(name: str) -> Any:
 UNSAFE = frozenset({"Std_Expressions"})
 
 
+#: A menu accelerator: "&Copy", or "复制(&C)" where the key is added.
+_ACCELERATOR = re.compile(r"\(&\w\)|&")
+
+
+def _action_text(command: Any) -> str:
+    """The command's menu text as FreeCAD shows it, translated."""
+    try:
+        actions = command.getAction()
+        text = str(actions[0].text() or "") if actions else ""
+    except Exception:
+        return ""
+    return _ACCELERATOR.sub("", text).strip()
+
+
 def lookup(name: str) -> CommandInfo | None:
     """What FreeCAD says about a command; None if unregistered or UNSAFE."""
     if name in UNSAFE:
@@ -54,19 +67,8 @@ def lookup(name: str) -> CommandInfo | None:
     except Exception:
         return None
     active = is_active(command)
-
-    label = ""
-    try:
-        acts = command.getAction()
-        if acts:
-            raw = str(acts[0].text() or "")
-            if raw:
-                label = re.sub(r"\(&[A-Za-z0-9]\)|&", "", raw).strip()
-    except Exception:
-        pass
-    if not label:
-        label = str(info.get("menuText", name)).replace("&", "").strip()
-
+    label = _action_text(command) or str(
+        info.get("menuText", name)).replace("&", "")
     return CommandInfo(label=label,
                        shortcut=str(info.get("shortcut", "") or ""),
                        active=active,

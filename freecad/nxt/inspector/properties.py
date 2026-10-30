@@ -7,11 +7,9 @@ from typing import Any
 
 import FreeCAD as App
 
-from ..app.i18n import translate
 from ..core import property_kinds
 from ..core.transaction import transaction
 from . import variables
-from .layout import label_for
 
 #: TypeId -> the properties that define it, in the order to show them.
 KEY_PROPERTIES: dict[str, tuple[str, ...]] = {
@@ -72,8 +70,7 @@ def describe(obj: Any) -> list[dict[str, Any]]:
         if kind is None:
             continue
         entry: dict[str, Any] = {
-            "name": prop, "label": label_for(prop), "kind": kind,
-            "text": "", "checked": False,
+            "name": prop, "kind": kind, "text": "", "checked": False,
             "options": [], "expression": _expression(obj, prop) or "",
             "readOnly": property_kinds.is_read_only(obj, prop),
             # Variables: two columns, each name over its value.
@@ -87,12 +84,7 @@ def describe(obj: Any) -> list[dict[str, Any]]:
             entry["checked"] = bool(value)
         else:
             entry["text"] = str(value)
-            raw_options = list(obj.getEnumerationsOfProperty(prop) or ())
-            options = [o for o in raw_options
-                       if not o.startswith("?") or o == entry["text"]]
-            entry["options"] = options
-            entry["optionLabels"] = [
-                translate("Nxt", o.lstrip("?")) for o in options]
+            entry["options"] = list(obj.getEnumerationsOfProperty(prop) or ())
         out.append(entry)
     return out
 

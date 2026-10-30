@@ -40,8 +40,7 @@ Item {
     readonly property int optionPad: 10
 
     function labelAt(i) {
-        var lbl = (popup.labels && popup.labels[i]) || popup.options[i] || "";
-        return (lbl && lbl.charAt(0) === "?") ? lbl.substring(1) : lbl;
+        return (popup.labels && popup.labels[i]) || popup.options[i];
     }
 
     Keys.onEscapePressed: popup.dismiss()

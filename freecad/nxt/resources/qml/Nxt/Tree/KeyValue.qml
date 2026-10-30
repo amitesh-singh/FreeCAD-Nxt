@@ -23,7 +23,7 @@ Grid {
         width: entry.stacked ? entry.cellWidth : implicitWidth
         elide: Text.ElideRight
         verticalAlignment: Text.AlignVCenter
-        text: entry.spec.label || entry.spec.name || ""
+        text: entry.spec.name || ""
         font.pixelSize: theme.fontSmall
         color: theme.textDim
     }

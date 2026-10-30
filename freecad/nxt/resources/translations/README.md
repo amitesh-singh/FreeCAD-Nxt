@@ -1,20 +1,28 @@
 # Translations
 
 Nxt's user-facing text is marked for translation: `translate("Nxt", ...)`
-and `QT_TRANSLATE_NOOP("Nxt", ...)` from `freecad/nxt/i18n.py` in Python,
-the same (context, text) form FreeCAD's own modules use, with the context
-written as a literal so lupdate can file it (commands use their own name),
-and `qsTr()` in QML (context: the QML file's name). Console output is
-developer-facing and is not translated.
+and `QT_TRANSLATE_NOOP("Nxt", ...)` from `freecad/nxt/app/i18n.py` in
+Python (commands use their own name as the context), and `qsTr()` in QML
+(context: the QML file's name). The inspector templates' titles, hints
+and labels are extracted too, into the `NxtTemplate` context with the
+template's id as the disambiguation. Console output is developer-facing
+and is not translated.
 
-To update the source file after changing text, from the repository root:
+Where FreeCAD already translates the same text ("Pad", "Reversed", or
+"Nxt Fillet" for "Fillet"), Nxt shows FreeCAD's translation, so only
+Nxt's own text needs translating here. Property names and enum values
+stay as FreeCAD shows them.
+
+From the repository root (needs PySide6's tools):
 
 ```bash
-pyside6-lupdate $(find freecad/nxt -name '*.py' -o -name '*.qml') \
-    -ts freecad/nxt/resources/translations/Nxt.ts
+python scripts/i18n.py update --locale de    # extract into Nxt.ts, Nxt_de.ts
+python scripts/i18n.py build                 # compile every Nxt_*.ts to .qm
+python scripts/i18n.py check --locale de     # completeness, placeholders
+python scripts/i18n.py terms --freecad PATH  # refresh app/freecad_terms.py
 ```
 
-Translators work on copies named `Nxt_<locale>.ts` (for example
-`Nxt_de.ts`); compile each with `pyside6-lrelease` to `Nxt_<locale>.qm`
-beside it. `init_gui.py` adds this folder to FreeCAD's language path, so
-the compiled files are picked up in the user's language at startup.
+`update` keeps existing translations of the same text. Commit each
+`.qm` with its `.ts`: the tests check that the `.qm` is exactly what its
+`.ts` compiles to, so the binary can be reviewed through the `.ts`.
+`init_gui.py` adds this folder to FreeCAD's language path.

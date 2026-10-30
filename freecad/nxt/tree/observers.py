@@ -12,7 +12,7 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from ..core import log
+from ..core import fc, log
 
 #: Undrawn properties; skipping them avoids rebuilds during drags.
 _IGNORED_PROPERTIES: frozenset[str] = frozenset({
@@ -84,11 +84,15 @@ class _GuiObserver(object):
 
     def slotInEdit(self, vobj: Any) -> None:
         self._bridge.invalidate(icons=True)
-        self._bridge.auto_rename.edit_opened(vobj.Object)
+        obj = fc.object_of(vobj)
+        if obj is not None:
+            self._bridge.auto_rename.edit_opened(obj)
 
     def slotResetEdit(self, vobj: Any) -> None:
         self._bridge.invalidate(icons=True)
-        self._bridge.auto_rename.edit_closed(vobj.Object)
+        obj = fc.object_of(vobj)
+        if obj is not None:
+            self._bridge.auto_rename.edit_closed(obj)
 
     def slotActivateDocument(self, doc: Any) -> None:
         self._bridge.invalidate(icons=True)

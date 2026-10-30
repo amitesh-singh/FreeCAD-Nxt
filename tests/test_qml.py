@@ -188,6 +188,11 @@ ROWS = [
          refs=[{"name": "Long", "severity": 2,
                 "label": "Mounting_Bracket_Profile_Rev2",
                 "sub": "", "iconUrl": ""}]),
+    # Outer active marks: an Assembly keeps the Active chip, a Part does not.
+    dict(name="Assembly", label="Assembly", depth=0, isContainer=True,
+         isActivePart=True, typeId="Assembly::AssemblyObject"),
+    dict(name="Part", label="Part", depth=0, isContainer=True,
+         isActivePart=True, typeId="App::Part"),
 ]
 
 DEFAULTS = dict(name="", label="", depth=0, hasChildren=False, expanded=False,
@@ -199,7 +204,7 @@ DEFAULTS = dict(name="", label="", depth=0, hasChildren=False, expanded=False,
                 isLifted=False, isActive=False, keyProps=[],
                 propertyCount=0, branches=[], activeFrom=-1,
                 isActivePart=False, cycleTime="", isTotal=False,
-                isCam=False)
+                isCam=False, typeId="")
 # refs entries must carry every key the delegate reads; a missing one shows
 # up as undefined rather than as an error, so it is worth being strict.
 REF_KEYS = {"name", "label", "severity", "sub", "iconUrl"}
@@ -696,13 +701,24 @@ def run(overlay):
         return sum(1 for c in visual_tree(row_item)
                    if c.objectName() == "activeMark" and c.property("visible"))
 
+    chipped = sorted(
+        c.property("name") for c in visual_tree(root)
+        if c.metaObject().className().startswith("TreeRow")
+        and any(k.objectName() == "activeChip" and k.property("visible")
+                for k in visual_tree(c)))
+    print("     Active chips on: %s" % chipped)
+    if chipped != ["Assembly", "Body"]:
+        problems.append("overlay=%s: Active chips on %s, expected the "
+                        "active Body and the Assembly around it"
+                        % (overlay, chipped))
+
     active_marks, other_marks = None, []
     for c in visual_tree(root):
         if not c.metaObject().className().startswith("TreeRow"):
             continue
         if c.property("isActive"):
             active_marks = marks_on(c)
-        else:
+        elif not c.property("isActivePart"):
             other_marks.append((c.property("name"), marks_on(c)))
     inactive_max = max((n for _r, n in other_marks), default=0)
     print("     active mark: active row %s  busiest inactive row %s"

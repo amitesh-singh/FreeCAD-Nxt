@@ -26,6 +26,7 @@ Item {
     required property bool isLifted
     required property bool isActive
     required property bool isActivePart
+    required property string typeId
     required property int severity
     required property var notes
     required property int dof
@@ -613,7 +614,11 @@ Item {
 
                 Rectangle {
                     objectName: "activeChip"
+                    // An Assembly is where its parts go, as a Body is for
+                    // features: it keeps the chip around an active Body.
                     visible: row.isActive
+                             || (row.isActivePart
+                                 && row.typeId.startsWith("Assembly::Assembly"))
                     anchors.verticalCenter: parent.verticalCenter
                     width: activeLabel.implicitWidth + 12
                     height: theme.chipHeight

@@ -106,5 +106,26 @@ class AutoRenameTests(unittest.TestCase):
         self.assertEqual(self.renamed, [])
 
 
+class ViewProviderWithoutObjectTests(unittest.TestCase):
+    """Assembly's view provider has no `Object`; its edits are skipped."""
+
+    def test_observers_skip_it_quietly(self) -> None:
+        from freecad.nxt.tools import sketch_repair
+        from freecad.nxt.tree import observers
+        seen: list[Any] = []
+        bridge = types.SimpleNamespace(
+            invalidate=lambda **_k: None,
+            auto_rename=types.SimpleNamespace(edit_opened=seen.append,
+                                              edit_closed=seen.append))
+        assembly_view = object()
+        gui = observers._GuiObserver(bridge)
+        gui.slotInEdit(assembly_view)
+        gui.slotResetEdit(assembly_view)
+        repair = types.SimpleNamespace(
+            consider=lambda obj, edited: seen.append(obj))
+        sketch_repair._Observer(repair).slotResetEdit(assembly_view)
+        self.assertEqual(seen, [])
+
+
 if __name__ == "__main__":
     unittest.main()

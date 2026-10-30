@@ -24,14 +24,30 @@ Item {
     // Drawn position follows the pointer; only the slot quantises.
     property real dragY: 0
     property real grabOffset: 0
+    // The item the list scrolls under (tipLayer): the pointer is kept in
+    // its coordinates, so scrolling mid-drag moves the bar with the rows.
+    property Item stage: null
+    property real pointerY: 0
+
+    // Edge scrolling: the band at each end of the list, how far a frame
+    // moves at its edge, and how quickly holding there speeds it up.
+    readonly property real edgeBand: bar.rowHeight * 1.5
+    readonly property real edgeStep: 14
+    readonly property real edgeAccelMs: 400
+    readonly property real edgeMaxBoost: 6
+    property double edgeSince: 0
 
     height: Math.max(9, Math.round(rowHeight * 0.45), knob + 3)
 
-    // itemAtIndex() is not reactive; reading contentHeight and realised
-    // makes bindings re-run when rows move.
+    // itemAtIndex() is not reactive; reading realised and relayouts makes
+    // bindings re-run when rows move. Not contentHeight itself: a fast
+    // scroll re-estimates it while the bar's position is being worked
+    // out, which QML reports as a binding loop on y.
+    property int relayouts: 0
+    function relaidOut() { bar.relayouts += 1; }
+
     function rowAt(index) {
-        var watch = bar.realised
-                  + (bar.list ? bar.list.contentHeight : 0);
+        var watch = bar.realised + bar.relayouts;
         return bar.list ? bar.list.itemAtIndex(index) : null;
     }
 
@@ -144,6 +160,70 @@ Item {
         }
     }
 
+    function follow() {
+        if (!bar.dragging)
+            return;
+        // Past either end of the list the bar waits at that end while the
+        // list scrolls under it.
+        var shown = Math.max(bar.listTopMargin, Math.min(
+            bar.listTopMargin + bar.list.height, bar.pointerY));
+        var y = shown - bar.parent.y;
+        bar.dragY = bar.clampY(y - bar.grabOffset);
+        var slot = bar.slotAt(y);
+        if (slot === bar.dragPos)
+            return;
+        bar.dragPos = slot;
+        // Once per row crossed; the bridge coalesces a burst.
+        nxt.previewTipRow(bar.body, slot);
+    }
+
+    // Deferred, and coalesced: the list is mid-layout when these fire.
+    Connections {
+        target: bar.list
+        function onContentYChanged() {
+            if (bar.dragging)
+                Qt.callLater(bar.follow);
+        }
+        function onContentHeightChanged() { Qt.callLater(bar.relaidOut); }
+    }
+
+    // Held near or past an end of the list, the list scrolls, faster the
+    // deeper and the longer the pointer stays there.
+    Timer {
+        interval: 16
+        repeat: true
+        running: bar.dragging && bar.list !== null && bar.stage !== null
+        onRunningChanged: bar.edgeSince = 0
+        onTriggered: {
+            var list = bar.list;
+            var inList = bar.pointerY - bar.listTopMargin;
+            var depth = inList < bar.edgeBand
+                ? inList - bar.edgeBand
+                : inList > list.height - bar.edgeBand
+                ? inList - list.height + bar.edgeBand : 0;
+            // Nothing past the Body's first or last step: stop there.
+            if ((depth > 0 && bar.dragY >= bar.bottomY - 0.5)
+                    || (depth < 0 && bar.dragY <= bar.topY + 0.5))
+                depth = 0;
+            if (depth === 0) {
+                bar.edgeSince = 0;
+                return;
+            }
+            var now = Date.now();
+            if (bar.edgeSince === 0)
+                bar.edgeSince = now;
+            var boost = Math.min(bar.edgeMaxBoost,
+                                 1 + (now - bar.edgeSince) / bar.edgeAccelMs);
+            var reach = Math.min(2, Math.abs(depth) / bar.edgeBand);
+            var top = list.originY;
+            var bottom = Math.max(top, top + list.contentHeight
+                                       - list.height);
+            list.contentY = Math.max(top, Math.min(bottom,
+                list.contentY + Math.sign(depth) * bar.edgeStep
+                                * reach * boost));
+        }
+    }
+
     function slotAt(localY) {
         var cy = localY - listTopMargin;
         var slot;
@@ -174,6 +254,7 @@ Item {
         onPressed: function (mouse) {
             // dragY before dragging, or one frame draws at y = 0.
             bar.grabOffset = mouse.y;
+            bar.pointerY = mapToItem(bar.stage, mouse.x, mouse.y).y;
             bar.dragY = bar.y;
             bar.dragPos = bar.pos;
             bar.dragging = true;
@@ -183,15 +264,9 @@ Item {
         onPositionChanged: function (mouse) {
             if (!bar.dragging)
                 return;
-            // Parent coordinates: this item moves during the drag.
-            var y = mapToItem(bar.parent, mouse.x, mouse.y).y;
-            bar.dragY = bar.clampY(y - bar.grabOffset);
-            var slot = bar.slotAt(y);
-            if (slot === bar.dragPos)
-                return;
-            bar.dragPos = slot;
-            // Once per row crossed.
-            nxt.previewTipRow(bar.body, slot);
+            // Fixed coordinates: this item and the rows move mid-drag.
+            bar.pointerY = mapToItem(bar.stage, mouse.x, mouse.y).y;
+            bar.follow();
         }
 
         onReleased: {

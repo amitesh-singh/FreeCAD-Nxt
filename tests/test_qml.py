@@ -296,7 +296,7 @@ def make_bridge():
     for name, types in bridge_slots().items():
         if name in ns:
             continue
-        ns[name] = QtCore.Slot(*types)(
+        ns[name] = QtCore.Slot(*types, name=name)(
             (lambda n: lambda self, *a: None)(name))
     return type("Bridge", (QtCore.QObject,), ns)
 
@@ -878,6 +878,65 @@ def run(overlay):
             problems.append("overlay=%s: released bar settled at %.2f, "
                             "not back on the boundary at %.2f"
                             % (overlay, back, rest))
+
+        # Scrolled under a held bar (the wheel, or the edge timer), the
+        # bar stays under the pointer instead of riding off with the rows.
+        bar.setProperty("grabOffset", 0)
+        bar.setProperty("pointerY", back + bar.parentItem().property("y")
+                        + 20)
+        bar.setProperty("dragging", True)
+        listview.setProperty("contentY", 6)
+        app.processEvents()
+        under = bar.property("y") + bar.parentItem().property("y")
+        bar.setProperty("dragging", False)
+        listview.setProperty("contentY", 0)
+        settle(0.4)
+        print("     held while scrolled: pointer %.2f  bar %.2f"
+              % (bar.property("pointerY"), under))
+        if abs(under - bar.property("pointerY")) > 0.01:
+            problems.append("overlay=%s: a held bar rode off with a scroll "
+                            "(%.2f, pointer at %.2f)"
+                            % (overlay, under, bar.property("pointerY")))
+
+        # Held past the bottom of a list that runs on, the list scrolls by
+        # itself while the bar stays held.
+        tall = root.property("height")
+        root.setProperty("height", 160)
+        settle(0.1)
+        room = (listview.property("contentHeight")
+                - listview.property("height"))
+        if room > 40:
+            # Far outside the panel: it scrolls on to the end, no further.
+            bar.setProperty("pointerY", listview.property("height") + 2000)
+            bar.setProperty("dragging", True)
+            settle(0.6)
+            scrolled_to = listview.property("contentY")
+            last = bar.property("dragPos")
+            on_screen = bar.property("y") + bar.parentItem().property("y")
+            if not bar.property("visible") or not (
+                    0 <= on_screen <= listview.property("height") + 3):
+                problems.append("overlay=%s: held past the end, the bar "
+                                "left the list (at %.1f, visible %s)"
+                                % (overlay, on_screen,
+                                   bar.property("visible")))
+            bar.setProperty("dragging", False)
+            bar.setProperty("dragPos", bar.property("pos"))
+            listview.setProperty("contentY", 0)
+            settle(0.4)
+            print("     edge scroll: %.1f of %.1f after 0.6s"
+                  % (scrolled_to, room))
+            if scrolled_to <= 0:
+                problems.append("overlay=%s: holding the bar past the "
+                                "list's end did not scroll it" % overlay)
+            if last != bar.property("maxPos"):
+                problems.append("overlay=%s: held past the end, the bar "
+                                "stopped at slot %s, not the last (%s)"
+                                % (overlay, last, bar.property("maxPos")))
+        else:
+            problems.append("overlay=%s: the list is too short to test "
+                            "edge scrolling (%.0f)" % (overlay, room))
+        root.setProperty("height", tall)
+        settle(0.1)
 
         # Scrolling moves the bar in lockstep with the rows. An animation
         # on `y` made it trail the list and rubber-band into place.

@@ -157,7 +157,7 @@ class UpdateCheckTest(unittest.TestCase):
         update_check._run()
         self.assertIn("dialog", LOG)
         gui = UpdateAllGUI.last
-        assert gui is not None
+        self.assertIsNotNone(gui)
         self.assertEqual(
             [a.display_name for a in update_check.pending(gui.addons,
                                                           Status)],
@@ -186,9 +186,9 @@ class UpdateCheckTest(unittest.TestCase):
     def test_restart_offered_after_updating(self) -> None:
         update_check._run()
         gui = UpdateAllGUI.last
-        assert gui is not None
+        self.assertIsNotNone(gui)
         check = update_check._check
-        assert check is not None
+        self.assertIsNotNone(check)
         asked: list[bool] = []
         check.offer_restart = lambda: asked.append(True)  # type: ignore
         gui.addon_updated.emit(CATALOG[2])
@@ -226,9 +226,9 @@ class UpdateCheckTest(unittest.TestCase):
     def test_no_restart_when_nothing_updated(self) -> None:
         update_check._run()
         gui = UpdateAllGUI.last
-        assert gui is not None
+        self.assertIsNotNone(gui)
         check = update_check._check
-        assert check is not None
+        self.assertIsNotNone(check)
         asked: list[bool] = []
         check.offer_restart = lambda: asked.append(True)  # type: ignore
         gui.finished.emit()

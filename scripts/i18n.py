@@ -18,14 +18,15 @@ from __future__ import annotations
 import argparse
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404  # runs Qt's own lupdate and lrelease
 import sys
 import tempfile
 import tomllib
 import types
-import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from pathlib import Path
+
+from defusedxml.ElementTree import parse
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT / "freecad" / "nxt"
@@ -105,7 +106,7 @@ def _translations(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
     found: dict[str, str] = {}
-    for message in ET.parse(path).getroot().iter("message"):
+    for message in parse(path).getroot().iter("message"):
         translation = message.find("translation")
         if translation is None or translation.get("type") or \
                 not (translation.text or "").strip():
@@ -117,7 +118,7 @@ def _translations(path: Path) -> dict[str, str]:
 
 def _carry_over(path: Path, known: dict[str, str]) -> int:
     """Fill untranslated messages whose text was translated before."""
-    tree = ET.parse(path)
+    tree = parse(path)
     filled = 0
     for message in tree.getroot().iter("message"):
         translation = message.find("translation")
@@ -142,9 +143,9 @@ def cmd_update(args: argparse.Namespace) -> int:
     known = _translations(locale)
     with tempfile.TemporaryDirectory() as folder:
         files = source_files() + [str(_template_source(Path(folder)))]
-        result = subprocess.run(
-            [str(lupdate), *files, "-no-obsolete", "-locations", "none",
-             "-ts", str(template), str(locale)])
+        command = [str(lupdate), *files, "-no-obsolete", "-locations",
+                   "none", "-ts", str(template), str(locale)]
+        result = subprocess.run(command)  # nosec B603  # Qt's tool, no shell
     if result.returncode:
         return result.returncode
     print("carried over %d translation(s)" % _carry_over(locale, known))
@@ -156,8 +157,8 @@ def compile_ts(ts: Path, qm: Path) -> int:
     if lrelease is None:
         print("pyside6-lrelease not found", file=sys.stderr)
         return 1
-    return subprocess.run([str(lrelease), "-silent", str(ts), "-qm",
-                           str(qm)]).returncode
+    command = [str(lrelease), "-silent", str(ts), "-qm", str(qm)]
+    return subprocess.run(command).returncode  # nosec B603  # as above
 
 
 def locale_files() -> list[Path]:
@@ -175,7 +176,7 @@ def cmd_build(_args: argparse.Namespace) -> int:
 def placeholder_problems(ts: Path) -> list[str]:
     """Translations whose %1, %s or {name} differ from their source."""
     problems = []
-    for message in ET.parse(ts).getroot().iter("message"):
+    for message in parse(ts).getroot().iter("message"):
         translation = message.find("translation")
         text = translation.text if translation is not None else ""
         if not text or (translation is not None
@@ -203,7 +204,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     if not ts.exists():
         print("%s does not exist" % ts.name, file=sys.stderr)
         return 1
-    messages = list(ET.parse(ts).getroot().iter("message"))
+    messages = list(parse(ts).getroot().iter("message"))
     done = sum(1 for m in messages
                if (m.find("translation") is not None
                    and not m.find("translation").get("type")  # type: ignore
@@ -222,7 +223,7 @@ def cmd_check(args: argparse.Namespace) -> int:
 def nxt_texts() -> set[str]:
     """Every text Nxt shows: from Nxt.ts and the templates."""
     texts = {m.findtext("source") or "" for m in
-             ET.parse(TRANSLATIONS_DIR / "Nxt.ts").getroot().iter("message")}
+             parse(TRANSLATIONS_DIR / "Nxt.ts").getroot().iter("message")}
     return texts | {text for _id, text in template_strings()}
 
 
@@ -240,7 +241,7 @@ def cmd_terms(args: argparse.Namespace) -> int:
     #: key -> {(context, source): how many languages translate it}
     seen: dict[str, dict[tuple[str, str], int]] = {}
     for ts in Path(args.freecad).rglob("*_*.ts"):
-        for context in ET.parse(ts).getroot().iter("context"):
+        for context in parse(ts).getroot().iter("context"):
             name = context.findtext("name") or ""
             for message in context.iter("message"):
                 source = message.findtext("source") or ""

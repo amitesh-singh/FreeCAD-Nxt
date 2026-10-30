@@ -10,6 +10,7 @@ tangent is built into the faces instead (fillet_fade.py).
 
 from __future__ import annotations
 
+import contextlib
 import math
 import time
 from collections.abc import Iterator
@@ -420,10 +421,8 @@ def _bend(edge: Any) -> float:
     first, last = edge.FirstParameter, edge.LastParameter
     most = 0.0
     for k in range(17):
-        try:
+        with contextlib.suppress(Exception):  # a point without curvature
             most = max(most, edge.curvatureAt(first + (last - first) * k / 16))
-        except Exception:  # noqa: BLE001 - a point without curvature
-            pass
     return 1 / most if most > 1e-12 else math.inf
 
 
@@ -1039,12 +1038,10 @@ def _runs_on(a: Any, b: Any, tolerance: float) -> App.Vector | None:
     for v in a.Vertexes:
         for w in b.Vertexes:
             if (v.Point - w.Point).Length < tolerance:
-                try:
+                with contextlib.suppress(Exception):  # not tangent then
                     if 1 - abs(_tangent_at(a, v.Point).dot(
                             _tangent_at(b, v.Point))) < TANGENT_TOLERANCE:
                         return v.Point
-                except Exception:  # noqa: BLE001 - not tangent then
-                    pass
     return None
 
 
@@ -1867,7 +1864,7 @@ def _corner_facets(shape: Any, edges: list[Any], sizes: list[float],
             # Cut off an outer corner; fill an inner one.
             corner = _tetrahedron(vertex.Point, points)
             cut = _applied(result, corner, outer)
-        except Exception:  # noqa: BLE001 - the corner stays pointed
+        except Exception:  # nosec B112  # the corner stays pointed
             continue
         if cut is not None:
             result = cut
@@ -2670,12 +2667,12 @@ def _under_standing(shape: Any, edge: Any, own: list[Any], tool: Any,
         try:
             above = shape.common(_half_space(point + normal * step * 10,
                                              normal, size))
-        except Exception:  # noqa: BLE001 - nothing to keep then
+        except Exception:  # nosec B112  # nothing to keep then
             continue
         for standing in above.Solids:
             if not reach.intersect(standing.BoundBox):
                 continue
-            try:
+            with contextlib.suppress(Exception):  # leave it undercut
                 wires = standing.slice(normal, level)
                 footprint = Part.Face(wires) if len(wires) > 1 \
                     else Part.Face(wires[0])
@@ -2683,8 +2680,6 @@ def _under_standing(shape: Any, edge: Any, own: list[Any], tool: Any,
                     continue
                 column = footprint.extrude(-normal * size)
                 tool = tool.cut(column)
-            except Exception:  # noqa: BLE001 - leave it undercut
-                continue
     return tool
 
 
@@ -2752,7 +2747,7 @@ def _applied(shape: Any, tool: Any, cutting: bool) -> Any:
     # Plain first; then fuzzy, for faces that lie on one another.
     fuzz = max(shape.BoundBox.DiagonalLength * 1e-7, 1e-6)
     for tolerance in (0.0, fuzz):
-        try:
+        with contextlib.suppress(Exception):  # try the next way
             done = (shape.cut(tool, tolerance) if cutting
                     else shape.fuse(tool, tolerance))
             result = _without_slivers(done, len(shape.Solids),
@@ -2773,8 +2768,6 @@ def _applied(shape: Any, tool: Any, cutting: bool) -> Any:
                 # Valid but with faces running through each other: no.
                 if sound or not _sound_as_made(shape):
                     return result
-        except Exception:  # noqa: BLE001 - try the next way
-            pass
     return None
 
 
@@ -2804,12 +2797,10 @@ def _on_earlier(edge: Any, earlier: Any) -> Any:
     for candidate in earlier.Edges:
         if candidate.distToShape(Part.Vertex(middle))[0] > tolerance:
             continue
-        try:
+        with contextlib.suppress(Exception):  # not this one
             u = candidate.Curve.parameter(middle)
             if abs(abs(candidate.tangentAt(u).dot(tangent)) - 1) < 1e-4:
                 return candidate
-        except Exception:  # noqa: BLE001 - not this one
-            continue
     return None
 
 

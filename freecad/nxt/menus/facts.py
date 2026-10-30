@@ -5,6 +5,7 @@ Every read is guarded: an unreadable fact is simply absent.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from ..tree import health
@@ -14,7 +15,7 @@ from .definitions import ObjectFacts
 def type_chain(type_id: str) -> tuple[str, ...]:
     """`type_id` followed by every type it derives from."""
     chain = [type_id] if type_id else []
-    try:
+    with contextlib.suppress(Exception):
         from FreeCAD import Base
         kind = Base.TypeId.fromName(type_id)
         while True:
@@ -22,8 +23,6 @@ def type_chain(type_id: str) -> tuple[str, ...]:
             if kind.isBad():
                 break
             chain.append(str(kind.Name))
-    except Exception:
-        pass
     return tuple(chain)
 
 

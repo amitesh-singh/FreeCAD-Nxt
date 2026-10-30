@@ -6,6 +6,7 @@ selection syncs synchronously.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 import FreeCAD as App
@@ -54,10 +55,8 @@ class _AppObserver(object):
         self._bridge.invalidate(icons=True)
 
     def slotStartSaveDocument(self, doc: Any, label: str) -> None:
-        try:
+        with contextlib.suppress(Exception):
             self._bridge.save_expansion(doc)
-        except Exception:
-            pass
 
     def slotFinishSaveDocument(self, doc: Any, label: str) -> None:
         pass
@@ -166,9 +165,7 @@ class Observers(object):
                 log.error("could not remove selection observer")
             self._sel = None
         if self._services is not None:
-            try:
+            with contextlib.suppress(RuntimeError, TypeError):
                 self._services.featurePicked.disconnect(
                     self._bridge.edit_feature)
-            except (RuntimeError, TypeError):
-                pass
             self._services = None

@@ -6,6 +6,7 @@ place. A child of the main window, since Wayland cannot place top-levels.
 
 from __future__ import annotations
 
+import contextlib
 import traceback
 from dataclasses import dataclass
 from typing import Any, cast
@@ -542,10 +543,8 @@ class PropertyInspector(QtWidgets.QFrame):
         from ..app import services
         theme = services.theme()
         if theme is not None:
-            try:
+            with contextlib.suppress(Exception):
                 return QtGui.QColor(theme.property("text"))
-            except Exception:
-                pass
         return self._pin.palette().color(QtGui.QPalette.ColorRole.ButtonText)
 
     def changeEvent(self, event: QtCore.QEvent) -> None:  # noqa: N802
@@ -673,10 +672,8 @@ def open_inspector(left: int | None = None, top: int | None = None) -> None:
 def close() -> None:
     """Return the editor and hide the inspector. Safe to call at any time."""
     if _inspector is not None:
-        try:
+        with contextlib.suppress(RuntimeError):
             _inspector.close_inspector()
-        except RuntimeError:
-            pass
 
 
 def shutdown() -> None:
@@ -684,11 +681,9 @@ def shutdown() -> None:
     global _inspector
     if _inspector is None:
         return
-    try:
+    with contextlib.suppress(RuntimeError):
         _inspector.close_inspector()
         _inspector.deleteLater()
-    except RuntimeError:
-        pass
     _inspector = None
 
 

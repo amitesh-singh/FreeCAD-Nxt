@@ -9,6 +9,7 @@ the live preview, and refreshes each edge's fit.
 
 from __future__ import annotations
 
+import contextlib
 import time
 from typing import Any, NamedTuple
 
@@ -512,12 +513,10 @@ class FilletTask:
         return min(self.limits.values())
 
     def preselect(self, name: str) -> None:
-        try:
+        with contextlib.suppress(Exception):
             Gui.Selection.clearPreselection()
             if name and self.base is not None:
                 Gui.Selection.setPreselection(self.base, name)
-        except Exception:
-            pass
 
     # -- internals --
 
@@ -615,10 +614,8 @@ class FilletTask:
         app: Any = QtWidgets.QApplication.instance()
         app.removeEventFilter(self._release)
         self._stop_view()
-        try:
+        with contextlib.suppress(Exception):
             Gui.Selection.removeObserver(self)
-        except Exception:
-            pass
         self.preselect("")
 
     def _show_base(self, editing: bool) -> None:

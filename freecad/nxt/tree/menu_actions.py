@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
@@ -187,12 +188,10 @@ def _make_active(bridge: TreeBridge, objects: list[Any]) -> None:
 def _select_same_type(bridge: TreeBridge, objects: list[Any]) -> None:
     obj = objects[0]
     body = None
-    try:
+    with contextlib.suppress(Exception):
         parent = obj.getParentGeoFeatureGroup()
         if parent is not None and parent.TypeId == "PartDesign::Body":
             body = parent
-    except Exception:
-        pass
     if body is None:
         return
     kind = obj.TypeId

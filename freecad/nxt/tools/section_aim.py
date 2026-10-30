@@ -79,7 +79,7 @@ def from_selection() -> Plane | None:
                                      and shape.isNull()):
                     continue
                 kind = getattr(shape, "ShapeType", "")
-            except Exception:
+            except Exception:  # nosec B112  # no shape there
                 continue
             if kind == "Vertex":
                 points.append(shape.Point)

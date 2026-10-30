@@ -5,6 +5,7 @@ Not from `QApplication.palette()`: that ignores FreeCAD's stylesheet.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from ..core import settings
@@ -100,14 +101,15 @@ def _legible(candidates: list[tuple[QtGui.QColor, QtGui.QColor]]
 
 
 #: Where FreeCAD keeps the colour tokens a stylesheet names as `@Name`.
-TOKEN_GROUP = "User parameter:BaseApp/Preferences/View"
+VIEW_PARAMETERS = "User parameter:BaseApp/Preferences/View"
 
 
 def _token(name: str) -> str | int | None:
     """A FreeCAD colour token's stored value, whatever type it was saved as."""
     try:
         import FreeCAD as App
-        for _kind, key, value in App.ParamGet(TOKEN_GROUP).GetContents() or ():
+        view = App.ParamGet(VIEW_PARAMETERS)
+        for _kind, key, value in view.GetContents() or ():
             if key == name:
                 return value
     except Exception:  # noqa: BLE001 - no FreeCAD, or no such group
@@ -115,7 +117,7 @@ def _token(name: str) -> str | int | None:
     return None
 
 
-#: The keys in TOKEN_GROUP that say what the 3D view's background is.
+#: The keys in VIEW_PARAMETERS that say what the 3D view's background is.
 VIEW_BACKGROUND_KEYS = frozenset({
     "Simple", "Gradient", "RadialGradient", "BackgroundColor",
     "BackgroundColor2", "BackgroundColor3", "BackgroundColor4",
@@ -132,17 +134,15 @@ class ViewBackgroundWatch:
     def attach(self) -> None:
         try:
             import FreeCAD as App
-            self._group = App.ParamGet(TOKEN_GROUP)
+            self._group = App.ParamGet(VIEW_PARAMETERS)
             self._group.Attach(self)
         except Exception:  # noqa: BLE001 - no FreeCAD, or no observers
             self._group = None
 
     def detach(self) -> None:
         if self._group is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._group.Detach(self)
-            except Exception:  # noqa: BLE001
-                pass
             self._group = None
 
     def OnChange(self, _group: Any, key: str) -> None:  # noqa: N802
@@ -154,7 +154,7 @@ def _view_background() -> QtGui.QColor | None:
     """The 3D view's background, averaged down its gradient."""
     try:
         import FreeCAD as App
-        view = App.ParamGet(TOKEN_GROUP)
+        view = App.ParamGet(VIEW_PARAMETERS)
         if view.GetBool("Simple", False):
             packed = [int(view.GetUnsigned("BackgroundColor", VIEW_SIMPLE))]
         else:

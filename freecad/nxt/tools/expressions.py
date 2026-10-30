@@ -6,6 +6,7 @@ string work and only `Expressions` reads the document.
 
 from __future__ import annotations
 
+import contextlib
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -180,11 +181,9 @@ def _owner(path: str) -> Any:
 def _visible_properties(obj: Any) -> list[str]:
     out = []
     for prop in getattr(obj, "PropertiesList", ()):
-        try:
+        with contextlib.suppress(Exception):
             if "Hidden" in obj.getPropertyStatus(prop):
                 continue
-        except Exception:
-            pass
         out.append(prop)
     return out
 

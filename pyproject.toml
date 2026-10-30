@@ -46,6 +46,8 @@ disallow_incomplete_defs = true
 
 [dependency-groups]
 dev = [
+    "bandit>=1.8",
+    "defusedxml>=0.7",
     "freecad-stubs>=1.0.21",
     "pyside6>=6.11.2",
 ]

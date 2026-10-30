@@ -6,6 +6,7 @@ once, when it is added.
 
 from __future__ import annotations
 
+import contextlib
 import traceback
 from collections.abc import Callable
 from typing import Any
@@ -35,11 +36,9 @@ def added(obj: Any) -> tuple[str, ...]:
     """The properties added to an object (a VarSet's variables)."""
     found = []
     for prop in getattr(obj, "PropertiesList", ()) or ():
-        try:
+        with contextlib.suppress(Exception):
             if DYNAMIC_STATUS in obj.getPropertyStatus(prop):
                 found.append(prop)
-        except Exception:
-            continue
     return tuple(found)
 
 

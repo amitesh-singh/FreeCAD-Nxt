@@ -6,6 +6,7 @@ a property set directly. Field names: TaskExtrudeParameters.ui.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 import FreeCADGui as Gui
@@ -192,11 +193,9 @@ def combos(obj: Any) -> dict[str, tuple[list[str], str]]:
         widget = _field(name) if how == COMBO else None
         if widget is None:
             continue
-        try:
+        with contextlib.suppress(RuntimeError):
             items = [widget.itemText(i) for i in range(widget.count())]
             out[prop] = (items, widget.currentText())
-        except RuntimeError:
-            continue
     return out
 
 

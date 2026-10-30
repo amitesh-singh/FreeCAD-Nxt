@@ -87,8 +87,9 @@ SIZES = {"rowHeight": 20, "rowPad": 6, "indent": 12, "tipGutter": 14,
 def make_theme(overlay=False):
     missing = [n for n, k in theme_properties().items()
                if k == "int" and n not in SIZES]
-    assert not missing, (
-        "theme gained int metrics the stub does not size: %s" % missing)
+    if missing:
+        raise AssertionError(
+            "theme gained int metrics the stub does not size: %s" % missing)
     ns = {"changed": QtCore.Signal(), "_overlay": overlay}
     for name, kind in theme_properties().items():
         if name == "overlay":
@@ -204,7 +205,8 @@ DEFAULTS = dict(name="", label="", depth=0, hasChildren=False, expanded=False,
 REF_KEYS = {"name", "label", "severity", "sub", "iconUrl"}
 for _row in ROWS:
     for _ref in _row.get("refs", ()):
-        assert set(_ref) == REF_KEYS, "ref keys drifted: %s" % sorted(_ref)
+        if set(_ref) != REF_KEYS:
+            raise AssertionError("ref keys drifted: %s" % sorted(_ref))
 
 
 class Rows(QtCore.QAbstractListModel):

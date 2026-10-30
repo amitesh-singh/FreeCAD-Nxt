@@ -6,6 +6,7 @@ commits the sketch. Shift or the PartDesign preference keeps the dialog.
 
 from __future__ import annotations
 
+import contextlib
 import traceback
 from typing import Any
 
@@ -116,10 +117,8 @@ class SketchAttach(QtCore.QObject):
 
     def remove(self) -> None:
         self._timer.stop()
-        try:
+        with contextlib.suppress(Exception):
             App.removeDocumentObserver(self._observer)
-        except Exception:
-            pass
 
     def created(self, sketch: Any) -> None:
         if settings.get("AttachSketchByPoints"):

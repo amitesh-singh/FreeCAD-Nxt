@@ -9,6 +9,7 @@ Data tab only, with no "Everything else". Edits reach the dialog's fields
 
 from __future__ import annotations
 
+import contextlib
 import traceback
 from typing import Any
 
@@ -101,11 +102,9 @@ class _Keyboard(QtCore.QObject):
 
     def eventFilter(self, _obj: Any, event: Any) -> bool:  # noqa: N802
         if event.type() == QtCore.QEvent.Type.MouseButtonPress:
-            try:
+            with contextlib.suppress(RuntimeError):
                 self._view.activateWindow()
                 self._view.setFocus(QtCore.Qt.FocusReason.MouseFocusReason)
-            except RuntimeError:
-                pass
         return False
 
 
@@ -153,10 +152,8 @@ class _OnShow(QtCore.QObject):
 
 
 def _discard(cards: Any, bridge: Any) -> None:
-    try:
+    with contextlib.suppress(RuntimeError):
         bridge.stop()
-    except RuntimeError:
-        pass
     if widgets.alive(cards):
         cards.hide()
         cards.setParent(None)

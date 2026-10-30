@@ -8,6 +8,7 @@ picked in the tree is that feature; a face, edge or point picked in the
 
 from __future__ import annotations
 
+import contextlib
 import sys
 from collections.abc import Callable
 from typing import Any
@@ -195,19 +196,15 @@ class SpaceInView(ApplicationEventFilter):
     def _give_back_stock_shortcut(self) -> None:
         taken, self._taken = self._taken, []
         for action, shortcut in taken:
-            try:
+            with contextlib.suppress(RuntimeError):
                 action.setShortcut(shortcut)
-            except RuntimeError:
-                pass
         fallback, self._fallback = self._fallback, None
         if fallback is not None:
-            try:
+            with contextlib.suppress(RuntimeError):
                 main = fallback.parent()
                 if isinstance(main, QtWidgets.QWidget):
                     main.removeAction(fallback)
                 fallback.deleteLater()
-            except RuntimeError:
-                pass
 
     def eventFilter(self, watched: Any, event: Any) -> bool:  # noqa: N802
         # Sees every application event: cheap test first.

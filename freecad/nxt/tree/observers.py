@@ -27,9 +27,11 @@ class _AppObserver(object):
 
     def slotCreatedObject(self, obj: Any) -> None:
         self._bridge.invalidate(icons=True)
+        self._bridge.auto_rename.created(obj)
 
     def slotDeletedObject(self, obj: Any) -> None:
         self._bridge.invalidate()
+        self._bridge.auto_rename.deleted(obj)
 
     def slotChangedObject(self, obj: Any, prop: str) -> None:
         if prop in _IGNORED_PROPERTIES:
@@ -78,9 +80,11 @@ class _GuiObserver(object):
 
     def slotInEdit(self, vobj: Any) -> None:
         self._bridge.invalidate(icons=True)
+        self._bridge.auto_rename.edit_opened(vobj.Object)
 
     def slotResetEdit(self, vobj: Any) -> None:
         self._bridge.invalidate(icons=True)
+        self._bridge.auto_rename.edit_closed(vobj.Object)
 
     def slotActivateDocument(self, doc: Any) -> None:
         self._bridge.invalidate(icons=True)

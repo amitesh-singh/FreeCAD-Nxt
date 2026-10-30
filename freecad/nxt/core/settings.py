@@ -41,6 +41,8 @@ DEFAULTS: dict[str, bool | int | float | str] = {
     "AttachSketchByPoints": True,
     "SnapToFaces": True,
     "RepairProfiles": True,
+    # A new sketch, container or feature opens in rename.
+    "AutoRename": False,
     # Look for addon updates after startup (app/update_check.py).
     "CheckAddonUpdates": True,
     # JSON of the Report view pop-up settings the check turned off.

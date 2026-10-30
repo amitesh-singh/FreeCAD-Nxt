@@ -507,6 +507,14 @@ The panel needs PySide6.QtQuickWidgets.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Rename new sketches, containers and features</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>When a new object&apos;s edit closes (or a container is made), its name opens for editing in the tree.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Attach a new sketch to three picked points without asking</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1856,6 +1864,10 @@ Hold Alt while dragging to pass through.</source>
     </message>
     <message>
         <source>Auto repair &apos;Wire not closed&apos; errors</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rename new objects</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

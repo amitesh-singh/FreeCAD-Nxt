@@ -20,7 +20,7 @@ GROUP = "FreeCAD-Nxt"
 QUICK = ("PartLayout", "RowDensity", "ReferenceChips",
          "EditOnDoubleClick", "DependencyArrows", "HighlightRelated",
          "DetailAutoShow", "TreeLines", "RepairProfiles", "OverlayMode",
-         "QuickMass")
+         "QuickMass", "AutoRename")
 
 #: Settings the theme reads: changing one restyles the panel.
 _VIEW = frozenset({"RowDensity", "ReferenceChips", "UnderConstrainedMarks",
@@ -170,6 +170,12 @@ class NxtPreferencesPage:
         self._repair = QtWidgets.QCheckBox(translate(
             "Nxt", "Auto repair 'Wire not closed' errors"), tree)
         layout.addRow(self._repair)
+        self._rename = QtWidgets.QCheckBox(translate(
+            "Nxt", "Rename new sketches, containers and features"), tree)
+        self._rename.setToolTip(translate(
+            "Nxt", "When a new object's edit closes (or a container is "
+                   "made), its name opens for editing in the tree."))
+        layout.addRow(self._rename)
         self._attach = QtWidgets.QCheckBox(translate(
             "Nxt", "Attach a new sketch to three picked points without "
                    "asking"), tree)
@@ -297,6 +303,7 @@ class NxtPreferencesPage:
         self._follow.setChecked(bool(settings.get("FollowSelection")))
         self._dbl.setChecked(bool(settings.get("EditOnDoubleClick")))
         self._repair.setChecked(bool(settings.get("RepairProfiles")))
+        self._rename.setChecked(bool(settings.get("AutoRename")))
         self._attach.setChecked(bool(settings.get("AttachSketchByPoints")))
         self._arrows.setChecked(bool(settings.get("DependencyArrows")))
         self._related.setChecked(bool(settings.get("HighlightRelated")))
@@ -321,6 +328,7 @@ class NxtPreferencesPage:
         settings.put("FollowSelection", self._follow.isChecked())
         settings.put("EditOnDoubleClick", self._dbl.isChecked())
         settings.put("RepairProfiles", self._repair.isChecked())
+        settings.put("AutoRename", self._rename.isChecked())
         settings.put("AttachSketchByPoints", self._attach.isChecked())
         settings.put("DependencyArrows", self._arrows.isChecked())
         settings.put("HighlightRelated", self._related.isChecked())
@@ -358,6 +366,7 @@ class NxtPreferencesPage:
         self._follow.setChecked(bool(settings.DEFAULTS["FollowSelection"]))
         self._dbl.setChecked(bool(settings.DEFAULTS["EditOnDoubleClick"]))
         self._repair.setChecked(bool(settings.DEFAULTS["RepairProfiles"]))
+        self._rename.setChecked(bool(settings.DEFAULTS["AutoRename"]))
         self._attach.setChecked(
             bool(settings.DEFAULTS["AttachSketchByPoints"]))
         self._arrows.setChecked(bool(settings.DEFAULTS["DependencyArrows"]))

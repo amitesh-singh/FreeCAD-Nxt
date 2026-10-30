@@ -19,6 +19,7 @@ from ..inspector import properties
 from ..tools import editing, visibility
 from . import (
     activation,
+    auto_rename,
     cycle_time,
     drag_drop,
     icons,
@@ -112,6 +113,7 @@ class TreeBridge(QtCore.QObject):
         self._active_timer.setInterval(ACTIVE_POLL_MS)
         self._active_timer.timeout.connect(self._sync_active)
         self._active_timer.start()
+        self.auto_rename = auto_rename.AutoRename(self, self._rename_new)
 
         self.rebuild()
 
@@ -758,6 +760,15 @@ class TreeBridge(QtCore.QObject):
         if len(selected) != 1:
             return None
         return selected[0].Name
+
+    def _rename_new(self, name: str) -> None:
+        """Select a new object and open its label for editing."""
+        self._rebuild_if_dirty()
+        self._push_selection([name], False)
+        self._tree.reveal(name)
+        row = self._tree.row_of(name)
+        if row >= 0:
+            self.renameRowRequested.emit(row)
 
     @QtCore.Slot(result=int)
     def treeRenameRow(self) -> int:

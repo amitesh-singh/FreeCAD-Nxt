@@ -53,6 +53,10 @@
 <context>
     <name>DragGhost</name>
     <message>
+        <source>To the top of the document</source>
+        <translation>Al inicio del documento</translation>
+    </message>
+    <message>
         <source>Into %1</source>
         <translation>En %1</translation>
     </message>
@@ -369,6 +373,10 @@ Restart FreeCAD now to use the new versions?</source>
     <message>
         <source>Into %s</source>
         <translation>En %s</translation>
+    </message>
+    <message>
+        <source>To the top level</source>
+        <translation>Al nivel superior</translation>
     </message>
     <message>
         <source>Moved %s into %s</source>

@@ -66,7 +66,21 @@ class DragDrop:
         body, plan = self._body_reorder(sources, target_name)
         if body is None:
             body, plan = self._group_reorder(sources, target_name)
-        return body is not None and plan.ok
+        if body is None:
+            return self._to_top_beside(sources, target_name)
+        return plan.ok
+
+    def _to_top_beside(self, sources: list[Any], target_name: str) -> bool:
+        """Is the row at the top level, and may `sources` join it there?
+
+        The document's own order is not the user's to set, so this only
+        moves them out of their containers.
+        """
+        doc = App.ActiveDocument
+        target = doc.getObject(target_name) if doc is not None else None
+        return (target is not None and self._container_of(target) is None
+                and not self._can_drop_into(sources, target_name)
+                and self.can_drop_on_root(sources))
 
     def can_drop_into(self, sources: list[Any], target_name: str) -> bool:
         """Would the row take `sources` inside, not being their container?"""
@@ -82,6 +96,8 @@ class DragDrop:
         if body is not None:
             return self.drop_on(sources, target_name)
         container, group_plan = self._group_reorder(sources, target_name)
+        if container is None and self._to_top_beside(sources, target_name):
+            return self.drop_on_root(sources)
         if container is None or not group_plan.ok:
             return False
         try:
@@ -127,7 +143,11 @@ class DragDrop:
             return (translate("Nxt", "To the start of %s") % label
                     if target_name == container.Name
                     else translate("Nxt", "After %s") % label)
-        return translate("Nxt", "Into %s") % label if into else ""
+        if into:
+            return translate("Nxt", "Into %s") % label
+        if self._to_top_beside(sources, target_name):
+            return translate("Nxt", "To the top level")
+        return ""
 
     def _group_reorder(self, sources: list[Any], target_name: str
                        ) -> tuple[Any, reorder.Plan]:
@@ -217,9 +237,11 @@ class DragDrop:
                 % (what, self._named(container.Document, [target_name])))
             self._bridge.invalidate(icons=True)
             return True
-        if not self._can_drop_into(sources, target_name):
-            return False
-        return self._move_into(sources, target_name)
+        if self._can_drop_into(sources, target_name):
+            return self._move_into(sources, target_name)
+        if self._to_top_beside(sources, target_name):
+            return self.drop_on_root(sources)
+        return False
 
     def _move_into(self, sources: list[Any], target_name: str) -> bool:
         doc = App.ActiveDocument
@@ -380,6 +402,9 @@ class DragDrop:
         try:
             can = getattr(pvo, "canDragObject", None)
             if callable(can) and not can(source):
+                # A Body refuses every drag; some objects may leave anyway.
+                if self._can_leave_body(source, parent):
+                    parent.removeObject(source)
                 return
             drag = getattr(pvo, "dragObject", None)
             if callable(drag):

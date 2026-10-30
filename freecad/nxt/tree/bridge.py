@@ -683,9 +683,15 @@ class TreeBridge(QtCore.QObject):
         self.rowReleased.emit()
 
     def refresh_auto_detail(self) -> None:
-        """Apply a DetailAutoShow change; turning it off clears pins."""
+        """Apply a DetailAutoShow change; turning it off closes its strips.
+
+        The strip it opened, and any pinned, close with it: pins only mean
+        anything while clicks open strips.
+        """
         if not settings.get("DetailAutoShow"):
             self._auto_timer.stop()
+            opened = {self._auto_detail} | self._pinned
+            self._tree.close_details(n for n in opened if n)
             self._auto_detail = ""
             if self._pinned:
                 self._pinned = set()

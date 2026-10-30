@@ -1,7 +1,8 @@
 """Serve ViewObject icons to QML.
 
-URLs: image://nxticon/<doc>/<object>/<revision>[/gray] and
-image://nxticon/@cmd/<Command>. The revision only busts QML's cache.
+URLs: image://nxticon/<doc>/<object>/<revision>[/gray],
+image://nxticon/@cmd/<Command> and image://nxticon/@pin/<pinned>/<rgb>.
+The revision only busts QML's cache.
 """
 
 from __future__ import annotations
@@ -22,6 +23,8 @@ _IMAGE_TYPE = QQuickImageProvider.ImageType.Pixmap
 PROVIDER_ID = "nxticon"
 #: Cannot clash with a document name, which starts with a letter.
 COMMAND_PREFIX = "@cmd"
+#: image://nxticon/@pin/<1 pinned, 0 not>/<colour, hex without #>
+PIN_PREFIX = "@pin"
 VIRTUAL_PREFIX = "~"      # scene.VIRTUAL_PREFIX; no scene import here
 DEFAULT_ICON_PX = 16
 
@@ -58,6 +61,11 @@ class IconProvider(QQuickImageProvider):
             if len(parts) < 2:
                 return self._blank(width, height)
             doc_name, obj_name = parts[0], parts[1]
+            if doc_name == PIN_PREFIX and len(parts) > 2:
+                from ..ui.glyphs import pin_icon
+                return pin_icon(min(width, height), obj_name == "1",
+                                QtGui.QColor("#" + parts[2])
+                                ).pixmap(width, height)
             if doc_name == COMMAND_PREFIX:
                 from ..menus import runner
                 command_icon = runner.command_icon(obj_name)

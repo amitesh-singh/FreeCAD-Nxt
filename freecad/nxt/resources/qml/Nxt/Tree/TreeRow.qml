@@ -1022,22 +1022,16 @@ Item {
                         color: pinButton.pinned ? theme.accent : theme.hover
                         visible: pinButton.pinned || pinMouse.containsMouse
                     }
-                    Rectangle {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        y: 4
-                        width: 8
-                        height: 5
-                        radius: 1.5
-                        color: pinButton.pinned ? theme.accentText
-                             : pinMouse.containsMouse ? theme.text : theme.textDim
-                    }
-                    Rectangle {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        y: 9
-                        width: 2
-                        height: 5
-                        color: pinButton.pinned ? theme.accentText
-                             : pinMouse.containsMouse ? theme.text : theme.textDim
+                    // The Property Inspector's pushpin (ui/glyphs.py).
+                    Image {
+                        readonly property color ink: pinButton.pinned
+                            ? theme.accentText
+                            : pinMouse.containsMouse ? theme.text : theme.textDim
+                        anchors.centerIn: parent
+                        sourceSize: Qt.size(14, 14)
+                        source: "image://nxticon/@pin/"
+                                + (pinButton.pinned ? "1" : "0") + "/"
+                                + ink.toString().substring(1)
                     }
                     MouseArea {
                         id: pinMouse

@@ -715,6 +715,10 @@ Mantenga Alt al arrastrar para atravesarlas.</translation>
         <translation>Mostrar todo</translation>
     </message>
     <message>
+        <source>Show all</source>
+        <translation>Mostrar todo</translation>
+    </message>
+    <message>
         <source>Collapse all</source>
         <translation>Contraer todo</translation>
     </message>

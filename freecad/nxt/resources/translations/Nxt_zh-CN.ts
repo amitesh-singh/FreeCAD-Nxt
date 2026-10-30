@@ -715,6 +715,10 @@ Hold Alt while dragging to pass through.</source>
         <translation>显示所有对象</translation>
     </message>
     <message>
+        <source>Show all</source>
+        <translation>全部显示</translation>
+    </message>
+    <message>
         <source>Collapse all</source>
         <translation>全部折叠</translation>
     </message>

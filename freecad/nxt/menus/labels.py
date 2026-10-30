@@ -32,6 +32,7 @@ ACTIONS: dict[str, str] = {
         "NxtMenu", "Select all of this type in the Body"),
     "nxt:expand_all": QT_TRANSLATE_NOOP("NxtMenu", "Expand all"),
     "nxt:show_all": QT_TRANSLATE_NOOP("NxtMenu", "Show all objects"),
+    "nxt:show_contents": QT_TRANSLATE_NOOP("NxtMenu", "Show all"),
     "nxt:collapse_all": QT_TRANSLATE_NOOP("NxtMenu", "Collapse all"),
     "nxt:synchronize_binder": QT_TRANSLATE_NOOP("NxtMenu", "Synchronize"),
     "nxt:select_bound": QT_TRANSLATE_NOOP("NxtMenu", "Select bound object"),

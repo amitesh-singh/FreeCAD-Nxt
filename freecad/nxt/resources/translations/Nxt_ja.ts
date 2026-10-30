@@ -715,6 +715,10 @@ Hold Alt while dragging to pass through.</source>
         <translation>すべて表示</translation>
     </message>
     <message>
+        <source>Show all</source>
+        <translation>すべて表示</translation>
+    </message>
+    <message>
         <source>Collapse all</source>
         <translation>すべて折りたたむ</translation>
     </message>

@@ -715,6 +715,10 @@ Tieni premuto Alt mentre trascini per attraversarle.</translation>
         <translation>Mostra tutto</translation>
     </message>
     <message>
+        <source>Show all</source>
+        <translation>Mostra tutto</translation>
+    </message>
+    <message>
         <source>Collapse all</source>
         <translation>Comprimi tutto</translation>
     </message>

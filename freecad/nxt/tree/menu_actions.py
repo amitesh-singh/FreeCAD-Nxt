@@ -244,6 +244,12 @@ def _show_all(bridge: TreeBridge, objects: list[Any]) -> None:
     show_all.run()
 
 
+def _show_contents(bridge: TreeBridge, objects: list[Any]) -> None:
+    from ..tools import show_all
+    if len(objects) == 1:
+        show_all.show_contents(objects[0])
+
+
 def _collapse_all(bridge: TreeBridge, objects: list[Any]) -> None:
     bridge._tree.collapse_all()
 
@@ -333,6 +339,7 @@ _ACTIONS: dict[str, Action] = {
     "expand_all": _expand_all,
     "collapse_all": _collapse_all,
     "show_all": _show_all,
+    "show_contents": _show_contents,
     "synchronize_binder": _synchronize,
     "select_bound": _select_bound,
     "edit_attachment": _edit_attachment,

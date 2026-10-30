@@ -1,4 +1,4 @@
-"""Show every object except reference geometry and joints."""
+"""Show everything, or a container's contents, but datums and joints."""
 
 from __future__ import annotations
 
@@ -40,12 +40,29 @@ def _body_of(obj: Any) -> Any:
     return None
 
 
+def contents(container: Any) -> list[Any]:
+    """Everything inside `container`, nested containers' contents too."""
+    found: list[Any] = []
+    for child in getattr(container, "Group", None) or ():
+        found += [child, *contents(child)]
+    return found
+
+
 def show_all(doc: Any) -> None:
+    _show(doc, doc.Objects)
+
+
+def show_contents(container: Any) -> None:
+    """Show a container and its contents, as show_all does a document."""
+    _show(container.Document, [container, *contents(container)])
+
+
+def _show(doc: Any, objects: list[Any]) -> None:
     """Show the rest, undoably, then restore the kept objects.
 
     Showing a group can show its children, kept ones included.
     """
-    views = [(o, o.ViewObject) for o in doc.Objects
+    views = [(o, o.ViewObject) for o in objects
              if getattr(o, "ViewObject", None) is not None]
     kept = {o.Name: v.Visibility for o, v in views if kept_as_is(o)}
     doc.openTransaction("Show all")

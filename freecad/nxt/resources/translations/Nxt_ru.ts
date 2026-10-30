@@ -715,6 +715,10 @@ Hold Alt while dragging to pass through.</source>
         <translation>Показать всё</translation>
     </message>
     <message>
+        <source>Show all</source>
+        <translation>Показать всё</translation>
+    </message>
+    <message>
         <source>Collapse all</source>
         <translation>Свернуть всё</translation>
     </message>

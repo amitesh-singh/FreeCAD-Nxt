@@ -180,6 +180,17 @@ Placement and Transform don't appear: a feature's Placement is read-only.
 | Create Group | tree action | Organize, "New group inside" | |
 | Expand all / Collapse all | `nxt:expand_all`, `nxt:collapse_all` (exist) | Organize | has children |
 
+## Containers (Part, Group, Body, Assembly)
+
+| Item | Command or action | Slot | Condition |
+|---|---|---|---|
+| Show all | `nxt:show_contents` | Organize | one container |
+
+Show all for the container and what it holds, nested containers included,
+with the document-wide Show all's exceptions: datums, origins, coordinate
+systems, joints, section planes and a Body's features other than its tip stay as
+they are.
+
 ## Part primitives and booleans (`Part::*`)
 
 | Item | Command or action | Slot | Condition |

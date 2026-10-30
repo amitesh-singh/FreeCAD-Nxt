@@ -114,7 +114,7 @@ class TreeBridge(QtCore.QObject):
         self.rebuild()
 
     #: getActiveObject keys, most specific first.
-    ACTIVE_KEYS: tuple[str, ...] = ("pdbody", "part")
+    ACTIVE_KEYS: tuple[str, ...] = ("pdbody", "assembly", "part")
 
     def active_container(self) -> str:
         """The active Body or Part, as the panel currently sees it."""

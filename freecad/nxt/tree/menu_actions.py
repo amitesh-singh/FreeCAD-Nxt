@@ -173,15 +173,27 @@ def _set_tip(bridge: TreeBridge, objects: list[Any]) -> None:
         bridge.setTip(node.body, node.name)
 
 
+def _active_key(obj: Any) -> str:
+    type_id = str(getattr(obj, "TypeId", ""))
+    if type_id == "PartDesign::Body":
+        return "pdbody"
+    if type_id.startswith("Assembly::Assembly"):
+        return "assembly"
+    return ""
+
+
 def _make_active(bridge: TreeBridge, objects: list[Any]) -> None:
     view = fc.active_view()
     if view is None:
         return
-    current = view.getActiveObject("pdbody")
+    obj = objects[0]
+    key = _active_key(obj)
+    if not key:
+        return
+    current = view.getActiveObject(key)
     if isinstance(current, tuple):
         current = current[0] if current else None
-    body = objects[0]
-    view.setActiveObject("pdbody", None if current is body else body)
+    view.setActiveObject(key, None if current is obj else obj)
 
 
 def _select_same_type(bridge: TreeBridge, objects: list[Any]) -> None:

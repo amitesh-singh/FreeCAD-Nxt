@@ -94,9 +94,10 @@ class Activation:
         type_id = str(getattr(obj, "TypeId", ""))
         if type_id == "PartDesign::Body":
             return "pdbody"
+        if type_id.startswith("Assembly::Assembly"):
+            return "assembly"
         try:
-            if type_id.startswith("Assembly::Assembly") \
-                    or obj.isDerivedFrom("App::Part"):
+            if obj.isDerivedFrom("App::Part"):
                 return "part"
         except Exception:
             pass

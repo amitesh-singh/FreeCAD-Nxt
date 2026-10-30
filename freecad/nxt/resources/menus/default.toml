@@ -203,6 +203,13 @@ Organize = [
     "nxt:show_all",
 ]
 
+# ------------------------------------------------------------------ Assembly
+
+[[menu]]
+id = "assembly"
+when = { type = "Assembly::Assembly*" }
+lead = "nxt:make_active"
+
 # ------------------------------------------------------------ Part primitives
 
 [[menu]]

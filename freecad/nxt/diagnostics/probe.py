@@ -199,7 +199,7 @@ def active() -> dict[str, str]:
                              % hasattr(view, "getActiveObject"))
 
     found: dict[str, str] = {}
-    for key in ("pdbody", "part", "Assembly", "AssemblyLink"):
+    for key in ("pdbody", "assembly", "part", "Assembly", "AssemblyLink"):
         try:
             obj = view.getActiveObject(key)
         except Exception as exc:

@@ -1,5 +1,5 @@
-"""The addon's version, kept in step with package.xml."""
+\"""The addon's version, kept in step with package.xml."""
 
 from __future__ import annotations
 
-__version__ = "0.5.20"
+__version__ = "0.5.21"

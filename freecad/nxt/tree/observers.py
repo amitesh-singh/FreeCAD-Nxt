@@ -61,7 +61,11 @@ class _AppObserver(object):
             self._bridge.save_expansion(doc)
 
     def slotFinishSaveDocument(self, doc: Any, label: str) -> None:
-        pass
+        self._bridge.invalidate()
+
+    def slotChangedDocument(self, doc: Any, prop: str) -> None:
+        if prop == "Label":
+            self._bridge.invalidate()
 
 
 class _GuiObserver(object):

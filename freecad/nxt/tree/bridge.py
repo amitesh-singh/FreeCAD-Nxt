@@ -288,7 +288,11 @@ class TreeBridge(QtCore.QObject):
         self._active_part = self._read_active(("part",))
         self._tree.set_active_part(self._active_part)
         self.activeChanged.emit()
-        if self._snapshot.doc_name != previous:
+        # Save As renames the document's label, not its name.
+        label = self.documentLabel
+        if self._snapshot.doc_name != previous \
+                or label != getattr(self, "_shown_label", None):
+            self._shown_label = label
             self.documentChanged.emit()
         self.problemCountChanged.emit()
 

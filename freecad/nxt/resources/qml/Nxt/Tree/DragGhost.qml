@@ -28,12 +28,20 @@ Item {
     property var intoVerdicts: ({})
     // Set by the row that starts the drag.
     property string container: ""
-    property bool inBody: false
+    // May leave its container: false for a Body's features.
+    property bool canLeave: true
     property int sourceDepth: 0
 
+    // A free drag draws the pill this far right of and below the cursor;
+    // the hot spot stays on the cursor, so a drop lands where it points.
+    readonly property point cursorGap: Qt.point(10, 6)
+    // Sliding over the header: the document's top level.
+    property bool slideRoot: false
+    property var rootVerdict: undefined
+
     Drag.active: false
-    Drag.hotSpot.x: 12
-    Drag.hotSpot.y: height / 2
+    Drag.hotSpot.x: -cursorGap.x
+    Drag.hotSpot.y: -cursorGap.y
 
     function begin(objectNames, text, icon, grabbedAt) {
         names = objectNames;
@@ -45,8 +53,10 @@ Item {
         slideInto = "";
         verdicts = ({});
         intoVerdicts = ({});
-        Drag.hotSpot.x = sliding ? grabbedAt.x : 12;
-        Drag.hotSpot.y = sliding ? grabbedAt.y : height / 2;
+        Drag.hotSpot.x = sliding ? grabbedAt.x : -cursorGap.x;
+        Drag.hotSpot.y = sliding ? grabbedAt.y : -cursorGap.y;
+        slideRoot = false;
+        rootVerdict = undefined;
         ghost.list.dragSources = objectNames;
         ghost.list.reorderDrag = sliding;
         hint = "";
@@ -82,6 +92,7 @@ Item {
         intoSpring.stop();
         names = [];
         sliding = false;
+        slideRoot = false;
         slideTarget = "";
         slideInto = "";
         hint = "";
@@ -96,13 +107,16 @@ Item {
     function finish() {
         if (sliding) {
             Drag.active = false;
-            if (slideInto !== "")
+            if (slideRoot)
+                nxt.dropOnRoot(names);
+            else if (slideInto !== "")
                 nxt.dropInto(names, slideInto);
             else if (slideTarget !== "")
                 nxt.reorderOn(names, slideTarget);
             ghost.list.dropGap = -1;
             ghost.list.intoRow = -1;
             slideInto = "";
+            slideRoot = false;
             intoSpring.stop();
         } else {
             Drag.drop();
@@ -132,6 +146,12 @@ Item {
         return verdicts[target];
     }
 
+    function leavesToRoot() {
+        if (rootVerdict === undefined)
+            rootVerdict = nxt.canDropOnRoot(names);
+        return rootVerdict;
+    }
+
     function takesIt(target) {
         if (intoVerdicts[target] === undefined)
             intoVerdicts[target] = nxt.canDropInto(names, target);
@@ -148,16 +168,31 @@ Item {
         ghost.list.reorderDrag = false;
         ghost.list.dropGap = -1;
         ghost.list.intoRow = -1;
-        Drag.hotSpot.x = 12;
-        Drag.hotSpot.y = height / 2;
+        slideRoot = false;
+        // Keep the cursor where it is; the pill moves to sit beside it.
+        x += Drag.hotSpot.x + cursorGap.x;
+        y += Drag.hotSpot.y + cursorGap.y;
+        Drag.hotSpot.x = -cursorGap.x;
+        Drag.hotSpot.y = -cursorGap.y;
         say("", true);
     }
 
     function slideAcross() {
-        if (inBody)
+        if (!canLeave)
             return false;
         var at = ghost.mapToItem(ghost.list.contentItem,
                                  Drag.hotSpot.x, Drag.hotSpot.y);
+        slideRoot = ghost.mapToItem(ghost.list, Drag.hotSpot.x,
+                                    Drag.hotSpot.y).y < 0 && leavesToRoot();
+        if (slideRoot) {
+            slideTarget = "";
+            slideInto = "";
+            intoSpring.stop();
+            ghost.list.dropGap = -1;
+            ghost.list.intoRow = -1;
+            say(qsTr("To the top of the document"), true);
+            return true;
+        }
         var under = ghost.list.itemAt(10, at.y);
         if (!under || names.indexOf(under.name) >= 0)
             return false;

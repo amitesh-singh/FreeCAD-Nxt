@@ -6,6 +6,7 @@ setting is on. The material and unit system are remembered.
 
 from __future__ import annotations
 
+import contextlib
 import math
 from typing import Any
 
@@ -38,7 +39,7 @@ def materials() -> list[tuple[str, float]]:
                 continue
             density = App.Units.Quantity(
                 material.PhysicalProperties["Density"]).Value
-        except Exception:  # noqa: BLE001 - an unreadable card
+        except Exception:  # nosec B112  # an unreadable card
             continue
         if density > 0:
             found.setdefault(material.Name, density)
@@ -227,10 +228,8 @@ class MassBar(TopNotice):
         documents = App.addDocumentObserver if on \
             else App.removeDocumentObserver
         for add in (selection, documents):
-            try:
+            with contextlib.suppress(Exception):  # already (un)registered
                 add(self)
-            except Exception:  # noqa: BLE001 - already (un)registered
-                pass
         self._watching = on
 
     def _context(self) -> dict[str, Any]:

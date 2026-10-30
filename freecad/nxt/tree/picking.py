@@ -42,7 +42,7 @@ def _history(obj: Any, name: str) -> tuple[int, str]:
     for candidate in names:
         try:
             history = obj.Shape.getElementHistory(candidate)
-        except Exception:
+        except Exception:  # nosec B112  # not a mapped name
             continue
         if history and isinstance(history[0], int) and history[0] != 0:
             return abs(history[0]), str(history[1] or "")

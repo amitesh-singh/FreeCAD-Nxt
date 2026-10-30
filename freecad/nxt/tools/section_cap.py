@@ -11,6 +11,7 @@ mesh; the faces follow once it rests.
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -111,16 +112,12 @@ def look_of(obj: Any, diffuse: tuple[float, float, float]) -> Look:
     except Exception:
         return look
     for name in ("AmbientColor", "SpecularColor", "EmissiveColor"):
-        try:
+        with contextlib.suppress(Exception):
             value = getattr(material, name)
             setattr(look, name[:-5].lower(),
                     (float(value[0]), float(value[1]), float(value[2])))
-        except Exception:
-            pass
-    try:
+    with contextlib.suppress(Exception):
         look.shininess = float(material.Shininess)
-    except Exception:
-        pass
     return look
 
 
@@ -171,11 +168,9 @@ class Clips:
 
     def detach(self) -> None:
         for item in self.items:
-            try:
+            with contextlib.suppress(Exception):  # its object is gone
                 if item.root.findChild(item.clip) >= 0:
                     item.root.removeChild(item.clip)
-            except Exception:  # noqa: BLE001 - its object is gone
-                pass
         self.items = []
 
 

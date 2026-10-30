@@ -853,7 +853,8 @@ Item {
                                   ? row.pillRight + 2 - cropLeft
                                   : head.width;
                     row.dragGhost.container = container;
-                    row.dragGhost.inBody = row.bodyName !== "";
+                    row.dragGhost.canLeave = row.bodyName === ""
+                                             || nxt.canDropOnRoot(names);
                     row.dragGhost.sourceDepth = row.depth;
                     row.dragGhost.begin(
                         names,
@@ -873,8 +874,8 @@ Item {
                 if (row.dragGhost.sliding) {
                     row.dragGhost.y = here.y - origin.y;
                 } else {
-                    row.dragGhost.x = here.x + 10;
-                    row.dragGhost.y = here.y + 6;
+                    row.dragGhost.x = here.x + row.dragGhost.cursorGap.x;
+                    row.dragGhost.y = here.y + row.dragGhost.cursorGap.y;
                 }
             }
 

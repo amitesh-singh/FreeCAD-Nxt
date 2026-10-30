@@ -31,7 +31,9 @@ jobs:
         # PySide6 6.12.0 over-releases None on Python 3.11 (any Python
         # callback from Qt aborts with "none_dealloc"); 3.12+ is immune.
         # Lift the cap once a fixed 6.12.x is out.
-        run: pip install "pyside6>=6.8,<6.12" ruff pycodestyle mypy freecad-stubs
+        run: >-
+          pip install "pyside6>=6.8,<6.12" ruff pycodestyle mypy
+          freecad-stubs bandit defusedxml
 
       - name: Lint (ruff)
         run: ruff check .
@@ -41,6 +43,11 @@ jobs:
 
       - name: Types (mypy)
         run: mypy
+
+      #  FreeCAD's Addon Report scores every addon with Bandit; any finding
+      # here would cost Nxt points there.
+      - name: Security (bandit)
+        run: bandit -r . -q
 
       # Every test file runs even if one fails, so a single run shows them
       # all; the step fails at the end if any did.

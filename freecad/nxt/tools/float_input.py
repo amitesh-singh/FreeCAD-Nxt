@@ -7,6 +7,7 @@ active): FreeCAD signals neither edit start nor gizmo appearance.
 
 from __future__ import annotations
 
+import contextlib
 import re
 import time
 from typing import Any
@@ -113,7 +114,7 @@ def _handle_boxes(view: Any, kind: str = LINEAR) -> list[Any]:
         try:
             if not node.visible.getValue():
                 continue
-        except Exception:
+        except Exception:  # nosec B112  # a node without visibility
             continue
         action = coin.SoGetBoundingBoxAction(coin.SbViewportRegion())
         action.apply(paths[i])
@@ -257,13 +258,11 @@ class Field(QtCore.QObject):
         spin = self._spin
         if spin is None:
             return None
-        try:
+        with contextlib.suppress(ImportError):
             import shiboken6
             if not shiboken6.isValid(spin):
                 self._spin = None
                 return None
-        except ImportError:
-            pass
         return spin
 
     def sync(self) -> None:
@@ -667,10 +666,8 @@ class FloatingInput(QtCore.QObject):
         if gui_doc is not None and gui_doc.getInEdit() is not None:
             gui_doc.resetEdit()
             gui_doc.Document.recompute()
-            try:
+            with contextlib.suppress(Exception):
                 App.closeActiveTransaction(False)   # keep it, as OK does
-            except Exception:
-                pass
 
     def _texts(self) -> dict[str, str]:
         texts = {}

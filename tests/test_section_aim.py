@@ -59,7 +59,7 @@ class AimTests(unittest.TestCase):
     def test_three_points_give_their_plane(self) -> None:
         plane = section_aim.plane_through([V(0, 0, 5), V(1, 0, 5),
                                            V(0, 1, 5)])
-        assert plane is not None
+        self.assertIsNotNone(plane)
         normal, point = plane
         self.assertEqual(abs(normal.z), 1.0)
         self.assertAlmostEqual(point.z, 5.0)

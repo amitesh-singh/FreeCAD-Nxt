@@ -18,6 +18,7 @@ panel would draw so you can compare it against the stock tree by eye.
 
 from __future__ import annotations
 
+import contextlib
 import time
 from collections.abc import Callable
 from typing import Any
@@ -359,7 +360,7 @@ def overlay() -> tuple[list[str], list[str]]:
         for entry in contents:
             try:
                 kind, key, value = entry
-            except Exception:
+            except Exception:  # nosec B112  # not an entry
                 continue
             if "overlay" in str(key).lower() or "overlay" in path.lower():
                 hits.append("%s/%s = %r (%s)" % (path, key, value, kind))
@@ -784,10 +785,8 @@ def watch_visibility(on: bool = True) -> None:
     if _watch is not None:
         for remove in (App.removeDocumentObserver,
                        Gui.removeDocumentObserver):
-            try:
+            with contextlib.suppress(Exception):
                 remove(_watch)
-            except Exception:
-                pass
         _watch = None
     if on:
         _watch = _VisibilityWatch()

@@ -444,7 +444,7 @@ class LoftTests(unittest.TestCase):
     def test_loft_links_take_whole_sketches(self) -> None:
         loft = templates.for_objects(
             [type("Loft", (), {"TypeId": "PartDesign::AdditiveLoft"})()])
-        assert loft is not None
+        self.assertIsNotNone(loft)
         self.assertTrue(loft.item("Sections").whole)
         self.assertTrue(loft.item("Profile").whole)
 

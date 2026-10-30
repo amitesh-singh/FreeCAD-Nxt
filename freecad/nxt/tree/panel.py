@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import traceback
 from collections.abc import Callable
 from typing import Any
@@ -10,6 +11,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from .. import resources
+from ..app import i18n
 from ..app.i18n import QT_TRANSLATE_NOOP, translate
 from ..core import fc, qtquick
 from ..core import settings as settings_mod
@@ -192,6 +194,7 @@ class ModelPanel(QtWidgets.QDockWidget):
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(translate("Nxt", TITLE), parent)
         self.setObjectName(OBJECT_NAME)
+        i18n.on_change(self._retitle)
 
         # QML calls back into these while loading, so set before setWidget.
         self._view: Any = None     # QQuickWidget; the module loads lazily
@@ -540,13 +543,11 @@ class ModelPanel(QtWidgets.QDockWidget):
         view = self._view
         if view is None:
             return
-        try:
+        with contextlib.suppress(Exception):
             window = view.quickWindow()
             if window is not None:
                 window.releaseResources()
             view.update()
-        except Exception:
-            pass
 
     @QtCore.Slot(result=QtCore.QPointF)
     def menuAnchorOffset(self) -> QtCore.QPointF:  # noqa: N802 - QML API
@@ -571,11 +572,9 @@ class ModelPanel(QtWidgets.QDockWidget):
         view = self._view
         if view is None:
             return
-        try:
+        with contextlib.suppress(RuntimeError):
             view.activateWindow()
             view.setFocus(QtCore.Qt.FocusReason.OtherFocusReason)
-        except RuntimeError:
-            pass
 
     @QtCore.Slot()
     def repaintBehind(self) -> None:
@@ -603,6 +602,11 @@ class ModelPanel(QtWidgets.QDockWidget):
             return
         self._theme.set_reference(widget)
         self._apply_clear_colour()
+        if self._title_bar is not None:
+            self._title_bar.refresh()
+
+    def _retitle(self) -> None:
+        self.setWindowTitle(translate("Nxt", TITLE))
         if self._title_bar is not None:
             self._title_bar.refresh()
 
@@ -639,10 +643,8 @@ class ModelPanel(QtWidgets.QDockWidget):
                       self._detect_late_timer, self._restyle_timer,
                       self._verify_timer, self._release_timer,
                       self._host_overlay_timer):
-            try:
+            with contextlib.suppress(Exception):
                 timer.stop()
-            except Exception:
-                pass
 
         self._background_watch.detach()
         try:
@@ -691,7 +693,7 @@ def _on_quit() -> None:
     panel = _panel
     if panel is None:
         return
-    try:
+    with contextlib.suppress(RuntimeError):
         view, panel._view = panel._view, None
         if view is None:
             return
@@ -699,8 +701,6 @@ def _on_quit() -> None:
         view.deleteLater()
         QtCore.QCoreApplication.sendPostedEvents(
             view, QtCompat.enum_int(QtCore.QEvent.Type.DeferredDelete))
-    except RuntimeError:
-        pass                    # already destroyed with the main window
 
 
 def show() -> ModelPanel | None:
@@ -758,12 +758,10 @@ def show() -> ModelPanel | None:
 def _upgrade_theme_reference() -> None:
     if _panel is None:
         return
-    try:
+    with contextlib.suppress(Exception):
         widget = theme_mod.find_reference_widget(_panel.parentWidget())
         if widget is not None:
             _panel.adopt_reference(widget)
-    except Exception:
-        pass
 
 
 def theme() -> Any:

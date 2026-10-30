@@ -10,6 +10,7 @@ step per document.
 
 from __future__ import annotations
 
+import contextlib
 import re
 import traceback
 from typing import Any
@@ -119,7 +120,7 @@ def _swap(value: Any, old: Any, new: Any) -> Any:
 def relink(user: Any, old: Any, new: Any) -> None:
     """Point every link property of `user` at `new` instead of `old`."""
     for name in user.PropertiesList:
-        try:
+        with contextlib.suppress(Exception):  # read-only or odd: left alone
             if not user.getTypeIdOfProperty(name).startswith(
                     "App::PropertyLink"):
                 continue
@@ -127,8 +128,6 @@ def relink(user: Any, old: Any, new: Any) -> None:
             swapped = _swap(value, old, new)
             if swapped != value:
                 setattr(user, name, swapped)
-        except Exception:  # noqa: BLE001 - read-only or odd: left alone
-            continue
 
 
 def rename_in_expressions(doc: Any, old: str, new: str) -> None:

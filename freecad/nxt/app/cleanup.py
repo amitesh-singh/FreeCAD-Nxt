@@ -6,6 +6,7 @@ quit after, since Nxt still running may write its settings once more.
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 import FreeCAD as App
@@ -20,11 +21,9 @@ NAME = settings.GROUP.rsplit("/", 1)[1]
 def remove_all() -> None:
     """Put back FreeCAD's values and delete Nxt's own settings."""
     gizmos.restore_freecads()
-    try:
+    with contextlib.suppress(Exception):  # no Qt here: nothing was hushed
         from . import update_check
         update_check.unhush()   # the Report view's settings, if a check
-    except Exception:  # noqa: BLE001 - no Qt here: nothing was hushed
-        pass
     settings.removed = True
     App.ParamGet(MOD).RemGroup(NAME)
 

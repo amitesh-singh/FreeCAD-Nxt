@@ -7,6 +7,7 @@ the face, so the trace works from the selection.
 
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING, Any
 
 import FreeCAD as App
@@ -77,12 +78,10 @@ class DoubleClickEditor(ApplicationEventFilter):
         gui_doc = Gui.ActiveDocument
         if gui_doc is None or gui_doc.getInEdit() is not None:
             return False
-        try:
+        with contextlib.suppress(Exception):
             view = fc.active_view()
             if view.getObjectInfo(view.getCursorPos()) is None:
                 return False            # empty space: FreeCAD's
-        except Exception:
-            pass
         found = picked_feature()
         doc = App.ActiveDocument
         if found is None or doc is None or editing.is_reference_pick(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
@@ -199,12 +200,10 @@ def _make_active(bridge: TreeBridge, objects: list[Any]) -> None:
 def _select_same_type(bridge: TreeBridge, objects: list[Any]) -> None:
     obj = objects[0]
     body = None
-    try:
+    with contextlib.suppress(Exception):
         parent = obj.getParentGeoFeatureGroup()
         if parent is not None and parent.TypeId == "PartDesign::Body":
             body = parent
-    except Exception:
-        pass
     if body is None:
         return
     kind = obj.TypeId
@@ -255,6 +254,12 @@ def _expand_all(bridge: TreeBridge, objects: list[Any]) -> None:
 def _show_all(bridge: TreeBridge, objects: list[Any]) -> None:
     from ..tools import show_all
     show_all.run()
+
+
+def _show_contents(bridge: TreeBridge, objects: list[Any]) -> None:
+    from ..tools import show_all
+    if len(objects) == 1:
+        show_all.show_contents(objects[0])
 
 
 def _collapse_all(bridge: TreeBridge, objects: list[Any]) -> None:
@@ -346,6 +351,7 @@ _ACTIONS: dict[str, Action] = {
     "expand_all": _expand_all,
     "collapse_all": _collapse_all,
     "show_all": _show_all,
+    "show_contents": _show_contents,
     "synchronize_binder": _synchronize,
     "select_bound": _select_bound,
     "edit_attachment": _edit_attachment,

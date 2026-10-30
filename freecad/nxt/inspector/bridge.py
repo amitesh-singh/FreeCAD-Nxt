@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
 from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
 
+from ..app import i18n
 from ..core.qt import QtCore, QtWidgets
 from ..tools import task_sync
 from . import layout as inspector
@@ -97,6 +99,7 @@ class InspectorBridge(QtCore.QObject):
     # -- lifetime --
 
     def start(self) -> None:
+        i18n.on_change(self.refresh)
         self._signature = ()
         self._poll()
         self._timer.start()
@@ -372,14 +375,12 @@ class InspectorBridge(QtCore.QObject):
     def _recompute(objects: list[Any]) -> None:
         """The feature again, as its panel's own preview does."""
         for obj in objects:
-            try:
+            with contextlib.suppress(Exception):
                 doc = obj.Document
                 if hasattr(doc, "recomputeFeature"):
                     doc.recomputeFeature(obj)
                 else:
                     obj.recompute()
-            except Exception:
-                pass
 
     @QtCore.Slot(str, str)
     def openLink(self, prop: str, key: str) -> None:  # noqa: N802
@@ -464,12 +465,10 @@ class InspectorBridge(QtCore.QObject):
         if not self._picking:
             return
         objects, self._picking, self._pick_for = self._pick_for, "", []
-        try:
+        with contextlib.suppress(Exception):
             Gui.Selection.clearSelection()
             for obj in objects:
                 Gui.Selection.addSelection(obj)
-        except Exception:
-            pass
         self.changed.emit()
 
     @QtCore.Slot()

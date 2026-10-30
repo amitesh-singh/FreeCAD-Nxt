@@ -8,6 +8,7 @@ on, and a new face (a round, a chamfer) the base's most common colour.
 
 from __future__ import annotations
 
+import contextlib
 from collections import Counter
 from typing import Any
 
@@ -29,10 +30,8 @@ def copy_visuals(base: Any, obj: Any) -> None:
     if source is None or target is None:
         return
     for name in VISUALS:
-        try:
+        with contextlib.suppress(Exception):  # a property one of them lacks
             setattr(target, name, getattr(source, name))
-        except Exception:  # noqa: BLE001 - a property one of them lacks
-            pass
     carry_face_colors(obj)
 
 
@@ -61,11 +60,9 @@ def _base_face_index(base_faces: list[Any], face: Any) -> int | None:
     for index, base_face in enumerate(base_faces):
         if type(base_face.Surface) is not type(face.Surface):
             continue
-        try:
+        with contextlib.suppress(Exception):  # not this one
             if base_face.distToShape(vertex)[0] < _ON_FACE:
                 return index
-        except Exception:  # noqa: BLE001 - not this one
-            continue
     return None
 
 
@@ -85,7 +82,5 @@ def carry_face_colors(obj: Any) -> None:
     for face in obj.Shape.Faces:
         index = _base_face_index(base_faces, face)
         carried.append(common if index is None else materials[index])
-    try:
+    with contextlib.suppress(Exception):  # the view refused it; keep its look
         target.ShapeAppearance = carried
-    except Exception:  # noqa: BLE001 - the view refused it; keep its look
-        pass

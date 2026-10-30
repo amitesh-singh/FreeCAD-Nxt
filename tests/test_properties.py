@@ -52,7 +52,7 @@ class FakePad:
               "Type": "App::PropertyEnumeration",
               "Reversed": "App::PropertyBool",
               "Label": "App::PropertyString",
-              "Secret": "App::PropertyLength"}
+              "Unshown": "App::PropertyLength"}
 
     def __init__(self) -> None:
         self.Document = FakeDocument()
@@ -61,14 +61,14 @@ class FakePad:
         self.Type = "Dimension"
         self.Reversed = False
         self.Label = "Pad"
-        self.Secret = Quantity("1 mm")
+        self.Unshown = Quantity("1 mm")
         self.ExpressionEngine: list[tuple[str, str]] = []
 
     def getTypeIdOfProperty(self, prop: str) -> str:
         return self._types[prop]
 
     def getEditorMode(self, prop: str) -> list[str]:
-        return ["Hidden"] if prop == "Secret" else []
+        return ["Hidden"] if prop == "Unshown" else []
 
     def getEnumerationsOfProperty(self, prop: str) -> list[str]:
         return ["Dimension", "ThroughAll"]

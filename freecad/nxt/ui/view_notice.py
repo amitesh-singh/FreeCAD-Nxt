@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 import FreeCAD as App
@@ -44,10 +45,8 @@ class TopNotice(QtCore.QObject):
 
     def remove(self) -> None:
         if widgets.alive(self._area):
-            try:
+            with contextlib.suppress(RuntimeError, TypeError):
                 self._area.subWindowActivated.disconnect(self._view_changed)
-            except (RuntimeError, TypeError):
-                pass
         self._drop()
 
     def bottom(self) -> int:

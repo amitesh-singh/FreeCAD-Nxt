@@ -240,11 +240,15 @@ Rectangle {
                     maxPos: modelData.maxPos
                     rowHeight: theme.rowHeight
                     list: treeList
+                    stage: tipLayer
                     fullWidth: treeList.width
                     realised: tipContent.realised
                     listTopMargin: treeList.anchors.topMargin
-                    visible: y + height >= treeList.contentY
-                             && y <= treeList.contentY + treeList.height
+                    // Never hidden while held: hiding drops the mouse grab
+                    // mid-drag, from inside the bar's own move.
+                    visible: dragging
+                             || (y + height >= treeList.contentY
+                                 && y <= treeList.contentY + treeList.height)
 
                     onDragPosChanged: if (dragging) treeList.barGap = dragPos
                     onDraggingChanged: treeList.barGap = dragging ? dragPos : -1
@@ -389,11 +393,25 @@ Rectangle {
 
     // -- keyboard --
 
-    // Space/Home/End/Delete are FreeCAD shortcuts, offered the key before
-    // the panel; claim them in shortcutOverride (a focused TextInput still
-    // gets them first).
+    // F2 renames; on macOS Return does, as in Finder and FreeCAD there.
+    function isRenameKey(event) {
+        if (event.key === Qt.Key_F2)
+            return true;
+        return Qt.platform.os === "osx"
+               && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+               && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier
+                                       | Qt.MetaModifier | Qt.ShiftModifier));
+    }
+
+    // Space/Home/End/Delete and the rename keys may be FreeCAD shortcuts,
+    // offered the key before the panel; claim them in shortcutOverride (a
+    // focused TextInput still gets them first).
     Keys.onShortcutOverride: function (event) {
         if (event.key === Qt.Key_Escape && ghost.Drag.active) {
+            event.accepted = true;
+            return;
+        }
+        if (isRenameKey(event)) {
             event.accepted = true;
             return;
         }
@@ -411,7 +429,7 @@ Rectangle {
             event.accepted = true;
             return;
         }
-        if (event.key === Qt.Key_F2) {
+        if (isRenameKey(event)) {
             root.startRename(nxt.treeRenameRow());
             event.accepted = true;
         } else if (event.key === Qt.Key_Menu

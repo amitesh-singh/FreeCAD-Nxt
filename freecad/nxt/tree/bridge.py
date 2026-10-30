@@ -118,7 +118,9 @@ class TreeBridge(QtCore.QObject):
         self.rebuild()
 
     #: getActiveObject keys, most specific first.
-    ACTIVE_KEYS: tuple[str, ...] = ("pdbody", "part")
+    ACTIVE_KEYS: tuple[str, ...] = ("pdbody", "assembly", "part")
+    #: The keys of the outer mark: an Assembly or Part around a Body.
+    OUTER_KEYS: tuple[str, ...] = ("assembly", "part")
 
     def active_container(self) -> str:
         """The active Body or Part, as the panel currently sees it."""
@@ -195,7 +197,7 @@ class TreeBridge(QtCore.QObject):
                 gui_doc.toggleTreeItem(obj, 2 if want else 1)
 
     def _sync_active(self) -> None:
-        part = self._read_active(("part",))
+        part = self._read_active(self.OUTER_KEYS)
         if part != self._active_part:
             self._active_part = part
             self._tree.set_active_part(part)
@@ -285,7 +287,7 @@ class TreeBridge(QtCore.QObject):
         self.sync_selection()
         self._active = self._read_active()
         self._tree.set_active(self._active)
-        self._active_part = self._read_active(("part",))
+        self._active_part = self._read_active(self.OUTER_KEYS)
         self._tree.set_active_part(self._active_part)
         self.activeChanged.emit()
         # Save As renames the document's label, not its name.

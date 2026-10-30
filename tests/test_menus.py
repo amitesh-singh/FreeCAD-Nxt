@@ -135,6 +135,13 @@ class DefaultFileTests(unittest.TestCase):
         self.assertIn("PartDesign_NewSketch", section(menu, "Model"))
         self.assertNotIn("edit:default", menu.commands())
 
+    def test_an_assembly_leads_with_make_active(self) -> None:
+        assembly = obj("Assembly::AssemblyObject", "App::Part",
+                       "App::GeoFeatureGroup", "App::DocumentObjectGroup",
+                       "App::DocumentObject", flags=SHAPED)
+        menu = self.resolve(assembly)
+        self.assertEqual(menu.lead.command, "nxt:make_active")
+
     def test_a_sketch_in_a_body_can_be_moved_like_a_feature(self) -> None:
         inside = self.resolve(obj(*SKETCH, flags=SHAPED, in_body=True))
         self.assertIn("PartDesign_MoveFeature", section(inside, "Organize"))

@@ -218,9 +218,12 @@ Item {
             var top = list.originY;
             var bottom = Math.max(top, top + list.contentHeight
                                        - list.height);
+            // Scrolling carries the bar as far: never past its last step.
+            var step = Math.sign(depth) * bar.edgeStep * reach * boost;
+            step = depth > 0 ? Math.min(step, bar.bottomY - bar.dragY)
+                             : Math.max(step, bar.topY - bar.dragY);
             list.contentY = Math.max(top, Math.min(bottom,
-                list.contentY + Math.sign(depth) * bar.edgeStep
-                                * reach * boost));
+                                                   list.contentY + step));
         }
     }
 

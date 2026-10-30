@@ -341,14 +341,45 @@ class ActivateTests(unittest.TestCase):
         self.assertEqual((self.started, self.toggled), ([], ["B"]))
 
     def test_the_keys(self) -> None:
-        key = bridge_mod.activation.Activation._active_key
+        key = bridge_mod.activation.active_key
         part = types.SimpleNamespace(
             TypeId="App::Part", isDerivedFrom=lambda t: t == "App::Part")
         assembly = types.SimpleNamespace(
             TypeId="Assembly::AssemblyObject", isDerivedFrom=lambda t: False)
         self.assertEqual([key(DOC.objects["A"]), key(part), key(assembly),
                           key(DOC.objects["B"])],
-                         ["pdbody", "part", "part", ""])
+                         ["pdbody", "part", "assembly", ""])
+
+    def use_assembly(self) -> None:
+        DOC.objects["B"].TypeId = "Assembly::AssemblyObject"
+        self.addCleanup(setattr, DOC.objects["B"], "TypeId",
+                        "App::DocumentObjectGroup")
+        self.bridge._active_part = ""
+
+    def test_an_active_assembly_is_the_outer_mark(self) -> None:
+        self.use_assembly()
+        self.bridge._active_part = "B"
+        self.bridge._active = "A"           # a Body inside it is active
+        self.bridge.activate("B")
+        self.assertEqual((self.started, self.toggled), ([], ["B"]))
+
+    def test_make_active_activates_then_deactivates(self) -> None:
+        self.use_assembly()
+        cleared: list[tuple[str, Any]] = []
+        view = types.SimpleNamespace(
+            setActiveObject=lambda key, obj: cleared.append((key, obj)))
+        fc = bridge_mod.activation.fc
+        saved = fc.active_view
+        fc.active_view = lambda: view
+        self.addCleanup(setattr, fc, "active_view", saved)
+        self.bridge._sync_active = lambda: None
+        act = self.bridge._activation
+        act.toggle_active("B")
+        self.assertEqual(self.started, ["B"])
+        self.bridge._active_part = "B"
+        act.toggle_active("B")
+        self.assertEqual(cleared, [("assembly", None)])
+        self.assertEqual(self.started, ["B"])
 
 
 class TipBarTests(unittest.TestCase):

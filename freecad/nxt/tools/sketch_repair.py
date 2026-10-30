@@ -16,7 +16,7 @@ import FreeCADGui as Gui
 
 from ..app import services
 from ..app.i18n import QT_TRANSLATE_NOOP, translate
-from ..core import log, settings
+from ..core import fc, log, settings
 from ..core.qt import QtCore
 from ..tree import health
 from . import editing, sketch_closure
@@ -187,7 +187,9 @@ class _Observer:
         self._repair = repair
 
     def slotResetEdit(self, view_object: Any) -> None:  # noqa: N802
-        self._repair.consider(view_object.Object, edited=True)
+        obj = fc.object_of(view_object)
+        if obj is not None:
+            self._repair.consider(obj, edited=True)
 
     def slotRecomputedDocument(self, doc: Any) -> None:  # noqa: N802
         if settings.get("RepairProfiles"):

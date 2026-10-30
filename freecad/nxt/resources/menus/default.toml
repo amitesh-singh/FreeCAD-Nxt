@@ -211,6 +211,14 @@ Organize = [
     "nxt:collapse_all",
 ]
 
+# ------------------------------------------------------------------ Assembly
+# After the group menu: an Assembly is a group too, and the later lead wins.
+
+[[menu]]
+id = "assembly"
+when = { type = "Assembly::Assembly*" }
+lead = "nxt:make_active"
+
 # ------------------------------------------------------------ Part primitives
 
 [[menu]]

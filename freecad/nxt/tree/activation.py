@@ -14,6 +14,19 @@ from ..tools import editing
 DOUBLE_CLICKED = frozenset({"Image::ImagePlane"})
 
 
+def active_key(obj: Any) -> str:
+    """The key FreeCAD keeps this kind of active container under."""
+    type_id = str(getattr(obj, "TypeId", ""))
+    if type_id == "PartDesign::Body":
+        return "pdbody"
+    if type_id.startswith("Assembly::Assembly"):
+        return "assembly"
+    with contextlib.suppress(Exception):
+        if obj.isDerivedFrom("App::Part"):
+            return "part"
+    return ""
+
+
 class Activation:
     """Double-click handling for the tree; TreeBridge's slot calls this."""
 
@@ -39,10 +52,8 @@ class Activation:
             return
         node = self._snapshot.nodes.get(name)
         if node is not None and node.is_container and not node.is_lifted:
-            key = self._active_key(doc.getObject(name))
-            current = (self._bridge._active_part if key == "part"
-                       else self._bridge._active)
-            if key and name != current:
+            key = active_key(doc.getObject(name))
+            if key and name != self._current(key):
                 # Deferred: activating can switch workbench or open a task.
                 self._pending_active = name
                 self._activate_timer.start()
@@ -89,24 +100,36 @@ class Activation:
         self._bridge._push_selection([name], False)
         self._bridge.request_property_inspector()
 
-    @staticmethod
-    def _active_key(obj: Any) -> str:
-        """The key FreeCAD keeps this kind of active container under."""
-        type_id = str(getattr(obj, "TypeId", ""))
-        if type_id == "PartDesign::Body":
-            return "pdbody"
-        with contextlib.suppress(Exception):
-            if type_id.startswith("Assembly::Assembly") \
-                    or obj.isDerivedFrom("App::Part"):
-                return "part"
-        return ""
+    def _current(self, key: str) -> str:
+        """The container active under `key`'s mark: outer or inner."""
+        return (self._bridge._active_part if key in self._bridge.OUTER_KEYS
+                else self._bridge._active)
+
+    def toggle_active(self, name: str) -> None:
+        """Make active, as double-click does; again to deactivate."""
+        doc = App.ActiveDocument
+        obj = doc.getObject(name) if doc is not None else None
+        key = active_key(obj)
+        if not key:
+            return
+        if self._current(key) != name:
+            self._pending_active = name
+            self._activate_timer.start()
+            return
+        try:
+            view = fc.active_view()
+            if view is not None:
+                view.setActiveObject(key, None)
+        except Exception:
+            log.error("could not deactivate %s" % name)
+        self._bridge._sync_active()
 
     def _activate_pending(self) -> None:
         """Make the double-clicked container the active one."""
         name, self._pending_active = self._pending_active, ""
         doc = App.ActiveDocument
         obj = doc.getObject(name) if doc is not None and name else None
-        key = self._active_key(obj)
+        key = active_key(obj)
         if obj is None or not key:
             return
         with contextlib.suppress(Exception):

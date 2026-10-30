@@ -64,6 +64,8 @@ each, is "Decisions" and "Gotchas" in `freecad/nxt/tree/DESIGN.md`.
 
 - A task dialog owns its feature: OK writes every field back. Edit through
   its widgets (`task_sync.py`); set `QuantitySpinBox` by `rawValue`.
+- Not every view provider's Python type has `.Object` (Assembly's has
+  not): in observer slots use `core.fc.object_of(view_provider)`.
 - A selection inside a Body is filed under the Body (`("Body", "Pad.")`).
 - `InList` has one entry per link, not per object.
 - Redundant sketch constraints leave `State` clean; read Sketcher's own

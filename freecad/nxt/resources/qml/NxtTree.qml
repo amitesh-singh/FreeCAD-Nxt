@@ -240,11 +240,15 @@ Rectangle {
                     maxPos: modelData.maxPos
                     rowHeight: theme.rowHeight
                     list: treeList
+                    stage: tipLayer
                     fullWidth: treeList.width
                     realised: tipContent.realised
                     listTopMargin: treeList.anchors.topMargin
-                    visible: y + height >= treeList.contentY
-                             && y <= treeList.contentY + treeList.height
+                    // Never hidden while held: hiding drops the mouse grab
+                    // mid-drag, from inside the bar's own move.
+                    visible: dragging
+                             || (y + height >= treeList.contentY
+                                 && y <= treeList.contentY + treeList.height)
 
                     onDragPosChanged: if (dragging) treeList.barGap = dragPos
                     onDraggingChanged: treeList.barGap = dragging ? dragPos : -1

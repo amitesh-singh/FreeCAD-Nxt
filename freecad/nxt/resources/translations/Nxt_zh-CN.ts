@@ -332,23 +332,810 @@ Restart FreeCAD now to use the new versions?</source>
         <translation>锥度</translation>
     </message>
     <message>
+        <location filename="../../inspector/layout.py" line="67" />
         <location filename="../../tools/float_input.py" line="156" />
         <source>Angle 2</source>
         <translation>角度 2</translation>
     </message>
     <message>
+        <location filename="../../inspector/layout.py" line="65" />
+        <location filename="../../inspector/layout.py" line="396" />
         <location filename="../../tools/float_input.py" line="157" />
         <source>Angle</source>
         <translation>角度</translation>
     </message>
     <message>
+        <location filename="../../inspector/layout.py" line="63" />
+        <source>Length2</source>
+        <translation>长度 2</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="64" />
         <location filename="../../tools/float_input.py" line="158" />
         <source>Length 2</source>
         <translation>长度 2</translation>
     </message>
     <message>
+        <location filename="../../inspector/layout.py" line="66" />
+        <source>Angle2</source>
+        <translation>角度 2</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="68" />
+        <source>Type</source>
+        <translation>类型</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="69" />
+        <source>Occurrences</source>
+        <translation>实例数</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="70" />
+        <source>Reversed</source>
+        <translation>反向</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="71" />
+        <source>Midplane</source>
+        <translation>对称面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="72" />
+        <source>Refine</source>
+        <translation>消除多余边缘</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="73" />
+        <source>Radius</source>
+        <translation>半径</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="74" />
+        <source>Radius1</source>
+        <translation>半径 1</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="75" />
+        <source>Radius 1</source>
+        <translation>半径 1</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="76" />
+        <source>Radius2</source>
+        <translation>半径 2</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="77" />
+        <source>Radius 2</source>
+        <translation>半径 2</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="78" />
+        <source>Size</source>
+        <translation>尺寸</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="79" />
+        <source>Width</source>
+        <translation>宽度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="80" />
+        <source>Height</source>
+        <translation>高度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="81" />
+        <source>Value</source>
+        <translation>值</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="82" />
+        <source>Diameter</source>
+        <translation>直径</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="83" />
+        <source>Depth</source>
+        <translation>深度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="84" />
+        <source>DepthType</source>
+        <translation>深度类型</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="85" />
+        <source>Depth Type</source>
+        <translation>深度类型</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="86" />
+        <source>ChamferType</source>
+        <translation>倒角类型</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="87" />
+        <source>Chamfer Type</source>
+        <translation>倒角类型</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="88" />
+        <source>HoleType</source>
+        <translation>孔类型</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="89" />
+        <source>Hole Type</source>
+        <translation>孔类型</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="90" />
+        <source>ThreadType</source>
+        <translation>螺纹类型</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="91" />
+        <source>Thread Type</source>
+        <translation>螺纹类型</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="92" />
+        <source>ThreadSize</source>
+        <translation>螺纹尺寸</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="93" />
+        <source>Thread Size</source>
+        <translation>螺纹尺寸</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="94" />
+        <source>ThreadDepth</source>
+        <translation>螺纹深度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="95" />
+        <source>Thread Depth</source>
+        <translation>螺纹深度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="96" />
+        <source>ThreadClass</source>
+        <translation>螺纹等级</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="97" />
+        <source>Thread Class</source>
+        <translation>螺纹等级</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="98" />
+        <source>DrillPointAngle</source>
+        <translation>钻尖角</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="99" />
+        <source>Drill Point Angle</source>
+        <translation>钻尖角</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="100" />
+        <source>TaperAngle</source>
+        <translation>锥角</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="101" />
+        <source>Taper Angle</source>
+        <translation>锥角</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="102" />
+        <source>TaperAngle2</source>
+        <translation>第二锥角</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="103" />
+        <source>Taper Angle 2</source>
+        <translation>第二锥角</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="104" />
+        <source>UseCustomVector</source>
+        <translation>使用自定义向量</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="105" />
+        <source>Use Custom Vector</source>
+        <translation>使用自定义向量</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="106" />
+        <source>Direction</source>
+        <translation>方向</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="107" />
+        <source>DirectionVector</source>
+        <translation>方向向量</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="108" />
+        <source>Direction Vector</source>
+        <translation>方向向量</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="109" />
+        <source>Axis</source>
+        <translation>轴</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="110" />
+        <source>ReferenceAxis</source>
+        <translation>参考轴</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="111" />
+        <source>Reference Axis</source>
+        <translation>参考轴</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="112" />
+        <source>SideType</source>
+        <translation>侧边类型</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="113" />
+        <source>Side Type</source>
+        <translation>侧边类型</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="114" />
+        <source>Base</source>
+        <translation>基准</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="115" />
+        <source>Profile</source>
+        <translation>轮廓</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="116" />
+        <source>Solid</source>
+        <translation>实体</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="117" />
+        <source>LengthFwd</source>
+        <translation>向前长度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="118" />
+        <source>Length Fwd</source>
+        <translation>向前长度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="119" />
+        <source>Originals</source>
+        <translation>原始特征</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="120" />
+        <source>Transformations</source>
+        <translation>变换</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="122" />
+        <location filename="../../inspector/layout.py" line="209" />
+        <source>UpToFace</source>
+        <translation>至表面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="123" />
+        <source>Up To Face</source>
+        <translation>终止面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="124" />
+        <source>Support</source>
+        <translation>支撑面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="125" />
+        <source>MapMode</source>
+        <translation>附着模式</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="126" />
+        <source>Map Mode</source>
+        <translation>附着模式</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="127" />
+        <source>MapReversed</source>
+        <translation>反向附着</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="128" />
+        <source>Map Reversed</source>
+        <translation>反向附着</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="129" />
+        <source>AttachmentOffset</source>
+        <translation>附着偏移</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="130" />
+        <source>Attachment Offset</source>
+        <translation>附着偏移</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="131" />
+        <source>Label</source>
+        <translation>标签</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="132" />
+        <source>Label2</source>
+        <translation>标签 2</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="133" />
+        <source>Label 2</source>
+        <translation>标签 2</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="134" />
+        <source>Visibility</source>
+        <translation>可见性</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="135" />
+        <source>Placement</source>
+        <translation>位置</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="136" />
+        <source>Position</source>
+        <translation>坐标</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="137" />
+        <source>Rotation</source>
+        <translation>旋转</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="138" />
+        <source>ShapeColor</source>
+        <translation>形状颜色</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="139" />
+        <source>Shape Color</source>
+        <translation>形状颜色</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="140" />
+        <source>LineColor</source>
+        <translation>线条颜色</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="141" />
+        <source>Line Color</source>
+        <translation>线条颜色</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="142" />
+        <source>PointColor</source>
+        <translation>点颜色</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="143" />
+        <source>Point Color</source>
+        <translation>点颜色</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="144" />
+        <source>Transparency</source>
+        <translation>透明度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="145" />
+        <source>DisplayMode</source>
+        <translation>显示模式</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="146" />
+        <source>Display Mode</source>
+        <translation>显示模式</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="147" />
+        <source>Deviation</source>
+        <translation>偏差</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="148" />
+        <source>AngularDeflection</source>
+        <translation>角度偏差</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="149" />
+        <source>Angular Deflection</source>
+        <translation>角度偏差</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="150" />
+        <source>BoundingBox</source>
+        <translation>包围盒</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="151" />
+        <source>Bounding Box</source>
+        <translation>包围盒</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="152" />
+        <source>DrawStyle</source>
+        <translation>绘制样式</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="153" />
+        <source>Draw Style</source>
+        <translation>绘制样式</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="154" />
+        <source>PointSize</source>
+        <translation>点大小</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="155" />
+        <source>Point Size</source>
+        <translation>点大小</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="156" />
+        <source>LineWidth</source>
+        <translation>线宽</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="157" />
+        <source>Line Width</source>
+        <translation>线宽</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="158" />
+        <source>Shape</source>
+        <translation>形状</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="159" />
+        <source>ExpressionEngine</source>
+        <translation>表达式引擎</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="160" />
+        <source>Expression Engine</source>
+        <translation>表达式引擎</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="163" />
+        <source>Attachment</source>
+        <translation>附着</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="164" />
+        <source>Object Style</source>
+        <translation>对象样式</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="165" />
+        <source>Display Options</source>
+        <translation>显示选项</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="166" />
+        <source>Selection</source>
+        <translation>选择</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="167" />
+        <source>Other</source>
+        <translation>其他</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="168" />
+        <source>Pad</source>
+        <translation>凸台</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="169" />
+        <source>Pocket</source>
+        <translation>凹槽</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="170" />
+        <source>Revolution</source>
+        <translation>旋转体</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="171" />
+        <source>Groove</source>
+        <translation>旋转沟槽</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="172" />
+        <source>Chamfer</source>
+        <translation>倒角</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="173" />
+        <source>LinearPattern</source>
+        <translation>线性阵列</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="174" />
+        <source>PolarPattern</source>
+        <translation>环形阵列</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="175" />
+        <source>Sketch</source>
+        <translation>草图</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="176" />
+        <source>Draft</source>
+        <translation>拔模</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="177" />
+        <source>Hole</source>
+        <translation>孔</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="178" />
+        <source>Thickness</source>
+        <translation>厚度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="181" />
+        <source>Extent</source>
+        <translation>范围</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="182" />
+        <source>First side</source>
+        <translation>第一侧</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="183" />
+        <source>Second side</source>
+        <translation>第二侧</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="184" />
+        <source>Start</source>
+        <translation>起始</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="185" />
+        <source>Result</source>
+        <translation>结果</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="186" />
+        <source>Fillet</source>
+        <translation>圆角</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="187" />
+        <source>Cut</source>
+        <translation>减除</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="188" />
+        <source>Solids</source>
+        <translation>实体</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="189" />
+        <source>Path</source>
+        <translation>路径</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="190" />
+        <source>Sections</source>
+        <translation>截面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="191" />
+        <source>Orientation</source>
+        <translation>导向</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="192" />
+        <source>Variables</source>
+        <translation>变量</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="193" />
+        <source>One edge of a tangent chain fillets the whole chain.</source>
+        <translation>相切链上的一条边可为整个链倒圆角。</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="197" />
+        <source>Dimension</source>
+        <translation>尺寸</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="198" />
+        <source>Two lengths</source>
+        <translation>双向长度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="199" />
+        <source>TwoLengths</source>
+        <translation>双向长度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="200" />
+        <source>Two angles</source>
+        <translation>双向角度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="201" />
+        <source>TwoAngles</source>
+        <translation>双向角度</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="202" />
+        <source>Through all</source>
+        <translation>贯通</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="203" />
+        <source>ThroughAll</source>
+        <translation>贯通</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="204" />
+        <source>To last</source>
+        <translation>至最后一个面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="205" />
+        <source>UpToLast</source>
+        <translation>至最后一个面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="206" />
+        <source>To first</source>
+        <translation>至第一个面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="207" />
+        <source>UpToFirst</source>
+        <translation>至第一个面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="208" />
+        <source>Up to face</source>
+        <translation>至表面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="210" />
+        <source>Up to shape</source>
+        <translation>至形状</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="211" />
+        <source>UpToShape</source>
+        <translation>至形状</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="212" />
+        <source>Keep common</source>
+        <translation>保持相交</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="213" />
+        <source>Common</source>
+        <translation>求交</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="214" />
+        <source>Subtraction</source>
+        <translation>减除</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="215" />
+        <source>One profile</source>
+        <translation>单一截面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="216" />
+        <source>Several</source>
+        <translation>多个</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="217" />
+        <source>Multisection</source>
+        <translation>多截面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="218" />
+        <source>Transformed</source>
+        <translation>变换</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="219" />
+        <source>Right corner</source>
+        <translation>直角</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="220" />
+        <source>Round corner</source>
+        <translation>圆角</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="221" />
+        <source>Standard</source>
+        <translation>标准</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="222" />
+        <source>Fixed</source>
+        <translation>固定</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="223" />
+        <source>Frenet</source>
+        <translation>弗雷奈 (Frenet)</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="224" />
+        <source>Guide path</source>
+        <translation>导向路径</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="225" />
+        <source>Auxiliary</source>
+        <translation>辅助</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="226" />
+        <source>Binormal</source>
+        <translation>副法线</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="227" />
+        <source>Constant</source>
+        <translation>定截面</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="228" />
+        <source>One side</source>
+        <translation>单侧</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="229" />
+        <source>Two sides</source>
+        <translation>双侧</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="230" />
+        <source>Symmetric</source>
+        <translation>对称</translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="62" />
         <location filename="../../tools/float_input.py" line="159" />
         <source>Length</source>
+        <extracomment>Kinds that fit half a row. Everything else takes a whole one. Groups collapsed unless something in them has an expression. An enumeration this short is joined buttons, not a drop-down. Inspector property names, groups and options marked for translation.</extracomment>
         <translation>长度</translation>
     </message>
     <message>
@@ -363,6 +1150,7 @@ Restart FreeCAD now to use the new versions?</source>
         <translation>已隔离: %1 个对象</translation>
     </message>
     <message>
+        <location filename="../../inspector/layout.py" line="121" />
         <location filename="../../tools/section_field.py" line="41" />
         <source>Offset</source>
         <extracomment>One wheel notch, in mm. The box sits this far right of and below its arrow tip, in pixels.</extracomment>
@@ -808,7 +1596,7 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <location filename="../../menus/labels.py" line="15" />
         <source>Edit attachment</source>
-        <translation>编辑附加方式</translation>
+        <translation>编辑附着</translation>
     </message>
     <message>
         <location filename="../../menus/labels.py" line="16" />
@@ -913,6 +1701,7 @@ Hold Alt while dragging to pass through.</source>
     </message>
     <message>
         <location filename="../../menus/labels.py" line="45" />
+        <location filename="../../menus/labels.py" line="129" />
         <source>Paste</source>
         <translation>粘贴</translation>
     </message>
@@ -1012,7 +1801,9 @@ Hold Alt while dragging to pass through.</source>
     </message>
     <message>
         <location filename="../../menus/labels.py" line="96" />
+        <location filename="../../menus/labels.py" line="117" />
         <source>Delete</source>
+        <extracomment>FreeCAD commands shown in context menus, marked for translation.</extracomment>
         <translation>删除</translation>
     </message>
     <message>
@@ -1067,6 +1858,211 @@ Hold Alt while dragging to pass through.</source>
         <location filename="../../menus/labels.py" line="112" />
         <source>Expressions</source>
         <translation>表达式</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="118" />
+        <source>Toggle Suppressed</source>
+        <translation>切换抑制</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="119" />
+        <source>Duplicate Selection</source>
+        <translation>创建副本</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="121" />
+        <source>Select all instances</source>
+        <translation>选择所有实例</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="123" />
+        <source>Send to Python Console</source>
+        <translation>发送到 Python 控制台</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="125" />
+        <source>Transform</source>
+        <translation>变换</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="126" />
+        <source>Placement</source>
+        <translation>位置</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="127" />
+        <source>Cut</source>
+        <translation>剪切</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="128" />
+        <source>Copy</source>
+        <translation>复制</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="130" />
+        <source>Set material</source>
+        <translation>设置材质</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="131" />
+        <source>Random color</source>
+        <translation>随机颜色</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="132" />
+        <source>Toggle transparency</source>
+        <translation>切换透明度</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="134" />
+        <source>Toggle selectability</source>
+        <translation>切换可选择性</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="136" />
+        <source>Mark to recompute</source>
+        <translation>标记重新计算</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="137" />
+        <source>Toggle freeze</source>
+        <translation>切换冻结</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="138" />
+        <source>Make link group</source>
+        <translation>创建链接组</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="139" />
+        <source>Make relative link</source>
+        <translation>创建相对链接</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="141" />
+        <source>Unlink</source>
+        <translation>解除链接</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="142" />
+        <source>Replace link</source>
+        <translation>替换链接</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="143" />
+        <source>Import link</source>
+        <translation>导入链接</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="144" />
+        <source>Import all links</source>
+        <translation>导入所有链接</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="145" />
+        <source>Select linked object</source>
+        <translation>选择链接对象</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="147" />
+        <source>Select final linked object</source>
+        <translation>选择最终链接对象</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="149" />
+        <source>Select all links</source>
+        <translation>选择所有链接</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="151" />
+        <source>New sketch</source>
+        <translation>新建草图</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="152" />
+        <source>Create MultiTransform</source>
+        <translation>创建多重变换</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="154" />
+        <source>Map sketch to face</source>
+        <translation>将草图映射到面</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="155" />
+        <source>Validate sketch</source>
+        <translation>校验草图</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="157" />
+        <source>Mirror sketch</source>
+        <translation>镜像草图</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="158" />
+        <source>Merge sketches</source>
+        <translation>合并草图</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="159" />
+        <source>Set style</source>
+        <translation>设置样式</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="160" />
+        <source>Apply style</source>
+        <translation>应用样式</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="161" />
+        <source>Layer</source>
+        <translation>图层</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="162" />
+        <source>Layer manager</source>
+        <translation>图层管理器</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="163" />
+        <source>Add named group</source>
+        <translation>添加命名组</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="164" />
+        <source>Select group</source>
+        <translation>选择组</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="165" />
+        <source>Toggle construction mode</source>
+        <translation>切换构造线模式</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="167" />
+        <source>Add to layer</source>
+        <translation>添加到图层</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="168" />
+        <source>Add to group</source>
+        <translation>添加到组</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="169" />
+        <source>Add construction</source>
+        <translation>添加构造几何</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="171" />
+        <source>Hyperlink</source>
+        <translation>超链接</translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="172" />
+        <source>Update 2D view</source>
+        <translation>更新 2D 视图</translation>
     </message>
 </context>
 <context>
@@ -1658,67 +2654,67 @@ Hold Alt while dragging to pass through.</source>
 <context>
     <name>ValueEditor</name>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="178" />
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="330" />
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="340" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="181" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="337" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="347" />
         <source>— mixed</source>
         <translation>— 混合</translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="262" />
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="264" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="265" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="267" />
         <source>on</source>
         <translation>开</translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="262" />
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="264" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="265" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="267" />
         <source>off</source>
         <translation>关</translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="263" />
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="363" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="266" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="370" />
         <source>mixed</source>
         <translation>混合</translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="299" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="302" />
         <source>Off</source>
         <translation>关</translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="300" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="303" />
         <source>On</source>
         <translation>开</translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="378" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="385" />
         <source>Position</source>
         <translation>位置</translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="378" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="385" />
         <source>Rotation</source>
         <translation>旋转</translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="486" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="493" />
         <source>none</source>
         <translation>无</translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="512" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="519" />
         <source>%1, read only</source>
         <translation>%1，只读</translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="520" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="527" />
         <source>Edit…</source>
         <translation>编辑…</translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="525" />
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="532" />
         <source>Edit %1</source>
         <translation>编辑 %1</translation>
     </message>

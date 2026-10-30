@@ -31,6 +31,7 @@ from typing import Any
 
 import FreeCAD as App
 
+from ..app.i18n import QT_TRANSLATE_NOOP, translate
 from ..core import property_kinds, units
 from ..core.transaction import transaction
 from . import templates as inspector_templates
@@ -55,10 +56,195 @@ ANGLE_UNIT = "°"
 AXES = ("x", "y", "z")
 NUMBER_FORMAT = "%.6g"
 
+#: Inspector property names, groups and options marked for translation.
+PROPERTY_LABELS: tuple[str, ...] = (
+    # Common properties
+    QT_TRANSLATE_NOOP("Nxt", "Length"),
+    QT_TRANSLATE_NOOP("Nxt", "Length2"),
+    QT_TRANSLATE_NOOP("Nxt", "Length 2"),
+    QT_TRANSLATE_NOOP("Nxt", "Angle"),
+    QT_TRANSLATE_NOOP("Nxt", "Angle2"),
+    QT_TRANSLATE_NOOP("Nxt", "Angle 2"),
+    QT_TRANSLATE_NOOP("Nxt", "Type"),
+    QT_TRANSLATE_NOOP("Nxt", "Occurrences"),
+    QT_TRANSLATE_NOOP("Nxt", "Reversed"),
+    QT_TRANSLATE_NOOP("Nxt", "Midplane"),
+    QT_TRANSLATE_NOOP("Nxt", "Refine"),
+    QT_TRANSLATE_NOOP("Nxt", "Radius"),
+    QT_TRANSLATE_NOOP("Nxt", "Radius1"),
+    QT_TRANSLATE_NOOP("Nxt", "Radius 1"),
+    QT_TRANSLATE_NOOP("Nxt", "Radius2"),
+    QT_TRANSLATE_NOOP("Nxt", "Radius 2"),
+    QT_TRANSLATE_NOOP("Nxt", "Size"),
+    QT_TRANSLATE_NOOP("Nxt", "Width"),
+    QT_TRANSLATE_NOOP("Nxt", "Height"),
+    QT_TRANSLATE_NOOP("Nxt", "Value"),
+    QT_TRANSLATE_NOOP("Nxt", "Diameter"),
+    QT_TRANSLATE_NOOP("Nxt", "Depth"),
+    QT_TRANSLATE_NOOP("Nxt", "DepthType"),
+    QT_TRANSLATE_NOOP("Nxt", "Depth Type"),
+    QT_TRANSLATE_NOOP("Nxt", "ChamferType"),
+    QT_TRANSLATE_NOOP("Nxt", "Chamfer Type"),
+    QT_TRANSLATE_NOOP("Nxt", "HoleType"),
+    QT_TRANSLATE_NOOP("Nxt", "Hole Type"),
+    QT_TRANSLATE_NOOP("Nxt", "ThreadType"),
+    QT_TRANSLATE_NOOP("Nxt", "Thread Type"),
+    QT_TRANSLATE_NOOP("Nxt", "ThreadSize"),
+    QT_TRANSLATE_NOOP("Nxt", "Thread Size"),
+    QT_TRANSLATE_NOOP("Nxt", "ThreadDepth"),
+    QT_TRANSLATE_NOOP("Nxt", "Thread Depth"),
+    QT_TRANSLATE_NOOP("Nxt", "ThreadClass"),
+    QT_TRANSLATE_NOOP("Nxt", "Thread Class"),
+    QT_TRANSLATE_NOOP("Nxt", "DrillPointAngle"),
+    QT_TRANSLATE_NOOP("Nxt", "Drill Point Angle"),
+    QT_TRANSLATE_NOOP("Nxt", "TaperAngle"),
+    QT_TRANSLATE_NOOP("Nxt", "Taper Angle"),
+    QT_TRANSLATE_NOOP("Nxt", "TaperAngle2"),
+    QT_TRANSLATE_NOOP("Nxt", "Taper Angle 2"),
+    QT_TRANSLATE_NOOP("Nxt", "UseCustomVector"),
+    QT_TRANSLATE_NOOP("Nxt", "Use Custom Vector"),
+    QT_TRANSLATE_NOOP("Nxt", "Direction"),
+    QT_TRANSLATE_NOOP("Nxt", "DirectionVector"),
+    QT_TRANSLATE_NOOP("Nxt", "Direction Vector"),
+    QT_TRANSLATE_NOOP("Nxt", "Axis"),
+    QT_TRANSLATE_NOOP("Nxt", "ReferenceAxis"),
+    QT_TRANSLATE_NOOP("Nxt", "Reference Axis"),
+    QT_TRANSLATE_NOOP("Nxt", "SideType"),
+    QT_TRANSLATE_NOOP("Nxt", "Side Type"),
+    QT_TRANSLATE_NOOP("Nxt", "Base"),
+    QT_TRANSLATE_NOOP("Nxt", "Profile"),
+    QT_TRANSLATE_NOOP("Nxt", "Solid"),
+    QT_TRANSLATE_NOOP("Nxt", "LengthFwd"),
+    QT_TRANSLATE_NOOP("Nxt", "Length Fwd"),
+    QT_TRANSLATE_NOOP("Nxt", "Originals"),
+    QT_TRANSLATE_NOOP("Nxt", "Transformations"),
+    QT_TRANSLATE_NOOP("Nxt", "Offset"),
+    QT_TRANSLATE_NOOP("Nxt", "UpToFace"),
+    QT_TRANSLATE_NOOP("Nxt", "Up To Face"),
+    QT_TRANSLATE_NOOP("Nxt", "Support"),
+    QT_TRANSLATE_NOOP("Nxt", "MapMode"),
+    QT_TRANSLATE_NOOP("Nxt", "Map Mode"),
+    QT_TRANSLATE_NOOP("Nxt", "MapReversed"),
+    QT_TRANSLATE_NOOP("Nxt", "Map Reversed"),
+    QT_TRANSLATE_NOOP("Nxt", "AttachmentOffset"),
+    QT_TRANSLATE_NOOP("Nxt", "Attachment Offset"),
+    QT_TRANSLATE_NOOP("Nxt", "Label"),
+    QT_TRANSLATE_NOOP("Nxt", "Label2"),
+    QT_TRANSLATE_NOOP("Nxt", "Label 2"),
+    QT_TRANSLATE_NOOP("Nxt", "Visibility"),
+    QT_TRANSLATE_NOOP("Nxt", "Placement"),
+    QT_TRANSLATE_NOOP("Nxt", "Position"),
+    QT_TRANSLATE_NOOP("Nxt", "Rotation"),
+    QT_TRANSLATE_NOOP("Nxt", "ShapeColor"),
+    QT_TRANSLATE_NOOP("Nxt", "Shape Color"),
+    QT_TRANSLATE_NOOP("Nxt", "LineColor"),
+    QT_TRANSLATE_NOOP("Nxt", "Line Color"),
+    QT_TRANSLATE_NOOP("Nxt", "PointColor"),
+    QT_TRANSLATE_NOOP("Nxt", "Point Color"),
+    QT_TRANSLATE_NOOP("Nxt", "Transparency"),
+    QT_TRANSLATE_NOOP("Nxt", "DisplayMode"),
+    QT_TRANSLATE_NOOP("Nxt", "Display Mode"),
+    QT_TRANSLATE_NOOP("Nxt", "Deviation"),
+    QT_TRANSLATE_NOOP("Nxt", "AngularDeflection"),
+    QT_TRANSLATE_NOOP("Nxt", "Angular Deflection"),
+    QT_TRANSLATE_NOOP("Nxt", "BoundingBox"),
+    QT_TRANSLATE_NOOP("Nxt", "Bounding Box"),
+    QT_TRANSLATE_NOOP("Nxt", "DrawStyle"),
+    QT_TRANSLATE_NOOP("Nxt", "Draw Style"),
+    QT_TRANSLATE_NOOP("Nxt", "PointSize"),
+    QT_TRANSLATE_NOOP("Nxt", "Point Size"),
+    QT_TRANSLATE_NOOP("Nxt", "LineWidth"),
+    QT_TRANSLATE_NOOP("Nxt", "Line Width"),
+    QT_TRANSLATE_NOOP("Nxt", "Shape"),
+    QT_TRANSLATE_NOOP("Nxt", "ExpressionEngine"),
+    QT_TRANSLATE_NOOP("Nxt", "Expression Engine"),
+
+    # Group names
+    QT_TRANSLATE_NOOP("Nxt", "Attachment"),
+    QT_TRANSLATE_NOOP("Nxt", "Object Style"),
+    QT_TRANSLATE_NOOP("Nxt", "Display Options"),
+    QT_TRANSLATE_NOOP("Nxt", "Selection"),
+    QT_TRANSLATE_NOOP("Nxt", "Other"),
+    QT_TRANSLATE_NOOP("Nxt", "Pad"),
+    QT_TRANSLATE_NOOP("Nxt", "Pocket"),
+    QT_TRANSLATE_NOOP("Nxt", "Revolution"),
+    QT_TRANSLATE_NOOP("Nxt", "Groove"),
+    QT_TRANSLATE_NOOP("Nxt", "Chamfer"),
+    QT_TRANSLATE_NOOP("Nxt", "LinearPattern"),
+    QT_TRANSLATE_NOOP("Nxt", "PolarPattern"),
+    QT_TRANSLATE_NOOP("Nxt", "Sketch"),
+    QT_TRANSLATE_NOOP("Nxt", "Draft"),
+    QT_TRANSLATE_NOOP("Nxt", "Hole"),
+    QT_TRANSLATE_NOOP("Nxt", "Thickness"),
+
+    # Card & column titles and template texts
+    QT_TRANSLATE_NOOP("Nxt", "Extent"),
+    QT_TRANSLATE_NOOP("Nxt", "First side"),
+    QT_TRANSLATE_NOOP("Nxt", "Second side"),
+    QT_TRANSLATE_NOOP("Nxt", "Start"),
+    QT_TRANSLATE_NOOP("Nxt", "Result"),
+    QT_TRANSLATE_NOOP("Nxt", "Fillet"),
+    QT_TRANSLATE_NOOP("Nxt", "Cut"),
+    QT_TRANSLATE_NOOP("Nxt", "Solids"),
+    QT_TRANSLATE_NOOP("Nxt", "Path"),
+    QT_TRANSLATE_NOOP("Nxt", "Sections"),
+    QT_TRANSLATE_NOOP("Nxt", "Orientation"),
+    QT_TRANSLATE_NOOP("Nxt", "Variables"),
+    QT_TRANSLATE_NOOP(
+        "Nxt", "One edge of a tangent chain fillets the whole chain."),
+
+    # Common Enum choices / values
+    QT_TRANSLATE_NOOP("Nxt", "Dimension"),
+    QT_TRANSLATE_NOOP("Nxt", "Two lengths"),
+    QT_TRANSLATE_NOOP("Nxt", "TwoLengths"),
+    QT_TRANSLATE_NOOP("Nxt", "Two angles"),
+    QT_TRANSLATE_NOOP("Nxt", "TwoAngles"),
+    QT_TRANSLATE_NOOP("Nxt", "Through all"),
+    QT_TRANSLATE_NOOP("Nxt", "ThroughAll"),
+    QT_TRANSLATE_NOOP("Nxt", "To last"),
+    QT_TRANSLATE_NOOP("Nxt", "UpToLast"),
+    QT_TRANSLATE_NOOP("Nxt", "To first"),
+    QT_TRANSLATE_NOOP("Nxt", "UpToFirst"),
+    QT_TRANSLATE_NOOP("Nxt", "Up to face"),
+    QT_TRANSLATE_NOOP("Nxt", "UpToFace"),
+    QT_TRANSLATE_NOOP("Nxt", "Up to shape"),
+    QT_TRANSLATE_NOOP("Nxt", "UpToShape"),
+    QT_TRANSLATE_NOOP("Nxt", "Keep common"),
+    QT_TRANSLATE_NOOP("Nxt", "Common"),
+    QT_TRANSLATE_NOOP("Nxt", "Subtraction"),
+    QT_TRANSLATE_NOOP("Nxt", "One profile"),
+    QT_TRANSLATE_NOOP("Nxt", "Several"),
+    QT_TRANSLATE_NOOP("Nxt", "Multisection"),
+    QT_TRANSLATE_NOOP("Nxt", "Transformed"),
+    QT_TRANSLATE_NOOP("Nxt", "Right corner"),
+    QT_TRANSLATE_NOOP("Nxt", "Round corner"),
+    QT_TRANSLATE_NOOP("Nxt", "Standard"),
+    QT_TRANSLATE_NOOP("Nxt", "Fixed"),
+    QT_TRANSLATE_NOOP("Nxt", "Frenet"),
+    QT_TRANSLATE_NOOP("Nxt", "Guide path"),
+    QT_TRANSLATE_NOOP("Nxt", "Auxiliary"),
+    QT_TRANSLATE_NOOP("Nxt", "Binormal"),
+    QT_TRANSLATE_NOOP("Nxt", "Constant"),
+    QT_TRANSLATE_NOOP("Nxt", "One side"),
+    QT_TRANSLATE_NOOP("Nxt", "Two sides"),
+    QT_TRANSLATE_NOOP("Nxt", "Symmetric"),
+)
+
 
 def label_for(name: str) -> str:
     """'UseCustomVector' -> 'Use Custom Vector', as the native panel does."""
-    return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name)
+    split_name = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name)
+    translated = translate("Nxt", split_name)
+    if translated != split_name:
+        return translated
+    translated_prop = translate("Nxt", name)
+    if translated_prop != name:
+        return translated_prop
+    for ctx in ("App::Property", "QObject"):
+        fc_trans = translate(ctx, name)
+        if fc_trans != name:
+            return fc_trans
+    return split_name
 
 
 def _expressions(obj: DocObject) -> dict[str, str]:
@@ -176,8 +362,13 @@ def _entry(container: Any, prop: str, expressions: dict[str, str]
         entry["editor"] = "switch"
     elif kind == "enum":
         entry["text"] = str(value)
-        entry["options"] = list(
+        raw_options = list(
             container.getEnumerationsOfProperty(prop) or ())
+        options = [o for o in raw_options
+                   if not o.startswith("?") or o == entry["text"]]
+        entry["options"] = options
+        entry["optionLabels"] = [
+            translate("Nxt", o.lstrip("?")) for o in options]
         if (len(entry["options"]) <= SEGMENTED_CHOICES
                 and sum(map(len, entry["options"])) <= SEGMENTED_LETTERS):
             entry["editor"] = "segmented"
@@ -202,7 +393,7 @@ def _entry(container: Any, prop: str, expressions: dict[str, str]
             + [{"path": "Axis." + a, "label": a.upper(),
                 "text": _number(getattr(axis, a)), "unit": ""}
                for a in AXES]
-            + [{"path": "Angle", "label": "Angle",
+            + [{"path": "Angle", "label": translate("Nxt", "Angle"),
                 "text": _number(math.degrees(rotation.Angle)),
                 "unit": ANGLE_UNIT}])
     else:
@@ -277,8 +468,8 @@ def describe(objects: list[DocObject], tab: str = DATA,
                   or any(item["expression"] for item in items)
                   or (not cards and (name == own
                                      or name not in QUIET_GROUPS)))
-        out.append({"name": name, "open": opened, "items": items,
-                    "first": name == own and not cards})
+        out.append({"name": translate("Nxt", name), "open": opened,
+                    "items": items, "first": name == own and not cards})
     out.sort(key=lambda group: not group["first"])
     if cards and out:
         out[0]["rest"] = True

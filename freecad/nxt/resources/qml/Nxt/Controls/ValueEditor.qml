@@ -119,7 +119,10 @@ Item {
         var values = spec.options || [];
         var labels = spec.optionLabels || [];
         var i = values.indexOf(value);
-        return (i >= 0 && labels[i]) || value;
+        if (i < 0 && value && value.charAt(0) === "?")
+            i = values.indexOf(value.substring(1));
+        var label = (i >= 0 && labels[i]) ? labels[i] : value;
+        return (label && label.charAt(0) === "?") ? label.substring(1) : label;
     }
 
     function openChoices(anchor, spec, done) {
@@ -300,8 +303,12 @@ Item {
                             {value: true, label: labels[1] || qsTr("On")}];
                 var out = [];
                 var values = editor.spec.options || [];
-                for (var i = 0; i < values.length; ++i)
-                    out.push({value: values[i], label: labels[i] || values[i]});
+                for (var i = 0; i < values.length; ++i) {
+                    var lbl = labels[i] || values[i];
+                    if (lbl && lbl.charAt(0) === "?")
+                        lbl = lbl.substring(1);
+                    out.push({value: values[i], label: lbl});
+                }
                 return out;
             }
             onPicked: function (value) {

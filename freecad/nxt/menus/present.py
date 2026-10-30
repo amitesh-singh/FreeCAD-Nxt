@@ -105,7 +105,18 @@ def _entry(item: Item, subject: Subject,
         info = lookup(command)
         if info is None:
             return None
-        label = label or info.label
+        raw_label = label or info.label
+        label = translate(CONTEXT, raw_label)
+        if label == raw_label:
+            cmd_text = getattr(labels, "COMMANDS", {}).get(command)
+            if cmd_text:
+                label = translate(CONTEXT, cmd_text)
+            elif command in labels.ACTIONS:
+                label = translate(CONTEXT, labels.ACTIONS[command])
+            else:
+                cmd_trans = translate(CONTEXT, command)
+                if cmd_trans != command:
+                    label = cmd_trans
         shortcut, enabled, icon = info.shortcut, info.active, info.icon
 
     return {"command": command, "label": _counted(label, command, subject),

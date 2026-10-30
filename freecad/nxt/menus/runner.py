@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import importlib
+import re
 from typing import Any
 
-import FreeCAD as App
 import FreeCADGui as Gui
+
+import FreeCAD as App
 
 from .definitions import EDIT_MODES
 from .present import CommandInfo
@@ -52,7 +54,19 @@ def lookup(name: str) -> CommandInfo | None:
     except Exception:
         return None
     active = is_active(command)
-    label = str(info.get("menuText", name)).replace("&", "")
+
+    label = ""
+    try:
+        acts = command.getAction()
+        if acts:
+            raw = str(acts[0].text() or "")
+            if raw:
+                label = re.sub(r"\(&[A-Za-z0-9]\)|&", "", raw).strip()
+    except Exception:
+        pass
+    if not label:
+        label = str(info.get("menuText", name)).replace("&", "").strip()
+
     return CommandInfo(label=label,
                        shortcut=str(info.get("shortcut", "") or ""),
                        active=active,

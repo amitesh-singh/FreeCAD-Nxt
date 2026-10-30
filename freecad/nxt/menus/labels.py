@@ -111,3 +111,64 @@ OVERRIDES: tuple[str, ...] = (
     QT_TRANSLATE_NOOP("NxtMenu", "Show spreadsheet"),
     QT_TRANSLATE_NOOP("NxtMenu", "Expressions"),
 )
+
+#: FreeCAD commands shown in context menus, marked for translation.
+COMMANDS: dict[str, str] = {
+    "Std_Delete": QT_TRANSLATE_NOOP("NxtMenu", "Delete"),
+    "Std_ToggleSuppress": QT_TRANSLATE_NOOP("NxtMenu", "Toggle Suppressed"),
+    "Std_DuplicateSelection": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Duplicate Selection"),
+    "Std_TreeSelectAllInstances": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Select all instances"),
+    "Std_SendToPythonConsole": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Send to Python Console"),
+    "Std_TransformManip": QT_TRANSLATE_NOOP("NxtMenu", "Transform"),
+    "Std_Placement": QT_TRANSLATE_NOOP("NxtMenu", "Placement"),
+    "Std_Cut": QT_TRANSLATE_NOOP("NxtMenu", "Cut"),
+    "Std_Copy": QT_TRANSLATE_NOOP("NxtMenu", "Copy"),
+    "Std_Paste": QT_TRANSLATE_NOOP("NxtMenu", "Paste"),
+    "Std_SetMaterial": QT_TRANSLATE_NOOP("NxtMenu", "Set material"),
+    "Std_RandomColor": QT_TRANSLATE_NOOP("NxtMenu", "Random color"),
+    "Std_ToggleTransparency": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Toggle transparency"),
+    "Std_ToggleSelectability": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Toggle selectability"),
+    "Std_MarkToRecompute": QT_TRANSLATE_NOOP("NxtMenu", "Mark to recompute"),
+    "Std_ToggleFreeze": QT_TRANSLATE_NOOP("NxtMenu", "Toggle freeze"),
+    "Std_LinkMakeGroup": QT_TRANSLATE_NOOP("NxtMenu", "Make link group"),
+    "Std_LinkMakeRelative": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Make relative link"),
+    "Std_LinkUnlink": QT_TRANSLATE_NOOP("NxtMenu", "Unlink"),
+    "Std_LinkReplace": QT_TRANSLATE_NOOP("NxtMenu", "Replace link"),
+    "Std_LinkImport": QT_TRANSLATE_NOOP("NxtMenu", "Import link"),
+    "Std_LinkImportAll": QT_TRANSLATE_NOOP("NxtMenu", "Import all links"),
+    "Std_LinkSelectLinked": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Select linked object"),
+    "Std_LinkSelectLinkedFinal": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Select final linked object"),
+    "Std_LinkSelectAllLinks": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Select all links"),
+    "PartDesign_NewSketch": QT_TRANSLATE_NOOP("NxtMenu", "New sketch"),
+    "PartDesign_MultiTransform": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Create MultiTransform"),
+    "Sketcher_MapSketch": QT_TRANSLATE_NOOP("NxtMenu", "Map sketch to face"),
+    "Sketcher_ValidateSketch": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Validate sketch"),
+    "Sketcher_MirrorSketch": QT_TRANSLATE_NOOP("NxtMenu", "Mirror sketch"),
+    "Sketcher_MergeSketches": QT_TRANSLATE_NOOP("NxtMenu", "Merge sketches"),
+    "Draft_SetStyle": QT_TRANSLATE_NOOP("NxtMenu", "Set style"),
+    "Draft_ApplyStyle": QT_TRANSLATE_NOOP("NxtMenu", "Apply style"),
+    "Draft_Layer": QT_TRANSLATE_NOOP("NxtMenu", "Layer"),
+    "Draft_LayerManager": QT_TRANSLATE_NOOP("NxtMenu", "Layer manager"),
+    "Draft_AddNamedGroup": QT_TRANSLATE_NOOP("NxtMenu", "Add named group"),
+    "Draft_SelectGroup": QT_TRANSLATE_NOOP("NxtMenu", "Select group"),
+    "Draft_ToggleConstructionMode": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Toggle construction mode"),
+    "Draft_AddToLayer": QT_TRANSLATE_NOOP("NxtMenu", "Add to layer"),
+    "Draft_AddToGroup": QT_TRANSLATE_NOOP("NxtMenu", "Add to group"),
+    "Draft_AddConstruction": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Add construction"),
+    "Draft_Hyperlink": QT_TRANSLATE_NOOP("NxtMenu", "Hyperlink"),
+    "Draft_UpdateShape2DView": QT_TRANSLATE_NOOP(
+        "NxtMenu", "Update 2D view"),
+}

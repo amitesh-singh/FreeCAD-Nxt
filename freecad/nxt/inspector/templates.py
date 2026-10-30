@@ -15,6 +15,7 @@ from typing import Any
 
 import FreeCAD as App
 
+from ..app.i18n import translate
 from ..core import units
 from . import variables
 
@@ -329,7 +330,9 @@ def apply(template: Template, objects: list[Any],
             continue
         items = laid_out(card.items)
         columns: list[dict[str, Any]] = [
-            {"title": column.title, "items": laid_out(column.items)}
+            {"title": (translate("Nxt", column.title)
+                      if column.title else ""),
+             "items": laid_out(column.items)}
             for column in card.columns if shown(column, objects)]
         columns = [c for c in columns if c["items"]]
         if len(columns) == 1:
@@ -341,11 +344,13 @@ def apply(template: Template, objects: list[Any],
             closed = holds_all(card.closed_when, objects)
             every: list[dict[str, Any]] = [
                 *items, *(i for c in columns for i in c["items"]), *after]
-            cards.append({"name": card.title,
+            cards.append({"name": translate("Nxt", card.title),
                           "open": not closed or not card.heading,
                           "heading": card.heading,
                           "items": items, "columns": columns, "after": after,
-                          "count": count, "first": True, "hint": card.hint,
+                          "count": count, "first": True,
+                          "hint": (translate("Nxt", card.hint)
+                                   if card.hint else ""),
                           "summary": summary(every) if closed else "",
                           "template": template.id})
     return cards
@@ -362,7 +367,8 @@ def _variables_card(card: Card, template: Template, objects: list[Any],
     rows = [dict(entry, label=entry["name"], variable=True,
                  typeLabel=variables.type_label(type_of(entry["name"])))
             for entry in entries]
-    return {"name": card.title, "open": True, "heading": card.heading,
+    return {"name": translate("Nxt", card.title), "open": True,
+            "heading": card.heading,
             "items": [], "columns": [], "after": [], "variables": rows,
             "editable": len(objects) == 1, "count": len(rows),
             "first": True, "hint": card.hint, "summary": "",
@@ -402,13 +408,14 @@ def _shaped(template: Template, item: Item, generic: dict[str, Any],
     """The generic entry for a property, as the template asks for it."""
     entry = dict(generic)
     if item.label:
-        entry["label"] = item.label
+        entry["label"] = translate("Nxt", item.label)
     if item.wide is not None:
         entry["wide"] = bool(item.wide)
     if item.editor:
         entry["editor"] = item.editor
     if entry["kind"] == "bool" and item.labels:
-        entry["optionLabels"] = list(item.labels)
+        entry["optionLabels"] = [
+            translate("Nxt", str(lbl)) for lbl in item.labels]
     for couple in template.couples:
         if item.prop == couple.mode and couple.zero in entry["options"]:
             entry["options"] = [o for o in entry["options"]
@@ -423,12 +430,18 @@ def _shaped(template: Template, item: Item, generic: dict[str, Any],
     if entry["kind"] == "enum":
         omitted = {value for value, prop in item.omit_if
                    if all(hasattr(o, prop) for o in objects)}
+        omitted |= {f"?{v}" for v in omitted}
         options = [o for o in entry["options"]
-                   if o not in omitted or o == entry["text"]]
+                   if (not o.startswith("?") or o == entry["text"])
+                   and (o not in omitted or o == entry["text"])]
         entry["options"] = options
-        entry["optionLabels"] = (
+        raw_labels = (
             list(item.labels) if len(item.labels) == len(options)
-            else [template.choices.get(o, o) for o in options])
+            else [template.choices.get(
+                o, template.choices.get(o.lstrip("?"), o.lstrip("?")))
+                for o in options])
+        entry["optionLabels"] = [
+            translate("Nxt", str(lbl)) for lbl in raw_labels]
     return entry
 
 

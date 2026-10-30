@@ -331,23 +331,810 @@ Restart FreeCAD now to use the new versions?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../inspector/layout.py" line="67"/>
         <location filename="../../tools/float_input.py" line="156"/>
         <source>Angle 2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../inspector/layout.py" line="65"/>
+        <location filename="../../inspector/layout.py" line="396"/>
         <location filename="../../tools/float_input.py" line="157"/>
         <source>Angle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../inspector/layout.py" line="63"/>
+        <source>Length2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="64"/>
         <location filename="../../tools/float_input.py" line="158"/>
         <source>Length 2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../inspector/layout.py" line="66"/>
+        <source>Angle2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="68"/>
+        <source>Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="69"/>
+        <source>Occurrences</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="70"/>
+        <source>Reversed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="71"/>
+        <source>Midplane</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="72"/>
+        <source>Refine</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="73"/>
+        <source>Radius</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="74"/>
+        <source>Radius1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="75"/>
+        <source>Radius 1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="76"/>
+        <source>Radius2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="77"/>
+        <source>Radius 2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="78"/>
+        <source>Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="79"/>
+        <source>Width</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="80"/>
+        <source>Height</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="81"/>
+        <source>Value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="82"/>
+        <source>Diameter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="83"/>
+        <source>Depth</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="84"/>
+        <source>DepthType</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="85"/>
+        <source>Depth Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="86"/>
+        <source>ChamferType</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="87"/>
+        <source>Chamfer Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="88"/>
+        <source>HoleType</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="89"/>
+        <source>Hole Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="90"/>
+        <source>ThreadType</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="91"/>
+        <source>Thread Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="92"/>
+        <source>ThreadSize</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="93"/>
+        <source>Thread Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="94"/>
+        <source>ThreadDepth</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="95"/>
+        <source>Thread Depth</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="96"/>
+        <source>ThreadClass</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="97"/>
+        <source>Thread Class</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="98"/>
+        <source>DrillPointAngle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="99"/>
+        <source>Drill Point Angle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="100"/>
+        <source>TaperAngle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="101"/>
+        <source>Taper Angle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="102"/>
+        <source>TaperAngle2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="103"/>
+        <source>Taper Angle 2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="104"/>
+        <source>UseCustomVector</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="105"/>
+        <source>Use Custom Vector</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="106"/>
+        <source>Direction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="107"/>
+        <source>DirectionVector</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="108"/>
+        <source>Direction Vector</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="109"/>
+        <source>Axis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="110"/>
+        <source>ReferenceAxis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="111"/>
+        <source>Reference Axis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="112"/>
+        <source>SideType</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="113"/>
+        <source>Side Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="114"/>
+        <source>Base</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="115"/>
+        <source>Profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="116"/>
+        <source>Solid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="117"/>
+        <source>LengthFwd</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="118"/>
+        <source>Length Fwd</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="119"/>
+        <source>Originals</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="120"/>
+        <source>Transformations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="122"/>
+        <location filename="../../inspector/layout.py" line="209"/>
+        <source>UpToFace</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="123"/>
+        <source>Up To Face</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="124"/>
+        <source>Support</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="125"/>
+        <source>MapMode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="126"/>
+        <source>Map Mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="127"/>
+        <source>MapReversed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="128"/>
+        <source>Map Reversed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="129"/>
+        <source>AttachmentOffset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="130"/>
+        <source>Attachment Offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="131"/>
+        <source>Label</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="132"/>
+        <source>Label2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="133"/>
+        <source>Label 2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="134"/>
+        <source>Visibility</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="135"/>
+        <source>Placement</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="136"/>
+        <source>Position</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="137"/>
+        <source>Rotation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="138"/>
+        <source>ShapeColor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="139"/>
+        <source>Shape Color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="140"/>
+        <source>LineColor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="141"/>
+        <source>Line Color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="142"/>
+        <source>PointColor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="143"/>
+        <source>Point Color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="144"/>
+        <source>Transparency</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="145"/>
+        <source>DisplayMode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="146"/>
+        <source>Display Mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="147"/>
+        <source>Deviation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="148"/>
+        <source>AngularDeflection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="149"/>
+        <source>Angular Deflection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="150"/>
+        <source>BoundingBox</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="151"/>
+        <source>Bounding Box</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="152"/>
+        <source>DrawStyle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="153"/>
+        <source>Draw Style</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="154"/>
+        <source>PointSize</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="155"/>
+        <source>Point Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="156"/>
+        <source>LineWidth</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="157"/>
+        <source>Line Width</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="158"/>
+        <source>Shape</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="159"/>
+        <source>ExpressionEngine</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="160"/>
+        <source>Expression Engine</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="163"/>
+        <source>Attachment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="164"/>
+        <source>Object Style</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="165"/>
+        <source>Display Options</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="166"/>
+        <source>Selection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="167"/>
+        <source>Other</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="168"/>
+        <source>Pad</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="169"/>
+        <source>Pocket</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="170"/>
+        <source>Revolution</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="171"/>
+        <source>Groove</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="172"/>
+        <source>Chamfer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="173"/>
+        <source>LinearPattern</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="174"/>
+        <source>PolarPattern</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="175"/>
+        <source>Sketch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="176"/>
+        <source>Draft</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="177"/>
+        <source>Hole</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="178"/>
+        <source>Thickness</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="181"/>
+        <source>Extent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="182"/>
+        <source>First side</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="183"/>
+        <source>Second side</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="184"/>
+        <source>Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="185"/>
+        <source>Result</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="186"/>
+        <source>Fillet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="187"/>
+        <source>Cut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="188"/>
+        <source>Solids</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="189"/>
+        <source>Path</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="190"/>
+        <source>Sections</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="191"/>
+        <source>Orientation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="192"/>
+        <source>Variables</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="193"/>
+        <source>One edge of a tangent chain fillets the whole chain.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="197"/>
+        <source>Dimension</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="198"/>
+        <source>Two lengths</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="199"/>
+        <source>TwoLengths</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="200"/>
+        <source>Two angles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="201"/>
+        <source>TwoAngles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="202"/>
+        <source>Through all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="203"/>
+        <source>ThroughAll</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="204"/>
+        <source>To last</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="205"/>
+        <source>UpToLast</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="206"/>
+        <source>To first</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="207"/>
+        <source>UpToFirst</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="208"/>
+        <source>Up to face</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="210"/>
+        <source>Up to shape</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="211"/>
+        <source>UpToShape</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="212"/>
+        <source>Keep common</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="213"/>
+        <source>Common</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="214"/>
+        <source>Subtraction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="215"/>
+        <source>One profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="216"/>
+        <source>Several</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="217"/>
+        <source>Multisection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="218"/>
+        <source>Transformed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="219"/>
+        <source>Right corner</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="220"/>
+        <source>Round corner</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="221"/>
+        <source>Standard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="222"/>
+        <source>Fixed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="223"/>
+        <source>Frenet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="224"/>
+        <source>Guide path</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="225"/>
+        <source>Auxiliary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="226"/>
+        <source>Binormal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="227"/>
+        <source>Constant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="228"/>
+        <source>One side</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="229"/>
+        <source>Two sides</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="230"/>
+        <source>Symmetric</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../inspector/layout.py" line="62"/>
         <location filename="../../tools/float_input.py" line="159"/>
         <source>Length</source>
+        <extracomment>Kinds that fit half a row. Everything else takes a whole one. Groups collapsed unless something in them has an expression. An enumeration this short is joined buttons, not a drop-down. Inspector property names, groups and options marked for translation.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -362,6 +1149,7 @@ Restart FreeCAD now to use the new versions?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../inspector/layout.py" line="121"/>
         <location filename="../../tools/section_field.py" line="41"/>
         <source>Offset</source>
         <extracomment>One wheel notch, in mm. The box sits this far right of and below its arrow tip, in pixels.</extracomment>
@@ -908,6 +1696,7 @@ Hold Alt while dragging to pass through.</source>
     </message>
     <message>
         <location filename="../../menus/labels.py" line="45"/>
+        <location filename="../../menus/labels.py" line="129"/>
         <source>Paste</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1007,7 +1796,9 @@ Hold Alt while dragging to pass through.</source>
     </message>
     <message>
         <location filename="../../menus/labels.py" line="96"/>
+        <location filename="../../menus/labels.py" line="117"/>
         <source>Delete</source>
+        <extracomment>FreeCAD commands shown in context menus, marked for translation.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1061,6 +1852,211 @@ Hold Alt while dragging to pass through.</source>
     <message>
         <location filename="../../menus/labels.py" line="112"/>
         <source>Expressions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="118"/>
+        <source>Toggle Suppressed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="119"/>
+        <source>Duplicate Selection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="121"/>
+        <source>Select all instances</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="123"/>
+        <source>Send to Python Console</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="125"/>
+        <source>Transform</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="126"/>
+        <source>Placement</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="127"/>
+        <source>Cut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="128"/>
+        <source>Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="130"/>
+        <source>Set material</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="131"/>
+        <source>Random color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="132"/>
+        <source>Toggle transparency</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="134"/>
+        <source>Toggle selectability</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="136"/>
+        <source>Mark to recompute</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="137"/>
+        <source>Toggle freeze</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="138"/>
+        <source>Make link group</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="139"/>
+        <source>Make relative link</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="141"/>
+        <source>Unlink</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="142"/>
+        <source>Replace link</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="143"/>
+        <source>Import link</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="144"/>
+        <source>Import all links</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="145"/>
+        <source>Select linked object</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="147"/>
+        <source>Select final linked object</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="149"/>
+        <source>Select all links</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="151"/>
+        <source>New sketch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="152"/>
+        <source>Create MultiTransform</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="154"/>
+        <source>Map sketch to face</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="155"/>
+        <source>Validate sketch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="157"/>
+        <source>Mirror sketch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="158"/>
+        <source>Merge sketches</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="159"/>
+        <source>Set style</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="160"/>
+        <source>Apply style</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="161"/>
+        <source>Layer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="162"/>
+        <source>Layer manager</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="163"/>
+        <source>Add named group</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="164"/>
+        <source>Select group</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="165"/>
+        <source>Toggle construction mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="167"/>
+        <source>Add to layer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="168"/>
+        <source>Add to group</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="169"/>
+        <source>Add construction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="171"/>
+        <source>Hyperlink</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../menus/labels.py" line="172"/>
+        <source>Update 2D view</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1653,67 +2649,67 @@ Hold Alt while dragging to pass through.</source>
 <context>
     <name>ValueEditor</name>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="178"/>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="330"/>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="340"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="181"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="337"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="347"/>
         <source>— mixed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="262"/>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="264"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="265"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="267"/>
         <source>on</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="262"/>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="264"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="265"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="267"/>
         <source>off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="263"/>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="363"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="266"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="370"/>
         <source>mixed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="299"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="302"/>
         <source>Off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="300"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="303"/>
         <source>On</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="378"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="385"/>
         <source>Position</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="378"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="385"/>
         <source>Rotation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="486"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="493"/>
         <source>none</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="512"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="519"/>
         <source>%1, read only</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="520"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="527"/>
         <source>Edit…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="525"/>
+        <location filename="../qml/Nxt/Controls/ValueEditor.qml" line="532"/>
         <source>Edit %1</source>
         <translation type="unfinished"></translation>
     </message>

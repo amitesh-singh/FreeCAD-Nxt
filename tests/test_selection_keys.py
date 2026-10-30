@@ -555,6 +555,16 @@ class AutoDetailTests(unittest.TestCase):
         self.assertEqual(self.bridge._tree.open, {"B", "D"})
         self.assertEqual(self.bridge.pinnedDetails, ["B"])
 
+    def test_turning_it_off_closes_its_strips_and_pins(self) -> None:
+        self.bridge.toggleDetail("E")       # by hand: not auto-show's
+        self.click("B")
+        self.bridge.toggleDetailPin("B")
+        self.click("D")
+        self.on = False
+        self.bridge.refresh_auto_detail()
+        self.assertEqual(self.bridge._tree.open, {"E"})
+        self.assertEqual(self.bridge.pinnedDetails, [])
+
     def test_a_strip_opened_by_hand_is_left_alone(self) -> None:
         self.bridge.toggleDetail("E")
         self.click("B")

@@ -1038,6 +1038,28 @@ class BodyDropTests(unittest.TestCase):
         self.assertFalse(self.bridge.dropOnRoot(["Pad"]))
         self.assertEqual(self.removed, [])
 
+    def test_a_top_level_row_takes_it_out_of_the_body(self) -> None:
+        top = DOC.objects["C"]
+        top.InList = []
+        top.ViewObject.canDropObjects = lambda: False
+        try:
+            self.assertEqual(self.bridge.dropHint(["VarSet"], "C"),
+                             "To the top level")
+            self.assertFalse(self.bridge.dropHint(["Pad"], "C"))
+            self.assertTrue(self.bridge.dropOn(["VarSet"], "C"))
+            self.assertEqual(self.removed, ["VarSet"])
+        finally:
+            del top.InList, top.ViewObject.canDropObjects
+
+    def test_into_another_container_it_leaves_the_body_first(self) -> None:
+        self.bridge._snapshot.nodes = {
+            "VarSet": types.SimpleNamespace(parent="Body")}
+        DOC.objects["Body"] = self.objects["Pad"].InList[0]
+        self.bridge._drag_drop._detach(DOC, self.objects["VarSet"])
+        self.assertEqual(self.removed, ["VarSet"])
+        self.bridge._drag_drop._detach(DOC, self.objects["Pad"])
+        self.assertEqual(self.removed, ["VarSet"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

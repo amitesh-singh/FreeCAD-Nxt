@@ -43,6 +43,7 @@ Item {
         border.width: 1
         border.color: theme.accent
         visible: docDrop.accepting
+                 || (header.ghost !== null && header.ghost.slideRoot)
     }
     RootDropArea {
         id: docDrop

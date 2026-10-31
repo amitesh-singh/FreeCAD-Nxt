@@ -590,6 +590,16 @@ Item {
             selectByMouse: true
             clip: true
 
+            // Return is taken here: TextInput passes it on after acting,
+            // and on macOS the tree would read it as "rename" again.
+            Keys.onReturnPressed: function (event) {
+                row.commitRename();
+                event.accepted = true;
+            }
+            Keys.onEnterPressed: function (event) {
+                row.commitRename();
+                event.accepted = true;
+            }
             onEditingFinished: row.commitRename()
             Keys.onEscapePressed: row.cancelRename()
         }
